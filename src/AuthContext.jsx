@@ -42,6 +42,7 @@ import {
 import { getApiBase } from "./utils/apiBase";
 import { getProPlanAccess, isActiveCoachTrial, hasProfessionalWorkspaceAccess } from "./utils/proPlanAccess";
 import i18n, { ensureLanguageLoaded } from "./i18n";
+import { getRegistrationErrorMessage } from "./utils/registrationErrors";
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -472,12 +473,16 @@ async function createRegistrationProfile(fbUser, { firstName, lastName, role = "
   const adultDate = new Date();
   adultDate.setFullYear(adultDate.getFullYear() - 18);
   if (!email || !String(firstName || "").trim() || !String(lastName || "").trim() ||
-      !["coach", "particulier"].includes(role) || !Number.isFinite(birthday.getTime()) ||
-      birthday > adultDate || consent.ageVerified !== true || consent.cguAccepted !== true ||
-      consent.cgvAccepted !== true ||
-      ((consent.accountType === "club_owner" || consent.onboardingPackage === "club") && !String(consent.clubName || "").trim())) {
+      !["coach", "particulier"].includes(role)) {
     throw new Error("registration-details-required");
   }
+  if (!Number.isFinite(birthday.getTime()) || birthday > new Date())
+    throw new Error("registration-invalid-birth-date");
+  if (birthday > adultDate) throw new Error("registration-underage");
+  if (consent.ageVerified !== true || consent.cguAccepted !== true || consent.cgvAccepted !== true)
+    throw new Error("registration-consent-required");
+  if ((consent.accountType === "club_owner" || consent.onboardingPackage === "club") && !String(consent.clubName || "").trim())
+    throw new Error("registration-club-name-required");
   const userRef = doc(db, "users", fbUser.uid);
 
   const isClubOwner =
@@ -1073,7 +1078,7 @@ export const AuthProvider = ({ children }) => {
           console.warn("[register] orphan auth cleanup skipped:", cleanupError?.message || cleanupError);
         });
       }
-      setError("Inscription échouée.");
+      setError(getRegistrationErrorMessage(err, i18n.t.bind(i18n)));
       throw err;
     } finally {
       registrationInProgressRef.current = false;

@@ -1626,7 +1626,19 @@
         "missingFields": "Please complete all fields.",
         "mustBeAdult": "You must be at least 18 years old to create an account.",
         "mustConfirmAndAccept": "Please confirm +18 years and accept the T&Cs/CGV.",
-        "failed": "Registration failed. Check your information."
+        "emailInUse": "An account already exists with this email address. Sign in or use “Forgot password”.",
+        "invalidEmail": "This email address is invalid. Check its format.",
+        "weakPassword": "The password does not meet the security requirements. Use at least 6 characters and follow any additional service requirements.",
+        "network": "A connection problem interrupted registration. Check your Internet connection and try again.",
+        "tooMany": "Too many attempts or a temporary service limit has been reached. Try again later.",
+        "profileDenied": "The service refused to save your profile. Contact support to complete registration.",
+        "serviceUnavailable": "Registration is unavailable. Try again later or contact support.",
+        "popupBlocked": "Your browser blocked the Google window. Allow pop-ups and try again.",
+        "popupClosed": "Google registration was interrupted. Try again and finish signing in in the Google window.",
+        "inProgress": "Registration is already in progress. Please wait a moment.",
+        "invalidBirthDate": "The birth date is invalid. Enter a date in the past.",
+        "clubNameRequired": "Please enter the club or organisation name.",
+        "failed": "An unexpected error prevented registration. Try again or contact support if the problem persists."
       }
     },
     "change_email_with_provider": "Your account is linked to an external provider. Change your email from this provider or contact support.",

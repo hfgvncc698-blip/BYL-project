@@ -1626,7 +1626,19 @@
         "missingFields": "Merci de remplir tous les champs.",
         "mustBeAdult": "Vous devez avoir au moins 18 ans pour créer un compte.",
         "mustConfirmAndAccept": "Merci de confirmer +18 ans et d'accepter les CGU/CGV.",
-        "failed": "Inscription échouée. Vérifiez vos informations."
+        "emailInUse": "Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou utilisez « Mot de passe oublié ».",
+        "invalidEmail": "L’adresse e-mail n’est pas valide. Vérifiez son format.",
+        "weakPassword": "Le mot de passe ne respecte pas les exigences de sécurité. Utilisez au moins 6 caractères et respectez les éventuelles exigences supplémentaires du service.",
+        "network": "Un problème de connexion a interrompu l’inscription. Vérifiez votre connexion Internet puis réessayez.",
+        "tooMany": "Trop de tentatives ou limite temporaire du service atteinte. Réessayez plus tard.",
+        "profileDenied": "Le service a refusé l’enregistrement du profil. Contactez le support pour terminer votre inscription.",
+        "serviceUnavailable": "Le service d’inscription est indisponible. Réessayez plus tard ou contactez le support.",
+        "popupBlocked": "La fenêtre Google a été bloquée par votre navigateur. Autorisez les fenêtres contextuelles puis réessayez.",
+        "popupClosed": "L’inscription avec Google a été interrompue. Réessayez et terminez la connexion dans la fenêtre Google.",
+        "inProgress": "Une inscription est déjà en cours. Patientez quelques instants.",
+        "invalidBirthDate": "La date de naissance n’est pas valide. Saisissez une date passée.",
+        "clubNameRequired": "Merci de renseigner le nom du club ou de la structure.",
+        "failed": "Une erreur inattendue a empêché l’inscription. Réessayez ou contactez le support si le problème persiste."
       }
     },
     "change_email_with_provider": "Votre compte est lié à un fournisseur externe. Changez votre e-mail depuis ce fournisseur ou contactez le support.",

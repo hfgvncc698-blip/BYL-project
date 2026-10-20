@@ -26,6 +26,7 @@ import { FcGoogle } from "react-icons/fc";
 import { useTranslation, Trans } from "react-i18next";
 
 import i18n from "../i18n"; // ✅ pour récupérer la langue active
+import { getRegistrationErrorMessage } from "../utils/registrationErrors";
 
 function calcAge(birthDateStr) {
   if (!birthDateStr) return 0;
@@ -119,13 +120,6 @@ const Register = () => {
     isAdultChecked &&
     acceptTermsChecked;
 
-  const canSubmit =
-    canSubmitIdentity &&
-    email &&
-    confirmEmail &&
-    password &&
-    confirmPassword;
-
   const registrationDetails = () => ({
     firstName, lastName, role: firestoreRole, birthDate,
     consent: {
@@ -138,17 +132,30 @@ const Register = () => {
     },
   });
 
+  const validateIdentity = () => {
+    if (!firstName.trim() || !lastName.trim() || !birthDate)
+      return t("auth.register.errors.missingFields");
+    if (!Number.isFinite(new Date(birthDate).getTime()) || new Date(birthDate) > new Date())
+      return t("auth.register.errors.invalidBirthDate");
+    if (!isAdult) return t("auth.register.errors.mustBeAdult");
+    if (role === "club" && !clubName.trim())
+      return t("auth.register.errors.clubNameRequired");
+    if (!isAdultChecked || !acceptTermsChecked)
+      return t("auth.register.errors.mustConfirmAndAccept");
+    return "";
+  };
+
   const handleRegister = async (e) => {
     if (e) e.preventDefault();
     if (authLoading) return;
 
-    if (email !== confirmEmail) return setErrorMessage(t("auth.register.errors.emailsMismatch"));
-    if (password !== confirmPassword) return setErrorMessage(t("auth.register.errors.passwordsMismatch"));
-    if (!firstName || !lastName || !birthDate || !email || !password)
+    setErrorMessage("");
+    const identityError = validateIdentity();
+    if (identityError) return setErrorMessage(identityError);
+    if (!email.trim() || !confirmEmail.trim() || !password || !confirmPassword)
       return setErrorMessage(t("auth.register.errors.missingFields"));
-    if (!isAdult) return setErrorMessage(t("auth.register.errors.mustBeAdult"));
-    if (!isAdultChecked || !acceptTermsChecked)
-      return setErrorMessage(t("auth.register.errors.mustConfirmAndAccept"));
+    if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) return setErrorMessage(t("auth.register.errors.emailsMismatch"));
+    if (password !== confirmPassword) return setErrorMessage(t("auth.register.errors.passwordsMismatch"));
 
     try {
       await registerWithEmail(
@@ -166,13 +173,15 @@ const Register = () => {
       navigate(`/verify-email?${verificationParams.toString()}`, { replace: true });
     } catch (err) {
       console.error(err);
-      setErrorMessage(t("auth.register.errors.failed"));
+      setErrorMessage(getRegistrationErrorMessage(err, t));
     }
   };
 
   const handleGoogleRegister = async () => {
-    if (authLoading || !canSubmitIdentity) return;
+    if (authLoading) return;
     setErrorMessage("");
+    const identityError = validateIdentity();
+    if (identityError) return setErrorMessage(identityError);
     try {
       await loginWithGoogle((accountRole, _hasAccess, profile) => {
         if (profile?.emailVerificationRequired && !profile.emailVerified) {
@@ -188,7 +197,7 @@ const Register = () => {
       }, registrationDetails());
     } catch (err) {
       console.error(err);
-      setErrorMessage(t("auth.register.errors.failed"));
+      setErrorMessage(getRegistrationErrorMessage(err, t));
     }
   };
 
@@ -411,11 +420,11 @@ const Register = () => {
 
           <Button
             w="full"
-            bg={canSubmit ? "gray.500" : "gray.400"}
+            bg="gray.500"
             color="white"
-            _hover={{ bg: canSubmit ? "gray.600" : "gray.400" }}
+            _hover={{ bg: "gray.600" }}
             type="submit"
-            isDisabled={!canSubmit || authLoading}
+            isDisabled={authLoading}
             isLoading={authLoading}
           >
             {t("auth.register.signUp")}
@@ -430,7 +439,7 @@ const Register = () => {
             color="black"
             _hover={{ bg: "gray.200" }}
             onClick={handleGoogleRegister}
-            isDisabled={!canSubmitIdentity || authLoading}
+            isDisabled={authLoading}
             isLoading={authLoading}
             borderWidth="1px"
             borderColor="gray.300"

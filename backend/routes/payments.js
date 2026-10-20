@@ -944,41 +944,26 @@ async function findLatestSubscriptionId(customerId) {
    POST /api/payments/admin/delete-user
    body: { uid }
 ============================================================ */
+const { previewAccountDeletion, executeAccountDeletion } = require('../utils/adminAccountDeletion');
+router.post("/admin/delete-user/preview", requireAdminKey, async (req, res) => {
+  try {
+    const plan = await previewAccountDeletion({ db: admin.firestore(), auth: admin.auth(), uid: req.body?.uid });
+    res.json(plan);
+  } catch (error) {
+    res.status(400).json({ error: error.code || error.message });
+  }
+});
+
 router.post("/admin/delete-user", requireAdminKey, async (req, res) => {
   try {
-    const { uid } = req.body || {};
-    if (!uid) return res.status(400).json({ error: "uid required" });
-
-    const db = admin.firestore();
-
-    // 1) Supprimer Firebase Auth
-    try {
-      await admin.auth().deleteUser(String(uid));
-    } catch (e) {
-      console.warn("[ADMIN delete-user] auth delete warning:", e?.message || e);
-    }
-
-    // 2) Supprimer Firestore (users/{uid}, clients/{uid} et sous-collections)
-    const userRef = db.collection("users").doc(String(uid));
-    const clientRef = db.collection("clients").doc(String(uid));
-
-    if (typeof db.recursiveDelete === "function") {
-      await db.recursiveDelete(userRef);
-      await db.recursiveDelete(clientRef);
-    } else {
-      // fallback minimal
-      const progsSnap = await clientRef.collection("programmes").get().catch(() => null);
-      const batch = db.batch();
-      if (progsSnap) progsSnap.forEach((d) => batch.delete(d.ref));
-      batch.delete(clientRef);
-      batch.delete(userRef);
-      await batch.commit();
-    }
-
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error("[ADMIN delete-user] error:", e);
-    return res.status(500).json({ error: e.message || "server-error" });
+    const report = await executeAccountDeletion({
+      db: admin.firestore(), auth: admin.auth(), uid: req.body?.uid,
+      confirmation: req.body?.confirmation, actorUid: req.auth.uid,
+    });
+    res.status(report.status === 'completed' ? 200 : 500).json({ ok: report.status === 'completed', report });
+  } catch (error) {
+    console.error('[ADMIN delete-user]', error.code || error.message);
+    res.status(400).json({ error: error.code || error.message });
   }
 });
 

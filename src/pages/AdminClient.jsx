@@ -34,6 +34,7 @@ import {
   FormLabel,
   Wrap,
   WrapItem,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
@@ -345,6 +346,10 @@ async function enrichProgramsWithLatestSessions(clientId, programs) {
 
 export default function AdminClient() {
   const { id } = useParams();
+  const [deletionPlan, setDeletionPlan] = useState(null);
+  const [deletionReport, setDeletionReport] = useState(null);
+  const [deletionError, setDeletionError] = useState("");
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -927,34 +932,51 @@ export default function AdminClient() {
   // =========================
   // Actions sensibles (backend à brancher)
   // =========================
+  const deletionRequest = async (suffix, body) => {
+    const response = await fetch(`${getApiBase()}/payments/admin/delete-user${suffix}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const data = await readJsonResponse(response);
+    if (data.report) return data.report;
+    if (!response.ok) {
+      const messages = {
+        "admin-auth-required": "Session administrateur non autorisée. Reconnectez-vous avec votre compte administrateur.",
+        "deletion-preview-changed": "Les données ont changé. Fermez cette fenêtre et relancez l’aperçu avant de confirmer.",
+        "cannot-delete-current-admin": "Vous ne pouvez pas supprimer votre propre compte administrateur ici.",
+        "recursive-delete-unavailable": "Le serveur ne permet pas la suppression complète des sous-collections. Aucune suppression effectuée.",
+      };
+      throw new Error(messages[data.error] || `Le serveur n’a pas terminé la demande (HTTP ${response.status}). ${typeof data.error === "string" && !data.error.includes("<") ? data.error : "Vérifiez que le backend est à jour et accessible."}`);
+    }
+    return data;
+  };
+
   const deleteAccount = async () => {
     setDangerLoading((s) => ({ ...s, deleteAccount: true }));
+    setDeletionError("");
+    setDeletionReport(null);
+    setDeletionConfirmation("");
     try {
-      const r = await fetch(`${getApiBase()}/payments/admin/delete-user`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
-        credentials: "include",
-        body: JSON.stringify({ uid: id }),
-      });
-      const data = await readJsonResponse(r);
-      if (!r.ok) throw new Error(data?.error || "delete-error");
+      const uid = userData?.id;
+      if (!uid) throw new Error("Ouvrez la page du compte de connexion pour supprimer le compte et ses fiches liées.");
+      setDeletionPlan(await deletionRequest("/preview", { uid }));
+    } catch (error) {
+      toast({ title: "Suppression non lancée", description: error.message, status: "error", duration: 10000, isClosable: true });
+    } finally {
+      setDangerLoading((s) => ({ ...s, deleteAccount: false }));
+    }
+  };
 
-      toast({
-        title: i18n.t("auto.AdminClient.compte_supprime", "Compte supprimé"),
-        description: i18n.t("auto.AdminClient.auth_firestore_si_endpoint_implemente", "Auth + Firestore (si endpoint implémenté)."),
-        status: "success",
-        duration: 4000,
-        isClosable: true,
-      });
-      navigate("/admin");
-    } catch (e) {
-      toast({
-        title: i18n.t("auto.AdminClient.supprimer_compte", "Supprimer compte"),
-        description: e.message || "Endpoint backend non branché (normal pour l’instant).",
-        status: "error",
-        duration: 6000,
-        isClosable: true,
-      });
+  const confirmAccountDeletion = async () => {
+    setDangerLoading((s) => ({ ...s, deleteAccount: true }));
+    setDeletionError("");
+    try {
+      const report = await deletionRequest("", { uid: deletionPlan.uid, confirmation: deletionPlan.confirmation });
+      setDeletionReport(report);
+    } catch (error) {
+      setDeletionError(`${error.message} Si la connexion a été interrompue, vérifiez l’état du compte avant de réessayer : une partie de la suppression peut avoir été effectuée.`);
     } finally {
       setDangerLoading((s) => ({ ...s, deleteAccount: false }));
     }
@@ -1689,16 +1711,62 @@ export default function AdminClient() {
                   <Divider my={6} />
 
                   <Box>
-                    <Text fontWeight="800" mb={2}>{i18n.t("auto.AdminClient.actions_sensibles_backend_a_brancher_ensuite", "Actions sensibles (backend à brancher ensuite)")}</Text>
+                    <Text fontWeight="800" mb={2}>Actions sensibles</Text>
 
                     <VStack align="stretch" spacing={2}>
+                      <Modal isOpen={!!deletionPlan} onClose={() => {
+                        if (dangerLoading.deleteAccount) return;
+                        setDeletionPlan(null);
+                        if (deletionReport?.status === "completed") navigate("/admin");
+                      }} closeOnOverlayClick={false} closeOnEsc={!dangerLoading.deleteAccount} size="xl">
+                        <ModalOverlay />
+                        <ModalContent>
+                          <ModalHeader>{deletionReport ? "Résultat de la suppression" : "Confirmer la suppression définitive"}</ModalHeader>
+                          <ModalBody>
+                            <VStack align="stretch" spacing={3}>
+                              <Text fontWeight="bold">{deletionPlan?.email} — {deletionPlan?.uid}</Text>
+                              {deletionReport ? <>
+                                <Alert status={deletionReport.status === "completed" ? "success" : "error"}><AlertIcon />
+                                  {deletionReport.status === "completed" ? "Suppression terminée pour les éléments ci-dessous." : "Suppression incomplète. Consultez le détail avant de réessayer."}
+                                </Alert>
+                                <Text>Compte de connexion : {({ deleted: "supprimé", "already-absent": "déjà absent", pending: "non supprimé" })[deletionReport.auth]}</Text>
+                                {deletionReport.documents.map(item => <Text key={item.path}>
+                                  {item.path} : {({ deleted: "supprimé", pending: "non traité", incomplete: "partiellement supprimé", unverified: "état non vérifié", "in-progress": "état à vérifier" })[item.status]}
+                                  {item.remaining !== undefined ? ` — ${item.remaining} document(s) restant(s)` : ""}
+                                </Text>)}
+                                {deletionReport.error && <Text>Erreur : {deletionReport.error}</Text>}
+                                <Text fontSize="sm">Référence du bilan : {deletionReport.id}</Text>
+                              </> : <>
+                                <Text>Cette action est irréversible. Elle supprimera le compte de connexion et les documents suivants, avec toutes leurs sous-collections :</Text>
+                                <Text>Compte de connexion : {deletionPlan?.authExists ? "sera supprimé" : "déjà absent"}</Text>
+                                {deletionPlan?.documents.map(item => <Text key={item.path}>{item.path} — {item.count} document(s), sous-collections comprises</Text>)}
+                                <Text>Les autres comptes, les données hors de ces fiches, les fichiers et Stripe ne seront pas supprimés. Cette action ne résilie pas les abonnements.</Text>
+                                {!!deletionPlan?.excluded.length && <Alert status="warning"><AlertIcon />Fiches exclues car liées à un autre compte : {deletionPlan.excluded.join(", ")}</Alert>}
+                                <FormControl>
+                                  <FormLabel>Saisissez SUPPRIMER pour confirmer</FormLabel>
+                                  <Input value={deletionConfirmation} onChange={event => setDeletionConfirmation(event.target.value)} isDisabled={dangerLoading.deleteAccount} />
+                                </FormControl>
+                              </>}
+                              {deletionError && <Alert status="error"><AlertIcon />{deletionError}</Alert>}
+                            </VStack>
+                          </ModalBody>
+                          <ModalFooter gap={3}>
+                            <Button isDisabled={dangerLoading.deleteAccount} onClick={() => {
+                              setDeletionPlan(null);
+                              if (deletionReport?.status === "completed") navigate("/admin");
+                            }}>{deletionReport ? "Fermer" : "Annuler"}</Button>
+                            {!deletionReport && <Button colorScheme="red" isDisabled={deletionConfirmation !== "SUPPRIMER" || !!deletionError}
+                              isLoading={dangerLoading.deleteAccount} onClick={confirmAccountDeletion}>Supprimer définitivement</Button>}
+                          </ModalFooter>
+                        </ModalContent>
+                      </Modal>
                       <Button
                         leftIcon={<Icon as={MdDelete} />}
                         colorScheme="red"
                         variant="outline"
                         onClick={deleteAccount}
                         isLoading={dangerLoading.deleteAccount}
-                      >{i18n.t("auto.AdminClient.supprimer_compte_auth_firestore", "Supprimer compte (Auth + Firestore)")}</Button>
+                      >Supprimer le compte et ses fiches liées</Button>
 
                       <Button
                         leftIcon={<Icon as={MdSend} />}

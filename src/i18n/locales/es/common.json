@@ -1627,7 +1627,19 @@
         "missingFields": "Por favor complete todos los campos.",
         "mustBeAdult": "Debes tener al menos 18 años para crear una cuenta.",
         "mustConfirmAndAccept": "Confirme +18 años y acepte los T&Cs/CGV.",
-        "failed": "El registro falló. Comprueba tu información."
+        "emailInUse": "Ya existe una cuenta con este correo electrónico. Inicia sesión o utiliza «Olvidé mi contraseña».",
+        "invalidEmail": "El correo electrónico no es válido. Comprueba su formato.",
+        "weakPassword": "La contraseña no cumple los requisitos de seguridad. Usa al menos 6 caracteres y cumple los requisitos adicionales del servicio.",
+        "network": "Un problema de conexión interrumpió el registro. Comprueba tu conexión a Internet e inténtalo de nuevo.",
+        "tooMany": "Demasiados intentos o límite temporal del servicio alcanzado. Inténtalo más tarde.",
+        "profileDenied": "El servicio rechazó guardar el perfil. Contacta con soporte para completar el registro.",
+        "serviceUnavailable": "El registro no está disponible. Inténtalo más tarde o contacta con soporte.",
+        "popupBlocked": "El navegador bloqueó la ventana de Google. Permite las ventanas emergentes e inténtalo de nuevo.",
+        "popupClosed": "El registro con Google se interrumpió. Inténtalo de nuevo y completa el acceso en la ventana de Google.",
+        "inProgress": "Ya hay un registro en curso. Espera un momento.",
+        "invalidBirthDate": "La fecha de nacimiento no es válida. Introduce una fecha pasada.",
+        "clubNameRequired": "Introduce el nombre del club o de la organización.",
+        "failed": "Un error inesperado impidió el registro. Inténtalo de nuevo o contacta con soporte si el problema persiste."
       }
     },
     "change_email_with_provider": "Su cuenta está vinculada a un proveedor externo. Cambie su correo electrónico de este proveedor o comuníquese con el soporte.",

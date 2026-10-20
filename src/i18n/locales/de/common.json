@@ -1626,7 +1626,19 @@
         "missingFields": "Bitte füllen Sie alle Felder aus.",
         "mustBeAdult": "Um ein Konto zu erstellen, müssen Sie mindestens 18 Jahre alt sein.",
         "mustConfirmAndAccept": "Bitte bestätigen Sie +18 Jahre und akzeptieren Sie die AGB/CGV.",
-        "failed": "Die Registrierung ist fehlgeschlagen. Überprüfen Sie Ihre Angaben."
+        "emailInUse": "Für diese E-Mail-Adresse besteht bereits ein Konto. Melde dich an oder nutze „Passwort vergessen“.",
+        "invalidEmail": "Die E-Mail-Adresse ist ungültig. Prüfe das Format.",
+        "weakPassword": "Das Passwort erfüllt die Sicherheitsanforderungen nicht. Verwende mindestens 6 Zeichen und beachte zusätzliche Anforderungen des Dienstes.",
+        "network": "Ein Verbindungsproblem hat die Registrierung unterbrochen. Prüfe deine Internetverbindung und versuche es erneut.",
+        "tooMany": "Zu viele Versuche oder ein vorübergehendes Dienstlimit wurde erreicht. Versuche es später erneut.",
+        "profileDenied": "Der Dienst hat das Speichern des Profils abgelehnt. Kontaktiere den Support, um die Registrierung abzuschließen.",
+        "serviceUnavailable": "Die Registrierung ist nicht verfügbar. Versuche es später erneut oder kontaktiere den Support.",
+        "popupBlocked": "Dein Browser hat das Google-Fenster blockiert. Erlaube Pop-ups und versuche es erneut.",
+        "popupClosed": "Die Registrierung mit Google wurde unterbrochen. Versuche es erneut und schließe die Anmeldung im Google-Fenster ab.",
+        "inProgress": "Eine Registrierung läuft bereits. Bitte warte einen Moment.",
+        "invalidBirthDate": "Das Geburtsdatum ist ungültig. Gib ein Datum in der Vergangenheit ein.",
+        "clubNameRequired": "Bitte gib den Namen des Vereins oder der Organisation ein.",
+        "failed": "Ein unerwarteter Fehler hat die Registrierung verhindert. Versuche es erneut oder kontaktiere den Support, falls das Problem weiterhin besteht."
       }
     },
     "change_email_with_provider": "Ihr Konto ist mit einem externen Anbieter verknüpft. Ändern Sie Ihre E-Mail-Adresse von diesem Anbieter oder wenden Sie sich an den Support.",
