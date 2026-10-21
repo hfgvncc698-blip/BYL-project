@@ -1,4 +1,21 @@
 {
+  "nutritionCalendar": {
+    "openAssessment": "View nutrition assessment",
+    "assessmentFor": "Nutrition assessment for {{name}}"
+  },
+  "pullRefresh": {
+    "pull": "Pull to refresh",
+    "release": "Release to refresh",
+    "refreshing": "Refreshing…",
+    "offline": "You are offline. Try again when your connection is restored.",
+    "confirm": "Refresh this page? Unsaved changes may be lost. Cancel to save your work first."
+  },
+  "appResume": {
+    "title": "Welcome back",
+    "description": "To see the latest data, save your work, then refresh the page.",
+    "refresh": "Refresh",
+    "later": "Later"
+  },
   "builderSavePending": "Server confirmation is taking longer than expected. Saving is still in progress: do not save again and keep this page open.",
   "builderSyncPending": "The program is saved. Updates to client programs are not yet confirmed. Use Save again to retry synchronization.",
   "clientFollowList": {
@@ -982,7 +999,11 @@
       "priority": "Priority",
       "recent": "Recent",
       "no_recent_client": "No recent follow-up"
-    }
+    },
+    "nutrition_active_patients": "Active patients (30d)",
+    "nutrition_active_hint": "Recently updated follow-up",
+    "nutrition_inactive_hint": "No activity for 30 days or no follow-up",
+    "nutrition_create_hint": "Start a new assessment"
   },
   "calendar": {
     "pack_session": "Session {{number}} of {{total}}",
@@ -1677,7 +1698,8 @@
       "water": "Water (%)",
       "bone": "Bone mass (kg)",
       "metabolicAge": "Metabolic age",
-      "visceralFat": "Visceral fat"
+      "visceralFat": "Visceral fat",
+      "ffmi": "FFMI (kg/m²)"
     },
     "objectives": {
       "weight_loss": "Weight loss",
@@ -1714,6 +1736,12 @@
     "activeOutOfTotal": "{{active}} active on {{total}} client(s).",
     "sessionsPerMonth": {
       "tooltip": "{{label}} · {{count}} session(s)"
+    },
+    "ffmi": {
+      "understand": "Understanding FFMI",
+      "explanation": "FFMI is the fat-free mass index relative to height. Fat-free mass includes muscle, but also water, bones and organs.",
+      "formula": "Automatic calculation: weight (kg) × (1 − body fat (%) / 100) ÷ height (m)². Enter height, weight and body fat from the same measurement.",
+      "precision": "Accuracy depends on the body fat estimate. Compare trends under similar conditions using the same measurement method. This is neither a diagnosis nor a target score."
     }
   },
   "months": {
@@ -2066,7 +2094,14 @@
     "programNameOptional": "Name (optional)",
     "programNamePlaceholder": "Leave blank for default name",
     "assignInfo": "The program will be added to the client and available immediately.",
-    "assign": "Assign"
+    "assign": "Assign",
+    "internalNotes": {
+      "title": "Internal notes",
+      "privacy": "These notes are private to your professional account and are not visible to the client.",
+      "loadError": "Unable to load notes. Reload the profile before editing them.",
+      "shared": "Shared information",
+      "createError": "The client was saved, but the internal note could not be saved. Add it from the client profile."
+    }
   },
   "clientsList": {
     "searchEmpty": "No clients match your search.",
@@ -4867,7 +4902,7 @@
       "open_section": "Open"
     },
     "NutritionQuickCreateModal": {
-      "commence_un_bilan_nutrition_meme_si_le_client_n_a_": "Start a nutrition assessment even if the client does not yet have a complete profile. If the email already exists, or if first name + last name + phone match an existing profile, the history is reused without sending another welcome email.",
+      "commence_un_bilan_nutrition_meme_si_le_client_n_a_": "If the email matches a client already in your workspace, their history is retrieved. Otherwise, a new assessment is created.",
       "patient_email_com": "patient@email.com",
       "creer_le_suivi": "Create tracking",
       "limite_de_patients_atteinte": "Patient limit reached",
@@ -8448,5 +8483,26 @@
     "cancel": "Cancel",
     "skip": "Do not send",
     "send": "Send"
+  },
+  "cyclePreparation": {
+    "title": "Cycles to prepare",
+    "intro": "Clients without a cycle, completed cycles or cycles ending within the next 7 days.",
+    "all": "All",
+    "finished": "Completed",
+    "soon": "Within 7 days",
+    "soonBadge": "Soon",
+    "empty": "No cycles to prepare in this category.",
+    "cycle": "Cycle",
+    "finishedDetail": "Cycle completed · Next cycle needed",
+    "endsIn": "Scheduled to end in {{count}} days",
+    "prepare": "Prepare next cycle",
+    "footer": "Clients whose next programme is ready or has started are not shown.",
+    "counts": "{{finished}} completed · {{soon}} soon · {{missing}} without a cycle",
+    "loadError": "Unable to load. Refresh the page to try again.",
+    "noCycle": "No cycle",
+    "noCycleDetail": "First cycle to prepare",
+    "endsIn_zero": "Scheduled to end today",
+    "endsIn_one": "Scheduled to end in {{count}} day",
+    "endsIn_other": "Scheduled to end in {{count}} days"
   }
 }

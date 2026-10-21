@@ -1,3 +1,4 @@
+import { nutritionCalendarHistory } from "../utils/nutritionCalendarHistory";
 import BookingCredits from './offers/BookingCredits';
 import OfferRenewalAlerts from './offers/OfferRenewalAlerts';
 import { MdOutlinePayments } from 'react-icons/md';
@@ -223,6 +224,7 @@ modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subt
   );
 
 const CoachDashboardCalendar = React.lazy(() => import("./dashboard/CoachDashboardCalendar.jsx"));
+const CyclePreparationModal = React.lazy(() => import('./dashboard/CyclePreparationModal'));
 const CoachClubAppointment = React.lazy(() => import("./dashboard/CoachClubAppointment.jsx"));
 const ClientCreation = React.lazy(() => import("./ClientCreation"));
 const warmDashboardDestination = (route = "") => {
@@ -2040,6 +2042,7 @@ end && now < end;
 
   const choiceModal = useDisclosure();
   const programChoiceModal = useDisclosure();
+  const cyclePreparation = useDisclosure();
   const assignModal = useDisclosure();
   const addSessionModal = useDisclosure();
   const eventModal = useDisclosure();
@@ -2871,13 +2874,26 @@ useState(false);
     };
 
     let cancelIdleLoad;
+    const nutritionSubscriptions = [];
+    const loadAndWatch = async () => {
+      await loadNutritionRows();
+      if (!alive || !effectiveCoachUid || !hasNutritionCalendarAccess) return;
+      for (const clientId of JSON.parse(nutritionClientIdsKey)) {
+        nutritionSubscriptions.push(onSnapshot(collection(db, "clients", clientId, "nutrition_assessments"), snapshot => {
+          if (!alive) return;
+          const rows = snapshot.docs.map(row => ({ ...row.data(), id:row.id, clientId }));
+          setNutritionRows(previous => [...previous.filter(row => row.clientId !== clientId), ...rows]);
+        }, error => console.warn("[nutrition] live updates unavailable", error.code)));
+      }
+    };
     const delayId = window.setTimeout(() => {
-      cancelIdleLoad = scheduleIdleTask(loadNutritionRows, 700);
+      cancelIdleLoad = scheduleIdleTask(loadAndWatch, 700);
     }, 100);
     return () => {
       alive = false;
       window.clearTimeout(delayId);
       cancelIdleLoad?.();
+      nutritionSubscriptions.forEach(unsubscribe => unsubscribe());
     };
   }, [nutritionClientIdsKey, effectiveCoachUid, effectiveClubId, hasNutritionCalendarAccess, dashboardPerfFresh, markDashboardTiming]);
 
@@ -2988,14 +3004,6 @@ useState(false);
         branding: accessSource?.branding,
       }
     );
-  }, [adminCoachId, coachContext, isAdmin, user]);
-
-  const clientLimit = useMemo(() => {
-    const accessSource = isAdmin && adminCoachId ? coachContext : user;
-    const fromProAccess = accessSource?.proAccess?.clientLimit;
-    if (typeof fromProAccess === "number") return fromProAccess;
-    if (typeof accessSource?.clientLimit === "number") return accessSource.clientLimit;
-    return null;
   }, [adminCoachId, coachContext, isAdmin, user]);
 
   const GOAL_LABEL_KEY = useMemo(
@@ -3608,7 +3616,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
             if (storedSessionTitle) titlePieces.push(storedSessionTitle);
             return {
               id: `planned__${s.id}`,
-              title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
+              title: (s.autoNutritionAssessment ? storedSessionTitle : titlePieces.join(" - ")) || t("dashboard.session_planned", "Séance planifiée"),
               start,
               end,
               status: storedCalendarStatus,
@@ -3621,6 +3629,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
               baseProgrammeId: s.baseProgrammeId || "",
               sessionIndex,
               eventType: isNutritionAppointment ? "nutrition_appointment" : isClubAppointment ? "club_appointment" : "sport_session",
+              assessmentId: s.assessmentId || "",
               appointmentKind: s.appointmentKind || "",
               durationMin: Number.isFinite(Number(s.durationMin)) ? Number(s.durationMin) : null,
               clubAppointmentId: s.clubAppointmentId || "",
@@ -3999,7 +4008,7 @@ prettyAssignedProgramName(resolvedAssignedProg) : "";
 
            return {
               id: `planned__${s.id}`,
-              title: titlePieces.join(" - ") ||
+              title: (s.autoNutritionAssessment ? storedSessionTitle : titlePieces.join(" - ")) ||
 t("dashboard.session_planned", "Séance planifiée"),
               start,
               end,
@@ -4013,6 +4022,7 @@ t("dashboard.session_planned", "Séance planifiée"),
               baseProgrammeId,
 	              sessionIndex,
               eventType: isNutritionAppointment ? "nutrition_appointment" : isClubAppointment ? "club_appointment" : "sport_session",
+              assessmentId: s.assessmentId || "",
               appointmentKind: s.appointmentKind || "",
               durationMin: Number.isFinite(Number(s.durationMin)) ? Number(s.durationMin) : null,
               clubAppointmentId: s.clubAppointmentId || "",
@@ -5361,29 +5371,6 @@ modeValue("rgba(255,255,255,0.95)",
     withAdminCoach,
   ]);
 
-  const clientQuota = useMemo(() => {
-    const used = clients.length;
-    if (clientLimit == null) {
-      return {
-        used,
-        limit: null,
-        value: used,
-        hint: t("dashboard.client_quota_unlimited", "Capacité illimitée"),
-        accent: activeBlue,
-      };
-    }
-    const remaining = Math.max(0, clientLimit - used);
-    const isFull = used >= clientLimit;
-    return {
-      used,
-      limit: clientLimit,
-      value: `${used}/${clientLimit}`,
-      hint: isFull
-        ? t("dashboard.client_quota_full", "Limite atteinte")
-        : t("dashboard.client_quota_remaining", "{{count}} place(s) disponible(s)", { count: remaining }),
-      accent: isFull ? dangerRed : remaining <= 2 ? warningOrange : activeBlue,
-    };
-  }, [activeBlue, clients.length, clientLimit, dangerRed, t, warningOrange]);
   const greetingSubtitle = useMemo(() => {
     const planKey = nutritionOnlyDashboard
       ? "nutrition"
@@ -5423,52 +5410,82 @@ modeValue("rgba(255,255,255,0.95)",
       frenchFallbacks[planKey][periodKey]
     );
   }, [greetingHour, hasNutritionCalendarAccess, hasSportAccess, nutritionOnlyDashboard, t]);
+  const nutritionActivityByClient = useMemo(() => {
+    const map = new Map();
+    nutritionRows.forEach((row) => {
+      if (!row?.clientId) return;
+      const ms = Math.max(
+        toMillis(row.sharedAt),
+        toMillis(row.updatedAt),
+        toMillis(row.createdAt),
+        toMillis(row.date),
+        0
+      );
+      if (ms > (map.get(row.clientId) || 0)) map.set(row.clientId, ms);
+    });
+    return map;
+  }, [nutritionRows]);
+  const cycleDay = new Date().toDateString();
+  const [pendingCycles, setPendingCycles] = useState([]);
+  const [cyclesLoading, setCyclesLoading] = useState(true);
+  const [cyclesError, setCyclesError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setCyclesLoading(true);
+    setCyclesError(false);
+    import('../utils/cyclesToPrepare').then(({cyclesToPrepare}) => {
+      if (active) { setPendingCycles(cyclesToPrepare(clients)); setCyclesLoading(false); }
+    }).catch(() => { if (active) { setCyclesLoading(false); setCyclesError(true); } });
+    return () => { active = false; };
+  }, [clients, cycleDay]);
   const stats = useMemo(() => {
     const nutritionClientIds = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean));
     const nutritionClients = clients.filter((client) => nutritionClientIds.has(client.id));
     const mixedDashboard = hasNutritionCalendarAccess && hasSportAccess;
     const totalClients = clients.length;
-    const totalPrograms = programmesBase.length;
     const activeCutoffMs = Date.now() - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
     const active30 = clients.filter((c) => {
-      const ms = Number(c._clientListActivityMs || 0);
+      const ms = nutritionOnlyDashboard
+        ? Number(nutritionActivityByClient.get(c.id) || c._clientListActivityMs || 0)
+        : Number(c._clientListActivityMs || 0);
       return ms > 0 && ms >= activeCutoffMs;
     }).length;
     const inactive = Math.max(0, totalClients - active30);
     if (nutritionOnlyDashboard) {
       return [
         {
-          label: t("dashboard.stats_nutrition_patients", "Patients nutrition"),
-          value: clientQuota.value,
-          hint: clientQuota.hint,
-          icon: MdOutlineRestaurantMenu,
-          accent: clientQuota.accent,
-          glow: clientQuota.limit != null && clientQuota.used >= clientQuota.limit ? "rgba(239,68,68,0.20)" : "rgba(20,184,166,0.20)",
-          route: "/nutrition-coach",
-        },
-        {
-          label: "Bilans nutrition",
-          value: nutritionDashboardStats.assessments,
-          icon: MdOutlineNoteAlt,
-          accent: "#14B8A6",
-          glow: "rgba(20,184,166,0.20)",
-          route: "/nutrition-coach",
-        },
-        {
-          label: "Partagés",
-          value: nutritionDashboardStats.shared,
-          icon: MdOutlineLink,
+          label: t("dashboard.nutrition_active_patients"),
+          value: active30,
+          hint: t("dashboard.nutrition_active_hint"),
+          icon: MdOutlineBolt,
           accent: activeGreen,
-          glow: "rgba(16,185,129,0.22)",
-          route: "/nutrition-coach",
+          route: "/clients?view=nutrition&filter=active",
         },
         {
-          label: "À finaliser",
-          value: nutritionDashboardStats.drafts,
+          label: t("clientsList.filters.nutritionInactive", "À relancer"),
+          value: inactive,
+          hint: t("dashboard.nutrition_inactive_hint"),
           icon: MdOutlineInsights,
           accent: warningOrange,
-          glow: "rgba(245,158,11,0.22)",
-          route: "/nutrition-coach",
+          route: "/clients?view=nutrition&filter=inactive",
+        },
+        {
+          label: t("nutritionCoach.createFollowup", "Créer un suivi nutrition"),
+          value: null,
+          navigationArrow: true,
+          hint: t("dashboard.nutrition_create_hint"),
+          icon: MdOutlineNoteAlt,
+          accent: "#14B8A6",
+          route: "/nutrition-coach?new=1",
+        },
+        {
+          label: t("nav.offers_payments", "Offres et paiements"),
+          value: null,
+          navigationArrow: true,
+          hint: t("dashboard.offers_payments_hint", "Packs, abonnements et règlements"),
+          icon: MdOutlinePayments,
+          accent: activeBlue,
+          route: "/coach/offers",
         },
       ];
     }
@@ -5511,55 +5528,28 @@ modeValue("rgba(255,255,255,0.95)",
         },
       ];
     }
-    const cards = [
+    return [
       {
-         label: t("dashboard.stats_total_clients", "Clients"),
-         value: totalClients,
-         hint: clientQuota.hint,
-         icon: MdOutlinePeopleAlt,
-         accent: clientQuota.accent,
-         glow: clientQuota.limit != null && clientQuota.used >= clientQuota.limit ? "rgba(239,68,68,0.20)" : "rgba(59,130,246,0.22)",
-         route: "/clients",
+        label: t("dashboard.stats_active_30"), value: active30,
+        icon: MdOutlineBolt, accent: activeGreen, route: "/clients?filter=active",
       },
       {
-         label: t("dashboard.stats_total_programs", "Total programmes"),
-         value: totalPrograms,
-         icon: MdOutlineFitnessCenter,
-
-           accent: "#8B5CF6",
-           glow: "rgba(139,92,246,0.24)",
-           route: "/programmes",
+        label: t("dashboard.stats_inactive"), value: inactive,
+        icon: MdOutlineInsights, accent: warningOrange, route: "/clients?filter=inactive",
       },
       {
-           label: t("dashboard.stats_active_30", "Clients actifs (30j)"),
-           value: active30,
-           icon: MdOutlineBolt,
-           accent: activeGreen,
-           glow: "rgba(16,185,129,0.22)",
-           route: "/clients?filter=active",
+        label: t("cyclePreparation.title"), value: loadingData || cyclesLoading ? "…" : cyclesError ? "—" : pendingCycles.length, navigationArrow: true,
+        hint: t("cyclePreparation.counts", {finished:pendingCycles.filter(row=>row.finished).length,soon:pendingCycles.filter(row=>!row.finished && !row.noCycle).length,missing:pendingCycles.filter(row=>row.noCycle).length}),
+        icon: MdOutlineFitnessCenter, accent: "#8B5CF6", action: cyclePreparation.onOpen,
       },
       {
-           label: t("dashboard.stats_inactive", "Clients inactifs"),
-           value: inactive,
-           icon: MdOutlineInsights,
-           accent: warningOrange,
-           glow: "rgba(245,158,11,0.22)",
-           route: "/clients?filter=inactive",
+        label: t("nav.offers_payments"), value: null, navigationArrow: true,
+        hint: t("dashboard.offers_payments_hint"), icon: MdOutlinePayments,
+        accent: activeBlue, route: "/coach/offers",
       },
     ];
-    if (hasNutritionCalendarAccess) {
-      cards.splice(1, 0, {
-         label: t("dashboard.stats_nutrition_patients", "Patients nutrition"),
-         value: nutritionClients.length,
-         icon: MdOutlineRestaurantMenu,
-         accent: "#14B8A6",
-         glow: "rgba(20,184,166,0.20)",
-         route: "/clients?view=nutrition",
-      });
-    }
-    return cards;
-  }, [activeBlue, activeGreen, clients, clientQuota, hasNutritionCalendarAccess, hasSportAccess, nutritionDashboardStats, nutritionOnlyDashboard, nutritionRows, programmesBase, t]);
-  const usePlanningSummaryLayout = hasNutritionCalendarAccess && hasSportAccess;
+  }, [activeBlue, activeGreen, clients, hasNutritionCalendarAccess, hasSportAccess, nutritionActivityByClient, nutritionOnlyDashboard, nutritionRows, pendingCycles, loadingData, cyclesLoading, cyclesError, cyclePreparation.onOpen, t]);
+  const usePlanningSummaryLayout = hasNutritionCalendarAccess || hasSportAccess;
   const selectedAssignedClients = useMemo(() => {
 
      if (!selectedAssignedBaseProgramId) return [];
@@ -5585,10 +5575,14 @@ modeValue("rgba(255,255,255,0.95)",
         })
       );
   }, [clients, selectedAssignedClients]);
+  const calendarSessions = useMemo(() => hasNutritionCalendarAccess
+    ? nutritionCalendarHistory(sessions, nutritionRows, clients, effectiveCoachUid,
+        name => t("nutritionCalendar.assessmentFor", { name }))
+    : sessions, [sessions, nutritionRows, clients, effectiveCoachUid, hasNutritionCalendarAccess, t]);
   const todayOverview = useMemo(() => {
      const isLoadingInitialDashboard =
        loadingData &&
-       sessions.length === 0 &&
+       calendarSessions.length === 0 &&
        clients.length === 0 &&
        programmesBase.length === 0;
      if (isLoadingInitialDashboard) {
@@ -5605,7 +5599,7 @@ modeValue("rgba(255,255,255,0.95)",
      }
      const from = startOfToday();
      const to = endOfToday();
-     const todayEvents = sessions.filter((s) => s.start instanceof
+     const todayEvents = calendarSessions.filter((s) => s.start instanceof
 Date && s.start >= from && s.start
 <= to);
      const plannedEvents = todayEvents
@@ -5630,7 +5624,7 @@ Date && s.start >= from && s.start
         plannedEvents,
         validatedEvents,
      };
-  }, [clients.length, loadingData, programmesBase.length, sessions]);
+  }, [clients.length, loadingData, programmesBase.length, calendarSessions]);
   const todaySessionCount = todayOverview.validated + todayOverview.planned;
   const todayCompletionPercent = todaySessionCount > 0
     ? Math.round((todayOverview.validated / todaySessionCount) * 100)
@@ -5714,21 +5708,6 @@ to);
       .filter((c) => needsCoachFollowup(c, effectiveCoachUid, nowMs))
       .slice(0, 4);
   }, [clients, effectiveCoachUid]);
-  const nutritionActivityByClient = useMemo(() => {
-    const map = new Map();
-    nutritionRows.forEach((row) => {
-      if (!row?.clientId) return;
-      const ms = Math.max(
-        toMillis(row.sharedAt),
-        toMillis(row.updatedAt),
-        toMillis(row.createdAt),
-        toMillis(row.date),
-        0
-      );
-      if (ms > (map.get(row.clientId) || 0)) map.set(row.clientId, ms);
-    });
-    return map;
-  }, [nutritionRows]);
   const latestNutritionByClient = useMemo(() => {
     const map = new Map();
     nutritionRows.forEach((row) => {
@@ -7251,7 +7230,7 @@ position="relative" zIndex={1} h="100%">
             )}
           </Flex>
 
-          {navigationArrow ? <AppNavigationArrow label={label} onClick={event=>{event.stopPropagation();onClick?.(event);}} flexShrink={0}/> : <Text
+          {navigationArrow ? <VStack spacing={1} flexShrink={0}>{value != null && <Text fontWeight="950" fontSize="24px" lineHeight="1">{value}</Text>}<AppNavigationArrow label={label} onClick={event=>{event.stopPropagation();onClick?.(event);}} flexShrink={0}/></VStack> : <Text
             ml="auto"
             flexShrink={0}
             fontSize={featured ? { base: "4xl", md: "5xl" } : "24px"}
@@ -7588,7 +7567,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
     />
   );
 
-  const renderNutritionQuickCard = (props = {}) => (
+  const renderNutritionQuickCard = (props = {}) => hasNutritionCalendarAccess && (
     <QuickMetricCard
       data-tour="coach-nutrition-quick-card"
       title={t("nav.nutrition", "Nutrition")}
@@ -7603,7 +7582,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
     />
   );
 
-  const renderProgramsQuickCard = (props = {}) => (
+  const renderProgramsQuickCard = (props = {}) => hasSportAccess && (
     <QuickMetricCard
       data-tour="coach-programs-quick-card"
       title={t("dashboard.stats_total_programs", "Programmes")}
@@ -8632,7 +8611,7 @@ noOfLines={2}>
                   onPointerDown={() => warmDashboardDestination(s.route)}
                   onFocus={() => warmDashboardDestination(s.route)}
                   onClick={() => {
-                     navigate(withAdminCoach(s.route || "/clients"));
+                     s.action ? s.action() : navigate(withAdminCoach(s.route || "/clients"));
                   }}
                />
             </Box>
@@ -8664,8 +8643,8 @@ noOfLines={2}>
           >
             <HStack spacing={2} align="stretch" pb={1}>
               {usePlanningSummaryLayout ? renderTodayQuickCard() : renderClientsQuickCard()}
-              {renderNutritionQuickCard()}
-              {renderProgramsQuickCard()}
+              {hasNutritionCalendarAccess ? renderNutritionQuickCard() : renderClientsQuickCard()}
+              {nutritionOnlyDashboard ? renderClientsQuickCard() : renderProgramsQuickCard()}
               {!usePlanningSummaryLayout ? renderTodayQuickCard() : null}
               {renderUpcomingSummaryCard()}
             </HStack>
@@ -8696,10 +8675,10 @@ noOfLines={2}>
               </Box>
 
               <Box gridColumn="2" gridRow="1">
-                {renderNutritionQuickCard()}
+                {hasNutritionCalendarAccess ? renderNutritionQuickCard() : renderClientsQuickCard()}
               </Box>
               <Box gridColumn="3" gridRow="1">
-                {renderProgramsQuickCard()}
+                {nutritionOnlyDashboard ? renderClientsQuickCard() : renderProgramsQuickCard()}
               </Box>
 
               {stats.map((stat, index) => (
@@ -8721,7 +8700,7 @@ noOfLines={2}>
                     onPointerEnter={() => warmDashboardDestination(stat.route)}
                     onPointerDown={() => warmDashboardDestination(stat.route)}
                     onFocus={() => warmDashboardDestination(stat.route)}
-                    onClick={() => navigate(withAdminCoach(stat.route || "/clients"))}
+                    onClick={() => stat.action ? stat.action() : navigate(withAdminCoach(stat.route || "/clients"))}
                   />
                 </Box>
               ))}
@@ -10665,7 +10644,7 @@ modeValue("rgba(59,130,246,0.06)",
                    >
                      <>
                      <Flex gap={4} wrap="wrap" mb={3} aria-label={t("calendar.title", "Calendrier")}>
-                       {Object.entries(coachEventColors).map(([kind, color]) => <HStack key={kind} spacing={2}>
+                       {Object.entries(coachEventColors).filter(([kind]) => kind === "internal" || (kind === "nutrition" ? hasNutritionCalendarAccess : hasSportAccess)).map(([kind, color]) => <HStack key={kind} spacing={2}>
                          <Box w={3} h={3} borderRadius="full" bg={color}/>
                          <Text fontSize="sm">{clubText(({individual:'Coaching individuel',group:'Cours collectifs',nutrition:'Nutrition',internal:'Interne'})[kind])}</Text>
                        </HStack>)}
@@ -10676,7 +10655,7 @@ modeValue("rgba(59,130,246,0.06)",
                         onSelectSlot={({ start }) => openEmptySessionModal(start)}
                         calendarCulture={calendarCulture}
                         formats={calendarFormats}
-	                      events={sessions}
+	                      events={calendarSessions}
 
                   startAccessor="start"
                   endAccessor="end"
@@ -11719,6 +11698,7 @@ onClick={confirmProgramModal.onClose}>
         </ModalContent>
       </Modal>
 
+      {cyclePreparation.isOpen && <React.Suspense fallback={null}><CyclePreparationModal clients={pendingCycles} error={cyclesError} loading={loadingData || cyclesLoading} onClose={cyclePreparation.onClose} onPrepare={id=>{cyclePreparation.onClose();navigate(withAdminCoach(`/clients/${encodeURIComponent(id)}#training-cycles`));}} /></React.Suspense>}
       <Modal isOpen={programChoiceModal.isOpen} onClose={programChoiceModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent
@@ -12185,6 +12165,7 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
                    {t(({cancelled:'common.cancelled',missed:'status.missed',pending:'status.cancellation_pending',review:'status.to_validate',validated:'status.validated',upcoming:'status.upcoming'})[coachEventDisplayState(selectedEvent || {})])}
                  </Badge>
                </HStack>
+               {selectedEvent?.nutritionAssessmentHistory && <Button mt={3} onClick={() => navigate(`/clients/${selectedEvent.clientId}/nutrition/${selectedEvent.assessmentId}`)}>{t("nutritionCalendar.openAssessment")}</Button>}
                {coachEventDisplayState(selectedEvent || {}) === 'cancelled' && <Box mt={3}>
                  {selectedEvent?.excuseDecision && <Text fontWeight="700">{t(`status.cancellation_${cancellationDetail?.decision || selectedEvent.excuseDecision}`)}</Text>}
                  <Text fontSize="sm" mt={2} whiteSpace="pre-wrap">{t('status.cancellation_reason')}: {cancellationDetail?.reason || selectedEvent?.cancellationReason || t('status.reason_unavailable')}</Text>

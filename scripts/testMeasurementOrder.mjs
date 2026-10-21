@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {compareMeasurements} from '../src/utils/measurementOrder.js';
+const date='2026-10-21';
+const rows=[{id:'a',date,poids:77,timestamp:{seconds:1792576800,nanoseconds:900000000}},{id:'z',date,poids:80,timestamp:{seconds:1792576800,nanoseconds:100000000}},{id:'m',date,poids:80,timestamp:{seconds:1792576800,nanoseconds:500000000}}];
+assert.deepEqual([...rows].sort(compareMeasurements).map(r=>r.poids),[80,80,77]);
+assert.equal([...rows].sort(compareMeasurements).at(-1).poids,77);
+const earlier={id:'earlier',date:'2026-10-20',timestamp:new Date('2026-10-22T10:00:00Z')};
+assert.equal([earlier,...rows].sort(compareMeasurements)[0].id,'earlier');
+const pending={id:'pending',date,recordedAtMs:1792576900000};
+assert.equal([...rows,pending].sort(compareMeasurements).at(-1).id,'pending');
+const serialized={id:'serialized',date,timestamp:{_seconds:1792577000,_nanoseconds:0}};
+assert.equal([...rows,serialized].sort(compareMeasurements).at(-1).id,'serialized');
+assert.equal([{id:'legacy',date},...rows].sort(compareMeasurements)[0].id,'legacy');
+assert.deepEqual([{id:'z',date},{id:'a',date}].sort(compareMeasurements).map(r=>r.id),['a','z']);
+console.log('Measurement order: same-day timestamps, backdated entries, pending writes and cached timestamps passed.');

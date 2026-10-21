@@ -1,4 +1,5 @@
 import React from 'react';
+import FfmiHelp from './FfmiHelp';
 import { Box, Text, useColorModeValue } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import RightDisclosureSummary from '../ui/RightDisclosureSummary';
@@ -6,9 +7,13 @@ import { measurementHelp } from '../../i18n/measurementHelp';
 import MeasurementReference from './MeasurementReference';
 
 export default function MeasurementHelp({ metric, profile, data, valueFormatter }) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const help = measurementHelp(i18n.language, metric);
   const muted = useColorModeValue('gray.600', 'gray.400');
+  if (metric === 'ffmi') return <Box as="details" mt={3}>
+    <RightDisclosureSummary py={1} fontSize="xs" color={muted}>{t('stats.ffmi.understand')}</RightDisclosureSummary>
+    <FfmiHelp />
+  </Box>;
   if (!help) return null;
   return <Box as="details" mt={3} position="relative" data-testid={`measurement-help-${metric}`}>
     <RightDisclosureSummary py={1} fontSize="xs" color={muted}>{help.title}</RightDisclosureSummary>

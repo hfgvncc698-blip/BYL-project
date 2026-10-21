@@ -16,3 +16,13 @@ assert.equal(latestEntryValue([],{taille:190},{taille:180},read,'taille'),190);
 assert.equal(latestEntryValue([],{}, {taille:180},read,'taille'),180);
 assert.equal(latestEntryValue([],{}, {},read,'taille'),null);
 console.log('Measurement entry: prefill precedence, live BMI, blanks, decimal input and unit conversions OK.');
+
+const { calculateEntryFfmi } = await import('../src/utils/measurementEntry.js');
+assert.equal(calculateEntryFfmi(180,80,20),19.8);
+assert.equal(calculateEntryFfmi('180','80','20,5'),19.6);
+assert.equal(calculateEntryFfmi(180,80,0),24.7);
+for (const fat of ['',null,undefined,-1,100,120,'abc']) assert.equal(calculateEntryFfmi(180,80,fat),null);
+for (const height of ['',0,-180,Infinity]) assert.equal(calculateEntryFfmi(height,80,20),null);
+for (const weight of ['',0,-80,Infinity]) assert.equal(calculateEntryFfmi(180,weight,20),null);
+assert.equal(calculateEntryFfmi(180/2.54,80*2.20462262185,20,'in','lb'),19.8);
+console.log('FFMI: formula, decimal input, missing/invalid values and imperial units OK.');

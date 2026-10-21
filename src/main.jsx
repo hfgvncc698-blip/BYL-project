@@ -4,6 +4,8 @@ import ReactDOM from "react-dom/client";
 import { ChakraProvider, ColorModeScript } from "@chakra-ui/react";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
+import PullToRefresh from "./components/ui/PullToRefresh.jsx";
+import AppResume from "./components/ui/AppResume.jsx";
 import theme from "./theme.js";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary.jsx";
 
@@ -28,6 +30,8 @@ const app = (
       }}
     >
       <BrowserRouter>
+        <AppResume />
+        <PullToRefresh />
         <AppErrorBoundary>
           <App />
         </AppErrorBoundary>

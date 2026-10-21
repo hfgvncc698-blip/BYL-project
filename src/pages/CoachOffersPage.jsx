@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { Box, Badge, Button, Flex, HStack, Stack, Heading, Text, SimpleGrid, Icon, FormControl, FormLabel, Input, Select, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Tabs, TabList, Tab, TabPanels, TabPanel, Divider, Checkbox, Textarea, IconButton, AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter } from '@chakra-ui/react';
 import { FiPlus, FiLayers, FiRepeat, FiCreditCard, FiCheck, FiEdit2, FiX } from 'react-icons/fi';
 import { useAuth } from '../AuthContext';
+import { hasPlanModule } from '../utils/proPlanAccess';
 import currencies from '../../backend/utils/clubCurrencies.json';
 import { currencyScale, amountUnits } from '../utils/clubMoney';
 import OfferClientCard from '../components/offers/OfferClientCard';
@@ -39,6 +40,7 @@ export default function CoachOffersPage() {
   const theme = useAppTheme();
   const [offers,setOffers] = useState(seed);
   const { user } = useAuth();
+  const defaultService = hasPlanModule(user, 'nutrition') && !hasPlanModule(user, 'sport') ? 'nutrition' : 'coaching';
   const [contractFilter,setContractFilter] = useState(null);
   const [editingContract,setEditingContract]=useState(null);
   const [summaryClient,setSummaryClient] = useState(null);
@@ -61,7 +63,7 @@ export default function CoachOffersPage() {
   const [tab,setTab] = useState(()=>new URLSearchParams(window.location.search).get('tab')==='payments'?2:new URLSearchParams(window.location.search).get('tab')==='clients'?1:0);
   const money = (value,currency='EUR') => new Intl.NumberFormat(i18n.language || 'fr', {style:'currency',currency}).format(value);
   const title = offer => offer.name || c[offer.titleKey];
-  const open = offer => setEditing(offer ? {...offer,name:title(offer),description:offer.description??c[offer.descriptionKey]??'',isNew:false} : {id:crypto.randomUUID(), name:'',type:'pack',service:'coaching',price:0,currency:'EUR',prorata:true,quantity:10,months:6,description:'',isNew:true});
+  const open = offer => setEditing(offer ? {...offer,name:title(offer),description:offer.description??c[offer.descriptionKey]??'',isNew:false} : {id:crypto.randomUUID(), name:'',type:'pack',service:defaultService,price:0,currency:'EUR',prorata:true,quantity:10,months:6,description:'',isNew:true});
   const patch = data => setEditing(current => ({...current,...data}));
   const save = async event => {
     event.preventDefault();

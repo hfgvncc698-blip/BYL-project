@@ -1,3 +1,4 @@
+import { withAuthTimeout } from "./appResume";
 import { auth } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -26,7 +27,7 @@ export async function getAuthHeaders(options = {}) {
   const currentUser = await waitForCurrentUser(options.timeoutMs);
   if (!currentUser) return {};
 
-  const token = await currentUser.getIdToken(!!options.forceRefresh);
+  const token = await withAuthTimeout(currentUser.getIdToken(!!options.forceRefresh), options.tokenTimeoutMs);
   return {
     Authorization: `Bearer ${token}`,
   };

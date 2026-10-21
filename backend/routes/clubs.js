@@ -17,6 +17,16 @@ const { brandedEmailHtml } = require("../utils/brandedEmail");
 const router = express.Router();
 const db = admin.firestore();
 
+const professionalNotes = require('../utils/professionalClientNotes').createProfessionalClientNotes(db);
+router.get('/clients/:clientId/internal-note', requireFirebaseAuth, async (req, res) => {
+  try { res.json(await professionalNotes.get(req.auth.uid, req.params.clientId)); }
+  catch (error) { res.status(error.status || 500).json({error: error.status ? error.message : 'notes-load-failed'}); }
+});
+router.put('/clients/:clientId/internal-note', requireFirebaseAuth, async (req, res) => {
+  try { res.json(await professionalNotes.save(req.auth.uid, req.params.clientId, req.body)); }
+  catch (error) { res.status(error.status || 500).json({error: error.status ? error.message : 'notes-save-failed'}); }
+});
+
 const clientAdministration = require('../utils/clubClientAdministration').createClubClientAdministration(db);
 const validDocId = id => typeof id === 'string' && /^[^/]{1,160}$/.test(id);
 router.get('/client-administration/:clientId', requireFirebaseAuth, async (req, res) => {

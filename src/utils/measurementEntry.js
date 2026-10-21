@@ -22,3 +22,13 @@ export function convertEntryUnit(value, from, to, kind) {
   const converted=kind==='height'?(to==='in'?metric/2.54:metric):(to==='lb'?metric*2.20462262185:metric);
   return Number(converted.toFixed(6));
 }
+
+// Derive from a single measurement; do not substitute muscle mass for fat-free mass.
+export function calculateEntryFfmi(height, weight, fatPercent, heightUnit='cm', weightUnit='kg') {
+  const number = value => value == null || String(value).trim() === '' ? NaN : Number(String(value).replace(',', '.'));
+  const cm = number(height) * (heightUnit === 'in' ? 2.54 : 1);
+  const kg = number(weight) / (weightUnit === 'lb' ? 2.20462262185 : 1);
+  const fat = number(fatPercent);
+  if (![cm, kg, fat].every(Number.isFinite) || cm <= 0 || kg <= 0 || fat < 0 || fat >= 100) return null;
+  return Math.round(kg * (1 - fat / 100) / (cm / 100) ** 2 * 10) / 10;
+}

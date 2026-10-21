@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {nutritionCalendarHistory as merge} from '../src/utils/nutritionCalendarHistory.js';
+const at = new Date(2026,9,21,9,53);
+const row={id:'assessment',clientId:'client',createdBy:'coach',createdAt:at,validated:true};
+const clients=[{id:'client',prenom:'Tom',nom:'Marie'}];
+const run=(sessions=[],rows=[row])=>merge(sessions,rows,clients,'coach',name=>`Bilan nutrition pour ${name}`);
+const history=run();assert.equal(history.length,1);assert.equal(history[0].status,'validée');assert.equal(history[0].start.getTime(),at.getTime());assert.equal(history[0].title,'Bilan nutrition pour Tom Marie');
+assert.equal(run([], [{...row,validated:false}]).length,0,'draft not a completed activity');
+assert.equal(run([], [{...row,createdBy:'another'}]).length,0,'other coach excluded');
+const manual={id:'planned',_sourceId:'session',clientId:'client',start:at,end:new Date(+at+3600000),eventType:'nutrition_appointment',status:'à venir',title:'Manual'};
+const linked=run([manual],[{...row,calendarEventId:'session'}]);assert.equal(linked.length,1);assert.equal(linked[0].status,'validée');assert.equal(linked[0].title,'Manual');assert.equal(manual.status,'à venir','source never mutated');
+assert.equal(run([manual]).length,1,'legacy same-day appointment deduplicated');
+assert.equal(run(linked).length,1,'idempotent');
+assert.equal(run([manual],[{...row,validated:false}])[0].status,'à venir');
+console.log('PASS: historical validated assessment, day/time, totals-ready status, manual/automatic deduplication, draft and ownership protection.');

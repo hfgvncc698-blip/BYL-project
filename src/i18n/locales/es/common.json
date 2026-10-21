@@ -1,4 +1,21 @@
 {
+  "nutritionCalendar": {
+    "openAssessment": "Ver evaluación nutricional",
+    "assessmentFor": "Evaluación nutricional de {{name}}"
+  },
+  "pullRefresh": {
+    "pull": "Tira para actualizar",
+    "release": "Suelta para actualizar",
+    "refreshing": "Actualizando…",
+    "offline": "No tienes conexión. Inténtalo cuando se restablezca.",
+    "confirm": "¿Actualizar esta página? Los cambios sin guardar podrían perderse. Cancela para guardar tu trabajo primero."
+  },
+  "appResume": {
+    "title": "De vuelta tras una pausa",
+    "description": "Para ver los datos actualizados, guarda tu trabajo y actualiza la página.",
+    "refresh": "Actualizar",
+    "later": "Más tarde"
+  },
   "builderSavePending": "La confirmación del servidor está tardando más de lo previsto. El guardado sigue en curso: no vuelvas a guardar y mantén esta página abierta.",
   "builderSyncPending": "El programa está guardado. La actualización de los programas de clientes aún no está confirmada. Pulsa Guardar para reintentar la sincronización.",
   "clientFollowList": {
@@ -983,7 +1000,11 @@
       "priority": "Prioridad",
       "recent": "Reciente",
       "no_recent_client": "Sin seguimiento reciente"
-    }
+    },
+    "nutrition_active_patients": "Pacientes activos (30 días)",
+    "nutrition_active_hint": "Seguimiento actualizado recientemente",
+    "nutrition_inactive_hint": "Sin actividad en 30 días o sin seguimiento",
+    "nutrition_create_hint": "Iniciar una nueva evaluación"
   },
   "calendar": {
     "pack_session": "Sesión {{number}} de {{total}}",
@@ -1678,7 +1699,8 @@
       "water": "Agua (%)",
       "bone": "Masa ósea (kg)",
       "metabolicAge": "edad metabólica",
-      "visceralFat": "grasa visceral"
+      "visceralFat": "grasa visceral",
+      "ffmi": "FFMI (kg/m²)"
     },
     "objectives": {
       "weight_loss": "Pérdida de peso",
@@ -1715,6 +1737,12 @@
     "activeOutOfTotal": "{{active}} activo en los clientes {{total}}.",
     "sessionsPerMonth": {
       "tooltip": "{{label}} · {{count}} sesión(es)"
+    },
+    "ffmi": {
+      "understand": "Entender el FFMI",
+      "explanation": "El FFMI es el índice de masa libre de grasa respecto a la altura. Incluye músculos, pero también agua, huesos y órganos.",
+      "formula": "Cálculo automático: peso (kg) × (1 − grasa corporal (%) / 100) ÷ altura (m)². Introduce altura, peso y grasa corporal de la misma medición.",
+      "precision": "La precisión depende de la estimación de grasa corporal. Compara la evolución en condiciones similares y con el mismo método. No es un diagnóstico ni una puntuación objetivo."
     }
   },
   "months": {
@@ -2066,7 +2094,14 @@
     "programNameOptional": "Nombre (opcional)",
     "programNamePlaceholder": "Dejar en blanco para el nombre predeterminado",
     "assignInfo": "El programa se agregará al cliente y estará disponible de inmediato.",
-    "assign": "Asignar"
+    "assign": "Asignar",
+    "internalNotes": {
+      "title": "Notas internas",
+      "privacy": "Estas notas son privadas de tu cuenta profesional y no son visibles para el cliente.",
+      "loadError": "No se pudieron cargar las notas. Recarga la ficha antes de editarlas.",
+      "shared": "Información compartida",
+      "createError": "El cliente se ha guardado, pero no la nota interna. Añádela desde su ficha."
+    }
   },
   "clientsList": {
     "searchEmpty": "Ningún cliente coincide con tu búsqueda.",
@@ -4862,7 +4897,7 @@
       "open_section": "Abrir"
     },
     "NutritionQuickCreateModal": {
-      "commence_un_bilan_nutrition_meme_si_le_client_n_a_": "Inicia una evaluación nutricional aunque el cliente aún no tenga una ficha completa. Si el correo ya existe, o si nombre + apellido + teléfono coinciden con una ficha existente, se reutiliza el historial sin enviar otro correo de bienvenida.",
+      "commence_un_bilan_nutrition_meme_si_le_client_n_a_": "Si el correo corresponde a un cliente que ya está en tu espacio, se recupera su historial. Si no, se crea una nueva evaluación.",
       "patient_email_com": "patient@email.com",
       "creer_le_suivi": "Crear seguimiento",
       "limite_de_patients_atteinte": "Límite de pacientes alcanzado",
@@ -8447,5 +8482,26 @@
     "cancel": "Cancelar",
     "skip": "No enviar",
     "send": "Enviar"
+  },
+  "cyclePreparation": {
+    "title": "Ciclos por preparar",
+    "intro": "Clientes sin ciclo, ciclos terminados o que terminan en los próximos 7 días.",
+    "all": "Todos",
+    "finished": "Terminados",
+    "soon": "En los próximos 7 días",
+    "soonBadge": "Próximamente",
+    "empty": "No hay ciclos por preparar en esta categoría.",
+    "cycle": "Ciclo",
+    "finishedDetail": "Ciclo terminado · Preparar el siguiente",
+    "endsIn": "Fin previsto en {{count}} días",
+    "prepare": "Preparar el siguiente",
+    "footer": "No se muestran los clientes cuyo siguiente programa ya está listo o iniciado.",
+    "counts": "{{finished}} terminados · {{soon}} pronto · {{missing}} sin ciclo",
+    "loadError": "No se pudo cargar. Actualiza la página para reintentar.",
+    "noCycle": "Sin ciclo",
+    "noCycleDetail": "Primer ciclo por preparar",
+    "endsIn_zero": "Fin previsto hoy",
+    "endsIn_one": "Fin previsto en {{count}} día",
+    "endsIn_other": "Fin previsto en {{count}} días"
   }
 }

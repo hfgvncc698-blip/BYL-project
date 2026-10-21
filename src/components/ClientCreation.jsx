@@ -182,7 +182,7 @@ const ClientCreation = ({
       w == null ? null : (weightUnit === "lbs" ? +(w * KG_PER_LB).toFixed(1) : +(+w).toFixed(1));
 
     return {
-      ...base,
+      ...Object.fromEntries(Object.entries(base).filter(([key]) => key !== 'notes')),
       clubId: base.clubId || clubId || null,
       clubName: base.clubName || clubName || null,
       heightCm: heightCmOut,
@@ -249,11 +249,24 @@ const ClientCreation = ({
   };
 
   /* --------- Lier un compte existant par e-mail --------- */
-  const linkExistingAccount = async (email) =>
-    apiFetch("/clubs/link-existing-client", {
-      method: "POST",
-      body: JSON.stringify(buildAccountRequest(email)),
+  const saveCreatedNote = async (clientId, text = client.notes) => {
+    if (!text?.trim()) return;
+    try {
+      if (!clientId) throw new Error('missing-client');
+      const url = `/clubs/clients/${encodeURIComponent(clientId)}/internal-note`;
+      const previous = await apiFetch(url);
+      await apiFetch(url, {method:'PUT', body:JSON.stringify({text:previous.text ? `${previous.text}\n\n${text}` : text, version:previous.version})});
+    } catch {
+      toast({status:'error',duration:null,isClosable:true,title:t('clientView.internalNotes.title'),description:t('clientView.internalNotes.createError')});
+    }
+  };
+  const linkExistingAccount = async (email) => {
+    const linked = await apiFetch("/clubs/link-existing-client", {
+      method: "POST", body: JSON.stringify(buildAccountRequest(email)),
     });
+    await saveCreatedNote(linked.clientId);
+    return linked;
+  };
   /* ----------------- fusion (doublon offline) ----------------- */
   const handleMerge = async () => {
     if (!mergeClientId) return;
@@ -268,6 +281,7 @@ const ClientCreation = ({
         ...payload,
         coachIds: arrayUnion(effectiveOwnerUid),
       });
+      await saveCreatedNote(mergeClientId);
       notify(toast, "clientLinked", {
         title: t("common.confirm"),
         description: t("clientCreation.modalConfirm"),
@@ -325,6 +339,7 @@ const ClientCreation = ({
         if (existing?.exists && existing?.authExists !== false) {
           if (existing.canStartFollowup) {
             const followup = await apiFetch('/clubs/independent-followups', { method: 'POST', body: JSON.stringify({ email }) });
+            await saveCreatedNote(followup.clientId);
             notify(toast, 'clientLinked', { title: clubText('Nouveau suivi indépendant'), description: clubText('Le suivi est créé. Le client peut le consulter avec son compte habituel.') });
             if (followup.emailWarning) toast({ status: 'warning', title: clubText('Suivi créé, e-mail non envoyé'), description: clubText('Le suivi reste accessible dans l’espace client.') });
             setClient(initialClientState); setExistingLookup(null);
@@ -384,6 +399,7 @@ const ClientCreation = ({
           throw createError;
         }
 
+        await saveCreatedNote(created?.clientId);
         if (created?.emailSent) {
           notify(toast, "clientCreatedWithEmail");
         } else {
@@ -442,6 +458,7 @@ const ClientCreation = ({
         ...clientPayload,
         coachIds: [effectiveOwnerUid],
       });
+      await saveCreatedNote(pseudoUid, c.notes);
       notify(toast, "clientCreated", {
         status: "info",
         title: t("clientCreation.save"),
@@ -621,10 +638,11 @@ const ClientCreation = ({
           </FormControl>
 
           <FormControl>
-            <FormLabel>{t("clientCreation.notes")}</FormLabel>
+            <FormLabel>{t("clientView.internalNotes.title")}</FormLabel>
             <Textarea
               name="notes"
-              placeholder={t("clientCreation.notes")}
+              placeholder={t("clientView.internalNotes.privacy")}
+              maxLength={8000}
               value={client.notes}
               onChange={handleChange}
               minH="140px"

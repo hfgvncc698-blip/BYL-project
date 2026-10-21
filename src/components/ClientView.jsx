@@ -1,3 +1,4 @@
+import { compareMeasurements } from "../utils/measurementOrder";
 import ClientOfferOverview from './offers/ClientOfferOverview';
 import { CoachClientSessionPacks } from './dashboard/ClubSessionPacks';
 // src/components/ClientView.jsx
@@ -74,6 +75,7 @@ import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { useAuth } from "../AuthContext";
 import { apiFetch } from "../utils/api";
+import useInternalClientNote from "../hooks/useInternalClientNote";
 import {
   formatProgramWeekProgress,
   getProgramPlannedSessionTotal,
@@ -84,7 +86,7 @@ import { hasPlanModule } from "../utils/proPlanAccess";
 
 const SessionComparator = lazy(() => import("./SessionComparator"));
 const ClientNutritionSection = lazy(() => import("./ClientNutritionSection"));
-import { calculateEntryBmi, latestEntryValue } from '../utils/measurementEntry';
+import { calculateEntryFfmi, calculateEntryBmi, latestEntryValue } from '../utils/measurementEntry';
 import RightDisclosureSummary from './ui/RightDisclosureSummary';
 const ClientMeasurementCharts = lazy(() => import("./client/ClientMeasurementCharts"));
 const TrainingCycles = lazy(() => import("./client/TrainingCycles"));
@@ -710,6 +712,7 @@ function GlobalClientView({ onBack } = {}) {
 
   const [savingMeasure, setSavingMeasure] = useState(false);
   const savingMeasureRef = useRef(false);
+  const internalNote = useInternalClientNote(clientId, user?.uid);
   const [editData, setEditData] = useState({});
   const [isSavingClient, setIsSavingClient] = useState(false);
 
@@ -1002,7 +1005,7 @@ function GlobalClientView({ onBack } = {}) {
     const unsub = onSnapshot(collection(db, "clients", clientId, "measurements"), (snap) => {
       const arr = snap.docs
         .map((d) => {
-          const r = d.data();
+          const r = d.data({serverTimestamps: "estimate"});
           [
             "taille",
             "poids",
@@ -1017,10 +1020,10 @@ function GlobalClientView({ onBack } = {}) {
             if (r[f] != null && typeof r[f] !== "number") r[f] = parseFloat(r[f]);
           });
           const date = r.date?.toDate ? r.date.toDate().toISOString().split("T")[0] : r.date;
-          return date ? { ...r, date } : null;
+          return date ? { ...r, id: d.id, date } : null;
         })
         .filter(Boolean)
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+        .sort(compareMeasurements);
       setMeasures(arr);
       clientViewMemoryCache.set(clientId, {
         ...(clientViewMemoryCache.get(clientId) || {}),
@@ -1043,7 +1046,7 @@ function GlobalClientView({ onBack } = {}) {
         if (numeric[field] != null && (!Number.isFinite(numeric[field]) || numeric[field] < 0)) throw new Error(t('common.invalidValue','Valeur invalide'));
       }
       await addDoc(collection(db, "clients", clientId, "measurements"), {
-        date:newMeas.date, ...numeric, bmi:calculateEntryBmi(numeric.taille,numeric.poids), timestamp:serverTimestamp(),
+        date:newMeas.date, ...numeric, bmi:calculateEntryBmi(numeric.taille,numeric.poids), timestamp:serverTimestamp(), recordedAtMs:Date.now(),
       });
       addMeas.onClose();
     } catch(error) {
@@ -1073,7 +1076,7 @@ function GlobalClientView({ onBack } = {}) {
       const emailChanged = !!newEmail && newEmail !== oldEmail;
 
       const payload = {
-        ...editData,
+        ...Object.fromEntries(Object.entries(editData).filter(([key]) => key !== 'internalNote' && key !== 'notes')),
         prenom: firstName,
         firstName,
         nom: lastName,
@@ -1096,6 +1099,10 @@ function GlobalClientView({ onBack } = {}) {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
+
+      if (editData.internalNote !== undefined) await internalNote.save(editData.internalNote);
+      setEditData({});
+      editClient.onClose();
 
       if (result.emailSent) {
         notify(toast, "clientInviteSent", {
@@ -1133,8 +1140,6 @@ function GlobalClientView({ onBack } = {}) {
       });
     } finally {
       setIsSavingClient(false);
-      setEditData({});
-      editClient.onClose();
     }
   };
 
@@ -1621,26 +1626,21 @@ function GlobalClientView({ onBack } = {}) {
             </WrapItem>
           )}
         </Wrap>
+        {(internalNote.text?.trim() || client?.notes?.trim()) && <Box as="details" mt={3}>
+          <RightDisclosureSummary display="inline-flex" gap={2} py={1} fontSize="sm" fontWeight="600">{t("clientCreation.notes", "Notes")}</RightDisclosureSummary>
+          <Box pt={2} fontSize="sm">
+            {internalNote.text?.trim() && <>
+              <Text color={muted} fontSize="xs" mb={1}>{t("clientView.internalNotes.privacy")}</Text>
+              <Text whiteSpace="pre-wrap" overflowWrap="anywhere">{internalNote.text}</Text>
+            </>}
+            {client?.notes?.trim() && <Box mt={internalNote.text ? 3 : 0}>
+              <Text color={muted} fontSize="xs">{t("clientView.internalNotes.shared")}</Text>
+              <Text whiteSpace="pre-wrap" overflowWrap="anywhere">{client.notes}</Text>
+            </Box>}
+          </Box>
+        </Box>}
         </Box>
       </Box>
-
-      {client?.notes && (
-        <Box
-          bg={panelBg}
-          border="1px solid"
-          borderColor={panelBorder}
-          borderRadius="22px"
-          p={4}
-          mb={4}
-          boxShadow={shadow}
-          backdropFilter="blur(14px)"
-        >
-          <Text fontWeight="semibold" mb={1}>
-            {t("clientCreation.notes", "Notes")}
-          </Text>
-          <Text whiteSpace="pre-wrap">{client.notes}</Text>
-        </Box>
-      )}
 
       <Box mb={4} display={isNutritionOnlyClient ? 'none' : undefined}>
       <Text color={muted} fontSize="sm" mb={3}>{t('clientView.globalProgress', 'Progression globale')}</Text>
@@ -2428,6 +2428,11 @@ function GlobalClientView({ onBack } = {}) {
                 </FormControl>
 
                 <FormControl>
+                  <FormLabel>{t("stats.fields.ffmi")}</FormLabel>
+                  <Input aria-label={t("stats.fields.ffmi")} value={calculateEntryFfmi(newMeas.taille, newMeas.poids, newMeas.fatMass) ?? ""} placeholder="—" isReadOnly />
+                </FormControl>
+
+                <FormControl>
                   <FormLabel>{t("stats.fields.fat", "Masse grasse (%)")}</FormLabel>
                   <Input
                     type="number"
@@ -2629,13 +2634,16 @@ function GlobalClientView({ onBack } = {}) {
               </FormControl>
 
               <FormControl gridColumn={{ base: "auto", sm: "1 / -1" }}>
-                <FormLabel>{t("clientCreation.notes", "Notes")}</FormLabel>
+                <FormLabel>{t("clientView.internalNotes.title")}</FormLabel>
                 <Input
                   as="textarea"
                   rows={4}
-                  value={editData.notes ?? client?.notes ?? ""}
-                  onChange={(e) => setEditData((p) => ({ ...p, notes: e.target.value }))}
+                  value={editData.internalNote ?? internalNote.text}
+                  maxLength={8000}
+                  isDisabled={internalNote.loading || internalNote.error}
+                  onChange={(e) => setEditData((p) => ({ ...p, internalNote: e.target.value }))}
                 />
+                <Text fontSize="sm" mt={2}>{t(internalNote.error ? "clientView.internalNotes.loadError" : "clientView.internalNotes.privacy")}</Text>
               </FormControl>
 
               <Divider gridColumn={{ base: "auto", sm: "1 / -1" }} />

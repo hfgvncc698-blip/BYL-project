@@ -1,4 +1,21 @@
 {
+  "nutritionCalendar": {
+    "openAssessment": "Ernährungsanalyse ansehen",
+    "assessmentFor": "Ernährungsanalyse für {{name}}"
+  },
+  "pullRefresh": {
+    "pull": "Zum Aktualisieren ziehen",
+    "release": "Zum Aktualisieren loslassen",
+    "refreshing": "Wird aktualisiert…",
+    "offline": "Du bist offline. Versuche es erneut, sobald die Verbindung wiederhergestellt ist.",
+    "confirm": "Diese Seite neu laden? Nicht gespeicherte Änderungen können verloren gehen. Brich ab, um deine Arbeit zuerst zu speichern."
+  },
+  "appResume": {
+    "title": "Zurück nach einer Pause",
+    "description": "Speichere deine Arbeit und lade anschließend die Seite neu, um die aktuellen Daten zu sehen.",
+    "refresh": "Neu laden",
+    "later": "Später"
+  },
   "builderSavePending": "Die Serverbestätigung dauert länger als erwartet. Der Speichervorgang läuft weiter: Bitte nicht erneut speichern und diese Seite geöffnet lassen.",
   "builderSyncPending": "Das Programm ist gespeichert. Die Aktualisierung der Kundenprogramme ist noch nicht bestätigt. Mit Speichern kannst du die Synchronisierung erneut versuchen.",
   "clientFollowList": {
@@ -982,7 +999,11 @@
       "priority": "Priorität",
       "recent": "Aktuell",
       "no_recent_client": "Kein aktueller Verlauf"
-    }
+    },
+    "nutrition_active_patients": "Aktive Patienten (30 T.)",
+    "nutrition_active_hint": "Kürzlich aktualisierte Betreuung",
+    "nutrition_inactive_hint": "Seit 30 Tagen inaktiv oder ohne Betreuung",
+    "nutrition_create_hint": "Neue Ernährungsanalyse starten"
   },
   "calendar": {
     "pack_session": "Einheit {{number}} von {{total}}",
@@ -1677,7 +1698,8 @@
       "water": "Wasser (%)",
       "bone": "Knochenmasse (kg)",
       "metabolicAge": "Stoffwechselalter",
-      "visceralFat": "Viszerales Fett"
+      "visceralFat": "Viszerales Fett",
+      "ffmi": "FFMI (kg/m²)"
     },
     "objectives": {
       "weight_loss": "Gewichtsverlust",
@@ -1714,6 +1736,12 @@
     "activeOutOfTotal": "{{active}} aktiv auf {{total}} Client(s).",
     "sessionsPerMonth": {
       "tooltip": "{{label}} · {{count}} Sitzung(en)"
+    },
+    "ffmi": {
+      "understand": "FFMI verstehen",
+      "explanation": "Der FFMI setzt die fettfreie Masse ins Verhältnis zur Körpergröße. Dazu zählen Muskeln, aber auch Wasser, Knochen und Organe.",
+      "formula": "Automatische Berechnung: Gewicht (kg) × (1 − Körperfett (%) / 100) ÷ Größe (m)². Größe, Gewicht und Körperfett müssen aus derselben Messung stammen.",
+      "precision": "Die Genauigkeit hängt von der Körperfettschätzung ab. Vergleichen Sie den Verlauf unter ähnlichen Bedingungen mit derselben Messmethode. Dies ist weder eine Diagnose noch ein Zielwert."
     }
   },
   "months": {
@@ -2066,7 +2094,14 @@
     "programNameOptional": "Name (optional)",
     "programNamePlaceholder": "Für den Standardnamen leer lassen",
     "assignInfo": "Das Programm wird dem Client hinzugefügt und ist sofort verfügbar.",
-    "assign": "Zuweisen"
+    "assign": "Zuweisen",
+    "internalNotes": {
+      "title": "Interne Notizen",
+      "privacy": "Diese Notizen sind nur für Ihr professionelles Konto sichtbar, nicht für den Kunden.",
+      "loadError": "Notizen konnten nicht geladen werden. Laden Sie das Profil vor dem Bearbeiten neu.",
+      "shared": "Geteilte Informationen",
+      "createError": "Der Kunde wurde gespeichert, die interne Notiz jedoch nicht. Ergänzen Sie sie im Kundenprofil."
+    }
   },
   "clientsList": {
     "searchEmpty": "Keine Kunden entsprechen Ihrer Suche.",
@@ -4975,7 +5010,7 @@
       }
     },
     "NutritionQuickCreateModal": {
-      "commence_un_bilan_nutrition_meme_si_le_client_n_a_": "Starten Sie eine Ernährungsbeurteilung, auch wenn der Kunde noch kein vollständiges Profil hat. Wenn die E-Mail bereits existiert oder Vorname + Nachname + Telefon zu einem bestehenden Profil passen, wird der Verlauf ohne neue Willkommens-E-Mail übernommen.",
+      "commence_un_bilan_nutrition_meme_si_le_client_n_a_": "Wenn die E-Mail-Adresse zu einem Kunden in Ihrem Bereich gehört, wird dessen Verlauf übernommen. Andernfalls wird eine neue Bewertung erstellt.",
       "patient_email_com": "patient@email.com",
       "creer_le_suivi": "Tracking erstellen",
       "limite_de_patients_atteinte": "Patientenlimit erreicht",
@@ -8616,5 +8651,26 @@
     "cancel": "Abbrechen",
     "skip": "Nicht senden",
     "send": "Senden"
+  },
+  "cyclePreparation": {
+    "title": "Zyklen vorbereiten",
+    "intro": "Kunden ohne Zyklus, abgeschlossene Zyklen oder Zyklen, die in den nächsten 7 Tagen enden.",
+    "all": "Alle",
+    "finished": "Abgeschlossen",
+    "soon": "Innerhalb von 7 Tagen",
+    "soonBadge": "Bald",
+    "empty": "In dieser Kategorie sind keine Zyklen vorzubereiten.",
+    "cycle": "Zyklus",
+    "finishedDetail": "Zyklus abgeschlossen · Nächsten vorbereiten",
+    "endsIn": "Geplantes Ende in {{count}} Tagen",
+    "prepare": "Nächsten vorbereiten",
+    "footer": "Kunden mit einem bereits vorbereiteten oder begonnenen Folgeprogramm werden nicht angezeigt.",
+    "counts": "{{finished}} abgeschlossen · {{soon}} bald · {{missing}} ohne Zyklus",
+    "loadError": "Laden fehlgeschlagen. Aktualisieren Sie die Seite.",
+    "noCycle": "Ohne Zyklus",
+    "noCycleDetail": "Ersten Zyklus vorbereiten",
+    "endsIn_zero": "Geplantes Ende heute",
+    "endsIn_one": "Geplantes Ende in {{count}} Tag",
+    "endsIn_other": "Geplantes Ende in {{count}} Tagen"
   }
 }

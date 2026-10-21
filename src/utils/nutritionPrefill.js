@@ -9,11 +9,14 @@ import {
   getDocs,
   serverTimestamp,
   addDoc,
+  runTransaction,
   setDoc,
   updateDoc,
   where,
   arrayUnion,
 } from "firebase/firestore";
+import i18n from "../i18n";
+import { commitNutritionAssessment, matchingNutritionAppointment, nutritionAssessmentEvent } from "./nutritionAssessmentCalendar";
 import { db } from "../firebaseConfig";
 import { apiFetch } from "./api";
 import { nutritionIdentityError } from "./nutritionLoading.js";
@@ -524,7 +527,19 @@ export async function createNutritionAssessmentDraft({ clientId, createdByUid, c
   };
 
   const colRef = collection(db, "clients", clientId, "nutrition_assessments");
-  const ref = await addDoc(colRef, payload);
+  const ref = doc(colRef);
+  if (!createdByUid) throw new Error("nutrition-coach-required");
+  const at = new Date();
+  const existingEvents = await getDocs(query(collection(db, "sessions"), where("coachId", "==", createdByUid)));
+  const rows = existingEvents.docs.map(snapshot => ({ ...snapshot.data(), id: snapshot.id, ref: snapshot.ref }));
+  // Recheck eligible same-day appointments inside the transaction before claiming one.
+  const candidates = rows.filter(row => matchingNutritionAppointment([row], { clientId, coachId: createdByUid, at })).map(row => row.ref);
+  const clientName = [inputs.prenom || client.prenom || client.firstName, inputs.nom || client.nom || client.lastName].filter(Boolean).join(" ").trim() || client.fullName || client.displayName || clientId;
+  const event = nutritionAssessmentEvent({ clientId, coachId:createdByUid, assessmentId:ref.id, clientName,
+    title:i18n.t("nutritionCalendar.assessmentFor", { name:clientName }), at, clubId:payload.clubId });
+  await runTransaction(db, tx => commitNutritionAssessment(tx, {
+    assessmentRef:ref, autoEventRef:doc(db, "sessions", `nutrition_${ref.id}`), candidates, payload, event, stamp:serverTimestamp(),
+  }));
 
   return { assessmentId: ref.id };
 }

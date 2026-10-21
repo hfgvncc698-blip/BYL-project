@@ -218,8 +218,7 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, owner
           <ModalBody>
             <VStack id={formId} as="form" spacing={4} align="stretch" onSubmit={handleSubmit}>
             <VStack as="fieldset" disabled={loading || confirmationPending} spacing={4} align="stretch" border={0} p={0} minW={0}>
-              <Text fontSize="sm" color="gray.500">{i18n.t("auto.NutritionQuickCreateModal.commence_un_bilan_nutrition_meme_si_le_client_n_a_", "Commence un bilan nutrition même si le client n’a pas encore de fiche complète. Si l’email existe déjà, le dernier historique sera repris automatiquement.")}</Text>
-              <Text fontSize="sm" color="gray.500">Utilisez l’adresse du client, différente de celle du compte coach. Sans e-mail, le suivi reste disponible dans votre espace.</Text>
+              <Text fontSize="sm" color="gray.500">{i18n.t("auto.NutritionQuickCreateModal.commence_un_bilan_nutrition_meme_si_le_client_n_a_", "Si l’e-mail correspond à un client déjà présent dans votre espace, son historique est repris. Sinon, un nouveau bilan est créé.")}</Text>
 
               {createError ? (
                 <Alert status={confirmationPending ? "warning" : "error"} borderRadius="14px">

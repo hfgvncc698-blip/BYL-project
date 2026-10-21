@@ -1,3 +1,4 @@
+import { compareMeasurements } from "../utils/measurementOrder";
 import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../AuthContext";
 import {
@@ -18,7 +19,7 @@ import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { selectJourneyProgram } from '../utils/clientJourney';
 import { clientStatsLabels } from '../i18n/clientStats';
 import { ChevronDownIcon } from '@chakra-ui/icons';
-import { calculateEntryBmi, latestEntryValue, convertEntryUnit } from '../utils/measurementEntry';
+import { calculateEntryFfmi, calculateEntryBmi, latestEntryValue, convertEntryUnit } from '../utils/measurementEntry';
 import MeasurementHelp from '../components/stats/MeasurementHelp';
 import FeetInchesInput from '../components/stats/FeetInchesInput';
 import MeasurementUnitMenu from '../components/stats/MeasurementUnitMenu';
@@ -47,6 +48,7 @@ const fromCm = (cm, unit) => (cm == null ? null : unit === "in" ? +(cm / CM_PER_
 const FIELDS = [
   { k: "height", field: "taille" },        // cm
   { k: "weight", field: "poids" },         // kg
+  { k: "ffmi", field: "ffmi" },
   { k: "bmi", field: "bmi" },              // calculé
   { k: "fat", field: "fatMass" },          // %
   { k: "muscle", field: "muscleMass" },    // kg
@@ -106,6 +108,7 @@ function normalizeMeasurementDoc(measure) {
   if (tailleCm && poidsKg) {
     parsed.bmi = Number((poidsKg / (tailleCm / 100) ** 2).toFixed(1));
   }
+  parsed.ffmi = calculateEntryFfmi(tailleCm, poidsKg, parsed.fatMass);
   return parsed;
 }
 
@@ -236,7 +239,7 @@ export default function StatisticsPageClient() {
 
         const arr = (measSnap?.docs || [])
           .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+          .sort(compareMeasurements)
           .map(normalizeMeasurementDoc);
         setMeasures(arr);
         setStatsLoading(false);
@@ -347,6 +350,7 @@ export default function StatisticsPageClient() {
         clientId,
         userId: user.uid,
         timestamp: serverTimestamp(),
+        recordedAtMs: Date.now(),
       };
 
       if(Object.entries(metric).some(([key,value])=>key!=='timestamp'&&typeof value==='number'&&(!Number.isFinite(value)||value<0))) throw new Error('invalid-measurement');
@@ -357,7 +361,7 @@ export default function StatisticsPageClient() {
       await batch.commit();
 
       // refresh
-      setMeasures(previous=>[...previous,normalizeMeasurementDoc({...metric,id:ref.id})].sort((a,b)=>String(a.date).localeCompare(String(b.date))));
+      setMeasures(previous=>[...previous,normalizeMeasurementDoc({...metric,timestamp:null,id:ref.id})].sort(compareMeasurements));
 
       addMeas.onClose();
       setNewMeas((prev) => ({ ...prev, date: today, taille: "", poids: "" }));
@@ -608,7 +612,7 @@ export default function StatisticsPageClient() {
                 {FIELDS.filter(f => !["taille","poids"].includes(f.field)).map(({ k, field }) => (
                   <FormControl key={field}>
                     <FormLabel>{label(`fields.${k}`)}</FormLabel>
-                    <Input type="number" min={0} step="any" isReadOnly={field==='bmi'} value={field==='bmi'?(entryBmi??''):(newMeas[field] ?? "")}
+                    <Input type="number" min={0} step="any" isReadOnly={field==='bmi'||field==='ffmi'} value={field==='ffmi'?(calculateEntryFfmi(newMeas.taille,newMeas.poids,newMeas.fatMass,heightUnit,weightUnit)??''):field==='bmi'?(entryBmi??''):(newMeas[field] ?? "")}
                       onChange={(e) => setNewMeas((p) => ({ ...p, [field]: e.target.value }))} />
                   </FormControl>
                 ))}
