@@ -47,11 +47,11 @@ function scenario({ defer = true, failCommit = false } = {}) {
     generatePasswordResetLink: async () => 'https://example.invalid/reset?oobCode=test',
   };
   const routes = new Map();
-  const router = Object.fromEntries(['get', 'post', 'patch', 'delete'].map(method => [
+  const router = Object.fromEntries(['get', 'post', 'put', 'patch', 'delete'].map(method => [
     method, (url, ...handlers) => routes.set(`${method} ${url}`, handlers.at(-1)),
   ]));
   const dependencies = {
-    ...Object.fromEntries(['clubEmailCopy', 'clubSubscriptions', 'clubClientAdministration', 'clubMemberships', 'clubClassBooking', 'clubAppointmentStatus', 'clubRecurrence', 'clubGroupClass'].map(name => [`../utils/${name}`, require(`../backend/utils/${name}`)])),
+    ...Object.fromEntries(['independentFollowups', 'independentFollowupEmail', 'clubReferents', 'clubAppointmentAccess', 'clubClientImport', 'clubDeparture', 'clubSessionPacks', 'clubTermination', 'batchedFieldReads', 'clubClassEmail', 'professionalClientNotes', 'clubEmailCopy', 'clubSubscriptions', 'clubClientAdministration', 'clubMemberships', 'clubClassBooking', 'clubAppointmentStatus', 'clubRecurrence', 'clubGroupClass'].map(name => [`../utils/${name}`, require(`../backend/utils/${name}`)])),
     crypto: require('node:crypto'),
     express: { Router: () => router },
     '../firebaseAdmin': { firestore, auth: () => auth },
