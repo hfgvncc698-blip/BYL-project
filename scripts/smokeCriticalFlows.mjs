@@ -1258,7 +1258,7 @@ check("recent-client progress only counts the displayed program", () => {
   const dashboard = read("src/components/CoachDashboard.jsx");
   assert.ok(dashboard.includes('currentCoachProgram(c, programmesForCard)'), 'card must resolve the current programme, not the last completed one');
   assert.ok(
-    dashboard.includes("getValidatedSessionCountForProgram(primaryProgramForCard)") &&
+    dashboard.includes("getProgramValidatedSessionCount(primaryProgramForCard)") &&
       dashboard.includes("getProgramActiveSessionTotal(primaryProgramForCard)"),
     "The progress numerator and denominator must come from the displayed program"
   );
