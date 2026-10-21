@@ -2640,7 +2640,9 @@
       "differentSets": "Serie diverse",
       "notes": "Note",
       "parameter": "Parametro {{field}}"
-    }
+    },
+    "calendarSyncErrorTitle": "Calendario non sincronizzato",
+    "calendarSyncErrorDescription": "La sessione e la valutazione sono salvate. L’aggiornamento del calendario deve ancora essere confermato. Riprova da questa finestra; chiuderla non cancellerà la valutazione."
   },
   "contact": {
     "title": "Contatto",

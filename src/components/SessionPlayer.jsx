@@ -1,3 +1,4 @@
+import { commitSessionFeedback } from "../utils/commitSessionFeedback";
 import { apiFetch } from "../utils/api";
 // src/components/SessionPlayer.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -10,7 +11,6 @@ import {
   onSnapshot,
   updateDoc,
   collection,
-  addDoc,
   setDoc,
   serverTimestamp,
   getDocs,
@@ -3439,9 +3439,7 @@ export default function SessionPlayer() {
         ? Math.max(1, Math.min(5, Math.round(Number(meta.difficultyRating))))
         : null;
 
-      await setDoc(
-        sRef,
-        {
+      const completionData = {
           runId: completionDocId,
           sessionIndex,
           sessionTitle,
@@ -3502,9 +3500,13 @@ export default function SessionPlayer() {
               }
             : {}),
           updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      };
+      await commitSessionFeedback({
+        batch: writeBatch(db), completionRef: sRef, completionData,
+        feedbackRef: !isPartial && meta.feedback
+          ? doc(db, "clients", clientId, "programmes", programId, "difficulté_notes", completionDocId) : null,
+        feedback: meta.feedback ? { ...meta.feedback, createdAt: serverTimestamp() } : null,
+      });
 
       const syncCompletionSideEffects = async () => {
         if (!isPartial && programDocRef) {
@@ -4052,7 +4054,7 @@ export default function SessionPlayer() {
     } catch {
       setCompletionSubmitting(false);
       completionSubmitActionRef.current = "";
-      toast({ status: "error", title: "Agenda non synchronisé", description: "La séance est enregistrée, mais la mise à jour de l’agenda n’est pas confirmée. Réessayez depuis cette fenêtre." });
+      toast({ status: "error", title: t("sessionPlayer.calendarSyncErrorTitle"), description: t("sessionPlayer.calendarSyncErrorDescription") });
       return false;
     }
   };
@@ -4085,6 +4087,7 @@ export default function SessionPlayer() {
           currentSet: totalSetsRef.current,
           exerciseTimings,
           difficultyRating: rating,
+          feedback: { ...feedbackPayload, adaptationDecision },
           deferSecondarySync: true,
         })).catch(() => ({ saved: false }))
       : { saved: true, secondarySyncPromise: null };
@@ -4094,17 +4097,11 @@ export default function SessionPlayer() {
     }
     celebrateConfirmedPersonalRecords(completionResult);
     if (!(await confirmCalendarCompletion({ ratingOverride: rating }))) return;
-    const ratingSavePromise = clientId && programId
-      ? addDoc(
-          collection(db, "clients", clientId, "programmes", programId, "difficulté_notes"),
-          { ...feedbackPayload, adaptationDecision, createdAt: serverTimestamp() }
-        )
-      : Promise.resolve();
     const progressionPromise = clientId && programId
       ? Promise.resolve(completionResult.secondarySyncPromise)
           .then(() => applyAutoProgressionAfterRating(feedbackPayload))
       : Promise.resolve();
-    void Promise.allSettled([ratingSavePromise, progressionPromise]);
+    void Promise.allSettled([progressionPromise]);
     await showScheduleSuggestionOrLeave();
   };
 
@@ -4137,7 +4134,10 @@ export default function SessionPlayer() {
     await showScheduleSuggestionOrLeave();
   };
 
-  const handleCloseRatingModal = () => void handleIgnoreRating();
+  // Closing is not an instruction to validate the session or erase its rating.
+  const handleCloseRatingModal = () => {
+    if (!completionSubmitting) onClose();
+  };
 
   /* ---------------------- Timers ---------------------- */
 

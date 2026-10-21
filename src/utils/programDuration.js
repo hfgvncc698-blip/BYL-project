@@ -1,3 +1,5 @@
+import { isSessionValidatedRecord } from './sessionCompletion.js';
+
 export function readProgramActiveWeeks(program = {}) {
   const safeProgram = program && typeof program === "object" ? program : {};
   const raw =
@@ -98,29 +100,15 @@ export function isProgramRestDay(program = {}, date = new Date()) {
 }
 
 export function getProgramValidatedSessionCount(program = {}) {
-  const sessionsEffectuees = Array.isArray(program?.sessionsEffectuees)
-    ? program.sessionsEffectuees
-    : [];
-  let validatedCount = 0;
+  // Dashboard activity may be scoped to calendar-linked sessions. Progress uses
+  // the complete history, as on the client profile.
+  const hasProgressHistory = Array.isArray(program?._progressSessionsEffectuees);
+  const sessionsEffectuees = hasProgressHistory
+    ? program._progressSessionsEffectuees
+    : Array.isArray(program?.sessionsEffectuees) ? program.sessionsEffectuees : [];
+  const validatedCount = sessionsEffectuees.filter(isSessionValidatedRecord).length;
 
-  sessionsEffectuees.forEach((sessionRecord) => {
-    const status = String(sessionRecord?.status || "").toLowerCase();
-    if (!sessionRecord || sessionRecord?.isPartial === true || status === "en_cours" || status === "in_progress") {
-      return;
-    }
-
-    const explicit =
-      ["validée", "validee", "terminée", "terminee", "done", "completed"].includes(status) ||
-      Boolean(sessionRecord?.validatedAt) ||
-      Boolean(sessionRecord?.completedAt) ||
-      Boolean(sessionRecord?.dateEffectuee) ||
-      Boolean(sessionRecord?.finishedAt) ||
-      sessionRecord.pourcentageTermine >= 90;
-    if (!explicit) return;
-    validatedCount += 1;
-  });
-
-  if (sessionsEffectuees.length > 0) return validatedCount;
+  if (hasProgressHistory || sessionsEffectuees.length > 0) return validatedCount;
   if (typeof program._done === "number") return Math.max(0, Math.round(program._done));
   if (typeof program.doneCount === "number") return Math.max(0, Math.round(program.doneCount));
   if (typeof program.completedSessions === "number") return Math.max(0, Math.round(program.completedSessions));

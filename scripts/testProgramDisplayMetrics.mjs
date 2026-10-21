@@ -104,3 +104,56 @@ assert.equal(
 );
 
 console.log("Program display metric priority: OK");
+
+// Regression: calendar visibility must not remove historical validations from progress.
+const completeHistory = [
+  ...Array.from({ length: 10 }, (_, index) => ({
+    id: `completion-${index}`,
+    status: "validée",
+    sessionIndex: index % 3,
+    ...(index < 8 ? { calendarEventId: `event-${index}` } : {}),
+  })),
+  { id: "partial", status: "en_cours", isPartial: true, completedAt: "2026-10-21" },
+];
+const profileProgram = {
+  activeWeeks: 4,
+  sessionsPerWeek: 3,
+  sessions: [{}, {}, {}],
+  sessionsEffectuees: completeHistory,
+};
+const dashboardProgram = {
+  ...profileProgram,
+  sessionsEffectuees: completeHistory.filter((session) => session.calendarEventId),
+  _progressSessionsEffectuees: completeHistory,
+  _done: 8,
+};
+assert.equal(dashboardProgram.sessionsEffectuees.length, 8);
+assert.equal(getProgramValidatedSessionCount(profileProgram), 10);
+assert.equal(getProgramValidatedSessionCount(dashboardProgram), 10);
+assert.equal(getProgramPlannedSessionTotal(dashboardProgram), 12);
+assert.equal(formatProgramWeekProgress(dashboardProgram), "Semaine 4/4");
+assert.equal(
+  getProgramValidatedSessionCount({ ...dashboardProgram, _progressSessionsEffectuees: [] }),
+  0,
+  "an authoritative empty history must override stale counters"
+);
+console.log("Dashboard and profile progress consistency: OK");
+
+const validationFormats = [
+  {status:'validée'}, {status:'completed'}, {status:' DONE '},
+  {validated:true}, {isValidated:true}, {playedAt:'2026-10-21'},
+  {completionPct:100}, {completionPercent:100},
+];
+for (const record of validationFormats) {
+  for (const scope of ['profile', 'dashboard']) {
+    const program = scope === 'profile'
+      ? {sessionsEffectuees:[record]}
+      : {sessionsEffectuees:[], _progressSessionsEffectuees:[record]};
+    assert.equal(getProgramValidatedSessionCount(program), 1, `${scope}: ${JSON.stringify(record)}`);
+    for (const partial of [{isPartial:true}, {status:'partial'}, {status:'en_cours'}, {status:'in_progress'}]) {
+      const history = [{...record, ...partial}];
+      assert.equal(getProgramValidatedSessionCount({...program, sessionsEffectuees:history, _progressSessionsEffectuees:history}), 0);
+    }
+  }
+}
+console.log('Legacy validation formats and partial exclusions on both surfaces: OK');

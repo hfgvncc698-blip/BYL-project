@@ -4,7 +4,12 @@ export function currentCoachProgram(client, programs) {
   const available=programs.filter(p=>p.status!=='draft');
   const current=client.currentProgramme;
   const id=typeof current==='string'?current:current?.id;
-  const selected = available.find(p=>p.id===id) || selectJourneyProgram(client,available);
+  // In cycle mode the reconciled plan is authoritative, even when a legacy
+  // currentProgramme pointer still refers to the previous assignment.
+  const followsCycles = client?.sportFollowView !== 'programs' && client?.trainingPlan?.cycles?.length;
+  const selected = followsCycles
+    ? selectJourneyProgram(client, available)
+    : available.find(p=>p.id===id) || selectJourneyProgram(client,available);
   // A legacy cycle can remain open after its programme is complete. Only
   // actual activity in a newer assignment can supersede that stale selection;
   // merely assigning a future programme must not switch the dashboard.

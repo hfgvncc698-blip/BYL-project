@@ -105,6 +105,7 @@ import { apiFetch } from "../utils/api";
 import {
   formatProgramActiveWeeks,
   formatProgramWeekProgress,
+  getProgramValidatedSessionCount,
   getProgramActiveWeeksLabel,
   readProgramActiveWeeks,
 } from "../utils/programDuration";
@@ -1305,40 +1306,6 @@ const findAssignedProgrammeByValue = (programmes = [], value = "") => {
 
 const isSelectableAssignedProgramme = (programme = {}) =>
   Boolean(programme?.id && !programme._quickPlaceholder && getProgrammeSessionList(programme).length > 0);
-
-const isSessionExplicitlyValidatedRecord = (session) => {
-  const status = String(session?.status || "").trim().toLowerCase();
-  return (
-    status === "validée" ||
-    status === "validee" ||
-    status === "done" ||
-    status === "completed" ||
-    status === "terminée" ||
-    status === "terminee" ||
-    session?.validated === true ||
-    session?.isValidated === true ||
-    Boolean(session?.validatedAt) ||
-    Boolean(session?.completedAt)
-  );
-};
-
-const getValidatedSessionCountForProgram = (programme = {}) => {
-  const sessionsEffectuees = Array.isArray(programme?.sessionsEffectuees)
-    ? programme.sessionsEffectuees
-    : [];
-  let validatedCount = 0;
-  sessionsEffectuees.forEach((sessionRecord) => {
-    if (!isSessionExplicitlyValidatedRecord(sessionRecord)) return;
-    validatedCount += 1;
-  });
-  if (sessionsEffectuees.length > 0) return validatedCount;
-
-  const storedDone = Number(programme?._done ?? programme?.doneCount ?? programme?.completedSessions);
-  if (Number.isFinite(storedDone) && storedDone > 0) {
-    return Math.max(0, Math.round(storedDone));
-  }
-  return validatedCount;
-};
 
 const getProgrammeNameForTiming = (programme = {}) =>
   [
@@ -3270,47 +3237,10 @@ sessionIndex = null }) => {
       return;
     }
 
-    const latestCompletedProgram = filteredPrograms.reduce((best, prog) => {
-      const currentMs = Math.max(
-        Number(prog?._lastSessionMs || 0),
-        Number(prog?._coachLatestProgressMs || 0)
-      );
-      const bestMs = Math.max(
-        Number(best?._lastSessionMs || 0),
-        Number(best?._coachLatestProgressMs || 0)
-      );
-      return currentMs > bestMs ? prog : best;
-    }, null);
-
-    const newestAssignedProgram = [...filteredPrograms].sort((a, b) => {
-      const aMs = Math.max(Number(a?._assignedAtMs || 0), Number(a?._createdAtMs || 0));
-      const bMs = Math.max(Number(b?._assignedAtMs || 0), Number(b?._createdAtMs || 0));
-      return bMs - aMs;
-    })[0];
-
-    const globalLastCompletedMs = Math.max(
-      Number(latestCompletedProgram?._lastSessionMs || 0),
-      Number(latestCompletedProgram?._coachLatestProgressMs || 0)
-    );
-    const newestAssignedMs = Math.max(
-      Number(newestAssignedProgram?._assignedAtMs || 0),
-      Number(newestAssignedProgram?._createdAtMs || 0)
-    );
-    const newestHasOwnHistory =
-      Math.max(
-        Number(newestAssignedProgram?._lastSessionMs || 0),
-        Number(newestAssignedProgram?._coachLatestProgressMs || 0)
-      ) > 0;
-
-    const fallbackTargetProgram =
-      !latestCompletedProgram
-        ? newestAssignedProgram
-        : newestAssignedProgram && newestAssignedMs > globalLastCompletedMs && !newestHasOwnHistory
-          ? newestAssignedProgram
-          : latestCompletedProgram;
+    const fallbackTargetProgram = currentCoachProgram(client, filteredPrograms);
 
     const latestLocalResume = mode === "resume"
-      ? filteredPrograms
+      ? filteredPrograms.filter((prog) => prog.id === fallbackTargetProgram?.id)
           .map((prog) => ({
             prog,
             resume: findLatestSessionResumeState({
@@ -4345,6 +4275,7 @@ plannedEvt._sessionTitle,
             return {
               ...programme,
               sessionsEffectuees,
+              _progressSessionsEffectuees: programme.sessionsEffectuees || [],
               _coachLatestProgressMs: Number(latestProgressEvent?.ms || 0),
               _coachLatestProgressIndex: Number.isFinite(latestProgressIndex) ? latestProgressIndex : null,
               _coachLatestProgressTitle: coachProgressTitle,
@@ -9377,7 +9308,7 @@ overflow="auto">
                       : "";
                     let nbTotalSessions = getProgramActiveSessionTotal(primaryProgramForCard);
                     let nbTerminees = Math.min(
-                      getValidatedSessionCountForProgram(primaryProgramForCard),
+                      getProgramValidatedSessionCount(primaryProgramForCard),
                       nbTotalSessions
                     );
                     const displayedSessionsPerWeek = readSessionsPerWeekFromText(primaryProgramNameForCard);

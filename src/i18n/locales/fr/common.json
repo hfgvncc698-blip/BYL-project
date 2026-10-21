@@ -2646,7 +2646,9 @@
       "differentSets": "Séries différentes",
       "notes": "Notes",
       "parameter": "Paramètre {{field}}"
-    }
+    },
+    "calendarSyncErrorTitle": "Agenda non synchronisé",
+    "calendarSyncErrorDescription": "La séance et votre évaluation sont enregistrées. La mise à jour de l’agenda reste à confirmer. Réessayez depuis cette fenêtre ; fermer ne supprimera pas votre évaluation."
   },
   "contact": {
     "title": "Contact",

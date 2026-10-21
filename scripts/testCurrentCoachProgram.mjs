@@ -74,3 +74,34 @@ assert.deepEqual(reconcileStartedCycle(chainResult,chainPrograms),chainResult);
 const partialNext = {...chainPrograms[1],sessionsEffectuees:[{completedAt:'2026-10-03',isPartial:true}]};
 assert.equal(reconcileStartedCycle(chainPlan,[chainPrograms[0],partialNext,chainPrograms[2]]),chainPlan,'partial session must not start next cycle');
 console.log('Multi-cycle catch-up and partial-validation guards OK');
+
+// A stale programme pointer must not override the actual cycle, including when
+// dashboard activity is restricted to calendar-linked sessions.
+const recovery = {
+  id: 'recovery', activeWeeks: 1, sessions: [{}, {}],
+  sessionsEffectuees: [], _done: 2, _total: 2,
+  _progressSessionsEffectuees: [{completedAt:'2026-10-02'}, {completedAt:'2026-10-07'}],
+};
+const endurance = {
+  id: 'endurance', activeWeeks: 4, sessions: [{}, {}, {}, {}],
+  sessionsEffectuees: [], _done: 6, _total: 16,
+  _progressSessionsEffectuees: Array.from({length:6}, () => ({completedAt:'2026-10-18'})),
+};
+const cycleClient = {
+  currentProgramme: recovery.id, sportFollowView: 'cycles',
+  trainingPlan: {cycles: [{programId: recovery.id}, {programId: endurance.id}]},
+};
+assert.equal(currentCoachProgram(cycleClient, [recovery, endurance]).id, endurance.id);
+assert.equal(currentCoachProgram({...cycleClient, currentProgramme:{id:recovery.id}}, [recovery, endurance]).id, endurance.id);
+assert.equal(currentCoachProgram({...cycleClient, sportFollowView:'programs'}, [recovery, endurance]).id, recovery.id);
+assert.equal(currentCoachProgram({...cycleClient, trainingPlan:{cycles:[{}]}}, [recovery, endurance]), null);
+assert.equal(currentCoachProgram(cycleClient, [recovery, {...endurance, _done:0, _progressSessionsEffectuees:[]}]).id, recovery.id);
+assert.equal(currentCoachProgram(cycleClient, [recovery, {...endurance, status:'draft'}]).id, recovery.id);
+console.log('Cycle priority over stale pointers and complete-history reconciliation: OK');
+
+const {readFileSync} = await import('node:fs');
+const dashboardSource = readFileSync(new URL('../src/components/CoachDashboard.jsx', import.meta.url), 'utf8');
+const launchSource = dashboardSource.slice(dashboardSource.indexOf('const startNextSessionForClient'), dashboardSource.indexOf('const startNextSessionForClient') + 7000);
+assert.ok(launchSource.includes('currentCoachProgram(client, filteredPrograms)'), 'session launch must use the same selection as the card');
+assert.ok(launchSource.includes('prog.id === fallbackTargetProgram?.id'), 'resume must stay in the selected programme');
+console.log('Dashboard launch and resume selection wiring: OK');

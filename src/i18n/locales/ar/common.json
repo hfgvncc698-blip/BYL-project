@@ -2640,7 +2640,9 @@
       "differentSets": "مجموعات مختلفة",
       "notes": "ملاحظات",
       "parameter": "المعيار {{field}}"
-    }
+    },
+    "calendarSyncErrorTitle": "لم تتم مزامنة التقويم",
+    "calendarSyncErrorDescription": "تم حفظ الجلسة وتقييمك. لم يتم تأكيد تحديث التقويم بعد. أعد المحاولة من هذه النافذة؛ إغلاقها لن يحذف تقييمك."
   },
   "contact": {
     "title": "الاتصال",

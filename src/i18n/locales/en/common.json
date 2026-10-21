@@ -2646,7 +2646,9 @@
       "differentSets": "Different sets",
       "notes": "Notes",
       "parameter": "{{field}} setting"
-    }
+    },
+    "calendarSyncErrorTitle": "Calendar not synced",
+    "calendarSyncErrorDescription": "The session and your feedback are saved. The calendar update is still unconfirmed. Retry from this window; closing it will not delete your feedback."
   },
   "contact": {
     "title": "Contact",

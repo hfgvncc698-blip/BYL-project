@@ -3,7 +3,7 @@ import {inferCycleType} from './trainingCycles.js';
 
 const millis = value => typeof value === 'number' ? value : value?.toMillis?.() || (value?.seconds ? value.seconds * 1000 : Date.parse(value)) || 0;
 const assigned = program => millis(program?.assignedAt || program?.createdAt || program?._assignedAtMs);
-const activity = program => Math.max(millis(program?._lastSessionMs), ...(program?.sessionsEffectuees || []).map(record =>
+const activity = program => Math.max(millis(program?._lastSessionMs), ...(program?._progressSessionsEffectuees || program?.sessionsEffectuees || []).map(record =>
   millis(record.completedAt || record.validatedAt || record.dateEffectuee || record.finishedAt || record.updatedAt || record.createdAt)));
 
 // Reconcile legacy open cycles from real session history, without writing on

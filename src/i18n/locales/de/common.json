@@ -2640,7 +2640,9 @@
       "differentSets": "Unterschiedliche Sätze",
       "notes": "Notizen",
       "parameter": "Parameter {{field}}"
-    }
+    },
+    "calendarSyncErrorTitle": "Kalender nicht synchronisiert",
+    "calendarSyncErrorDescription": "Die Einheit und Ihre Bewertung sind gespeichert. Die Kalenderaktualisierung ist noch nicht bestätigt. Versuchen Sie es in diesem Fenster erneut; beim Schließen bleibt Ihre Bewertung erhalten."
   },
   "contact": {
     "title": "Kontakt",

@@ -2641,7 +2641,9 @@
       "differentSets": "Series diferentes",
       "notes": "Notas",
       "parameter": "Parámetro {{field}}"
-    }
+    },
+    "calendarSyncErrorTitle": "Calendario sin sincronizar",
+    "calendarSyncErrorDescription": "La sesión y tu valoración están guardadas. Falta confirmar la actualización del calendario. Reintenta desde esta ventana; cerrarla no borrará tu valoración."
   },
   "contact": {
     "title": "Contacto",
