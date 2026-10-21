@@ -15832,8 +15832,8 @@
       "Spalle basse"
     ],
     "variantes": [
-      "Maglione con manubri",
-      "Maglione con puleggia"
+      "Pullover con manubrio",
+      "Pullover al cavo"
     ],
     "consignes": {
       "Positionnement": "Sedersi, petto rinforzato, maniglie afferrate, spalle basse.",
@@ -17832,6 +17832,93 @@
       "Retour": "Torna lentamente.",
       "Respiration": "Inspira durante il ritorno, espira durante la spinta.",
       "Posture": "Spalle basse, petto aperto."
+    }
+  },
+  "T400": {
+    "nom": "Pullover con manubrio",
+    "groupe_musculaire": "Dorso",
+    "objectifs": [
+      "Guadagno di massa",
+      "Resistenza",
+      "Forza",
+      "Posturale",
+      "Ritorno allo sport"
+    ],
+    "muscles_secondaires": [
+      "Pettorali",
+      "Tricipiti"
+    ],
+    "articulations_solicitees": [
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Tendini del gran dorsale"
+    ],
+    "type": "Esercizio di isolamento",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Manubri",
+      "Panca"
+    ],
+    "position": [
+      "Sdraiato"
+    ],
+    "contraintes": [
+      "Mantieni addominali attivi e costole basse, senza inarcare eccessivamente la schiena."
+    ],
+    "variantes": [
+      "Pullover a macchina",
+      "Pullover al cavo"
+    ],
+    "consignes": {
+      "Positionnement": "Sdraiati sulla panca, piedi a terra, con un manubrio tenuto con entrambe le mani sopra il petto.",
+      "Mouvement": "Abbassa le braccia dietro la testa, gomiti leggermente piegati, entro un movimento confortevole.",
+      "Retour": "Riporta il manubrio sopra il petto senza modificare la flessione dei gomiti.",
+      "Respiration": "Inspira scendendo, espira riportando il manubrio.",
+      "Posture": "Mantieni addominali attivi e costole basse, senza inarcare eccessivamente la schiena."
+    }
+  },
+  "T401": {
+    "nom": "Pullover al cavo",
+    "groupe_musculaire": "Dorso",
+    "objectifs": [
+      "Guadagno di massa",
+      "Resistenza",
+      "Forza",
+      "Posturale",
+      "Ritorno allo sport"
+    ],
+    "muscles_secondaires": [
+      "Pettorali",
+      "Tricipiti"
+    ],
+    "articulations_solicitees": [
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Tendini del gran dorsale"
+    ],
+    "type": "Esercizio di isolamento",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Cavo"
+    ],
+    "position": [
+      "In piedi"
+    ],
+    "contraintes": [
+      "Mantieni busto stabile e spalle basse, senza slanci."
+    ],
+    "variantes": [
+      "Pullover a macchina",
+      "Pullover con manubrio"
+    ],
+    "consignes": {
+      "Positionnement": "In piedi davanti al cavo alto, afferra la barra, arretra e inclina leggermente il busto con ginocchia morbide.",
+      "Mouvement": "Porta la barra verso le cosce mantenendo i gomiti leggermente piegati e fermi.",
+      "Retour": "Lascia risalire lentamente le braccia controllando il carico.",
+      "Respiration": "Espira abbassando la barra, inspira al ritorno.",
+      "Posture": "Mantieni busto stabile e spalle basse, senza slanci."
     }
   }
 }

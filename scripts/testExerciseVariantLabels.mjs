@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {exerciseVariantLabels} from '../src/utils/exerciseVariantLabels.js';
+assert.deepEqual(exerciseVariantLabels([' Pullover ',{nom:'Poulie',id:'T401'},{name:'Haltère'},{title:'Machine'},{exerciseName:'Autre'}]),['Pullover','Poulie','Haltère','Machine','Autre']);
+for(const value of [null,undefined,[],[{},null,22,{id:'T400'},{nom:{fr:'Test'}}],['[object Object]',' ']])assert.deepEqual(exerciseVariantLabels(value),[]);
+assert.deepEqual(exerciseVariantLabels([{nom:{fr:'X'},name:'Valid'},{nom:'Valid'}]),['Valid']);
+assert.deepEqual(exerciseVariantLabels('Poulie'),['Poulie']);
+console.log('Variant names: strings, references, malformed values, duplicates and empty states passed.');
+const {resolveCatalogVariants}=await import('../src/utils/exerciseVariantLabels.js');
+const catalog=[{id:'a',docId:'A',__collection:'training',nom:'A',variantes:[{id:'b'},'Missing','B','[object Object]',{id:'a'}],translations:{en:{nom:'A',variantes:['Outdated']}}},{id:'b',docId:'B',__collection:'training',nom:'B',translations:{en:{nom:'Translated B'}},variantes:[]}];
+const result=resolveCatalogVariants(catalog);
+assert.deepEqual(exerciseVariantLabels(result[0].variantes),['B']);
+assert.deepEqual(result[0].translations.en.variantes,['Translated B']);
+assert.deepEqual(result[1].variantes,[]);
+assert.equal(catalog[0].variantes.length,5);
+console.log('Catalog resolution: existing references, missing targets, self references, translations and no mutation passed.');

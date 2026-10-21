@@ -4810,6 +4810,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
                 "dashboard.add_session_errors.timeout_description",
                 "Le serveur n’a pas répondu à temps. Réessayez : la protection anti-doublon évitera une double séance."
               )
+            : [502, 503, 504].includes(error?.status) ? t("dashboard.add_session_errors.server_unavailable")
             : error?.data?.error && error.data.error!=="session-create-failed" ? error.data.error : t(
                 "dashboard.add_session_errors.save_description",
                 "La séance n’a pas été enregistrée. Vérifiez votre connexion puis réessayez."

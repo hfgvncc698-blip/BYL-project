@@ -507,7 +507,8 @@
       "program_required_description": "حدد برنامجًا معينًا لهذا العميل.",
       "no_plannable_program_description": "لا يملك هذا العميل بعد برنامجًا بجلسات قابلة للتخطيط.",
       "session_required_title": "الجلسة مطلوبة",
-      "session_required_description": "حدد جلسة صالحة لهذا البرنامج."
+      "session_required_description": "حدد جلسة صالحة لهذا البرنامج.",
+      "server_unavailable": "الخادم غير متاح مؤقتًا. تبقى بياناتك في هذا النموذج. حاول مجددًا بعد قليل."
     },
     "choose_patient_for_ration": "اختر المريض للخطة الغذائية",
     "create_new_ration": "إنشاء خطة غذائية جديدة",

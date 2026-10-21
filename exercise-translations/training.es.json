@@ -15832,8 +15832,8 @@
       "Hombros bajos"
     ],
     "variantes": [
-      "Saltador con mancuernas",
-      "Jersey de polea"
+      "Pullover con mancuerna",
+      "Pullover en polea"
     ],
     "consignes": {
       "Positionnement": "Siéntese, con el pecho apoyado, las manijas agarradas y los hombros bajos.",
@@ -17832,6 +17832,93 @@
       "Retour": "Vuelve lentamente.",
       "Respiration": "Inhala al regresar, exhala al empujar.",
       "Posture": "Hombros bajos, pecho abierto."
+    }
+  },
+  "T400": {
+    "nom": "Pullover con mancuerna",
+    "groupe_musculaire": "Espalda",
+    "objectifs": [
+      "ganancia de masa",
+      "Resistencia",
+      "fuerza",
+      "posturales",
+      "volver al deporte"
+    ],
+    "muscles_secondaires": [
+      "Pectorales",
+      "tríceps"
+    ],
+    "articulations_solicitees": [
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "Tendones del dorsal ancho"
+    ],
+    "type": "ejercicio de aislamiento",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Mancuernas",
+      "Banco"
+    ],
+    "position": [
+      "Tumbado"
+    ],
+    "contraintes": [
+      "Mantén el abdomen activo y las costillas bajas, sin arquear excesivamente la espalda."
+    ],
+    "variantes": [
+      "Jersey a máquina",
+      "Pullover en polea"
+    ],
+    "consignes": {
+      "Positionnement": "Túmbate en el banco, pies en el suelo, sujetando una mancuerna con ambas manos sobre el pecho.",
+      "Mouvement": "Baja los brazos detrás de la cabeza con los codos ligeramente flexionados, dentro de un recorrido cómodo.",
+      "Retour": "Devuelve la mancuerna sobre el pecho sin cambiar la flexión de los codos.",
+      "Respiration": "Inspira al bajar y espira al volver.",
+      "Posture": "Mantén el abdomen activo y las costillas bajas, sin arquear excesivamente la espalda."
+    }
+  },
+  "T401": {
+    "nom": "Pullover en polea",
+    "groupe_musculaire": "Espalda",
+    "objectifs": [
+      "ganancia de masa",
+      "Resistencia",
+      "fuerza",
+      "posturales",
+      "volver al deporte"
+    ],
+    "muscles_secondaires": [
+      "Pectorales",
+      "tríceps"
+    ],
+    "articulations_solicitees": [
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "Tendones del dorsal ancho"
+    ],
+    "type": "ejercicio de aislamiento",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Polea"
+    ],
+    "position": [
+      "De pie"
+    ],
+    "contraintes": [
+      "Mantén el torso estable y los hombros bajos, sin impulso."
+    ],
+    "variantes": [
+      "Jersey a máquina",
+      "Pullover con mancuerna"
+    ],
+    "consignes": {
+      "Positionnement": "De pie frente a una polea alta, sujeta la barra, retrocede e inclina ligeramente el torso con las rodillas relajadas.",
+      "Mouvement": "Lleva la barra hacia los muslos manteniendo los codos ligeramente flexionados y fijos.",
+      "Retour": "Deja subir los brazos lentamente controlando la carga.",
+      "Respiration": "Espira al bajar la barra e inspira al volver.",
+      "Posture": "Mantén el torso estable y los hombros bajos, sin impulso."
     }
   }
 }

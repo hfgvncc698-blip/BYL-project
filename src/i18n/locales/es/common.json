@@ -507,7 +507,8 @@
       "program_required_description": "Selecciona un programa asignado a este cliente.",
       "no_plannable_program_description": "Este cliente aún no tiene un programa con sesiones planificables.",
       "session_required_title": "Sesión requerida",
-      "session_required_description": "Selecciona una sesión válida para este programa."
+      "session_required_description": "Selecciona una sesión válida para este programa.",
+      "server_unavailable": "El servidor no está disponible temporalmente. Tus datos se conservan en este formulario. Vuelve a intentarlo en un momento."
     },
     "choose_patient_for_ration": "Elegir al paciente para el plan alimentario",
     "create_new_ration": "Crear un nuevo plan alimentario",

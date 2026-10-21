@@ -60,6 +60,8 @@ import { useLocation } from "react-router-dom";
 import { getStorage, ref as storageRef, getDownloadURL } from "firebase/storage";
 import { localizeExercise } from "../utils/exerciseI18n";
 
+import { exerciseVariantLabels } from "../utils/exerciseVariantLabels";
+
 /* ================= constants ================= */
 const EXPLICIT_STORAGE_BUCKET = "gs://boost-your-life-f6b3e.firebasestorage.app";
 
@@ -646,10 +648,8 @@ function ExerciseCardComponent({
       ? displayExercise.muscles_secondaires.join(", ")
       : missing;
 
-  const variantes =
-    Array.isArray(displayExercise?.variantes) && displayExercise.variantes.length
-      ? displayExercise.variantes.join(", ")
-      : t("exerciseCard.noVariant", "Aucune variante disponible");
+  const variantes = exerciseVariantLabels(displayExercise?.variantes).join(", ")
+    || t("exerciseCard.noVariant", "Aucune variante disponible");
 
   const contraintes = Array.isArray(displayExercise?.contraintes)
     ? displayExercise.contraintes.length

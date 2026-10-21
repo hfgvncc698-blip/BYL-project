@@ -507,7 +507,8 @@
       "program_required_description": "Sélectionnez un programme assigné à ce client.",
       "no_plannable_program_description": "Ce client n'a pas encore de programme avec séances planifiables.",
       "session_required_title": "Séance requise",
-      "session_required_description": "Sélectionnez une séance valide pour ce programme."
+      "session_required_description": "Sélectionnez une séance valide pour ce programme.",
+      "server_unavailable": "Le serveur est temporairement indisponible. Vos informations sont conservées dans ce formulaire. Réessayez dans un instant."
     },
     "club_goals": {
       "title": "Objectifs club",

@@ -1,3 +1,4 @@
+import { resolveCatalogVariants } from "../utils/exerciseVariantLabels";
 // src/components/ExerciseBank.jsx
 import React, {
   useEffect,
@@ -116,7 +117,7 @@ let exerciseBankRefreshPromise = null;
 const exerciseBankSubscribers = new Set();
 
 const normalizeExerciseSnapshots = (snaps) =>
-  dedupeByUid(
+  resolveCatalogVariants(dedupeByUid(
     snaps
       .flatMap((snap, idx) =>
         snap.docs.map((d) => ({
@@ -126,7 +127,7 @@ const normalizeExerciseSnapshots = (snaps) =>
         }))
       )
       .filter((exercise) => exercise.nom)
-  );
+  ));
 
 const readExerciseCollections = async (reader) => {
   const snaps = await Promise.all(

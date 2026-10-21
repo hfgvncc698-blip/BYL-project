@@ -170833,7 +170833,20 @@
         "Ne pas cambrer",
         "Épaules basses"
       ],
-      "variantes": [],
+      "variantes": [
+        {
+          "nom": "Pullover haltère",
+          "id": "T400",
+          "docId": "Pullover_haltère",
+          "collection": "training"
+        },
+        {
+          "nom": "Pullover poulie",
+          "id": "T401",
+          "docId": "Pullover_poulie",
+          "collection": "training"
+        }
+      ],
       "consignes": {
         "Positionnement": "Assis, buste calé, poignées saisies, épaules basses.",
         "Mouvement": "Ramener les bras vers le bas en contractant le grand dorsal.",
@@ -170974,7 +170987,10 @@
             "Do not arch",
             "Low shoulders"
           ],
-          "variantes": [],
+          "variantes": [
+            "Dumbbell pullover",
+            "Cable pullover"
+          ],
           "consignes": {
             "Positionnement": "Sit, chest braced, handles grasped, shoulders low.",
             "Mouvement": "Bring your arms down by contracting your latissimus dorsi.",
@@ -171015,7 +171031,10 @@
             "Non inarcare",
             "Spalle basse"
           ],
-          "variantes": [],
+          "variantes": [
+            "Pullover con manubrio",
+            "Pullover al cavo"
+          ],
           "consignes": {
             "Positionnement": "Sedersi, petto rinforzato, maniglie afferrate, spalle basse.",
             "Mouvement": "Abbassa le braccia contraendo il latissimus dorsi.",
@@ -171056,7 +171075,10 @@
             "no arquear",
             "Hombros bajos"
           ],
-          "variantes": [],
+          "variantes": [
+            "Pullover con mancuerna",
+            "Pullover en polea"
+          ],
           "consignes": {
             "Positionnement": "Siéntese, con el pecho apoyado, las manijas agarradas y los hombros bajos.",
             "Mouvement": "Baje los brazos contrayendo el dorsal ancho.",
@@ -171097,7 +171119,10 @@
             "Machen Sie keinen Bogen",
             "Niedrige Schultern"
           ],
-          "variantes": [],
+          "variantes": [
+            "Kurzhantel-Pullover",
+            "Kabel-Pullover"
+          ],
           "consignes": {
             "Positionnement": "Sitzen Sie mit abgestützter Brust, greifen Sie die Griffe und senken Sie die Schultern.",
             "Mouvement": "Bringen Sie Ihre Arme nach unten, indem Sie Ihren Latissimus dorsi anspannen.",
@@ -171138,7 +171163,10 @@
             "Не выгибайтесь",
             "Низкие плечи"
           ],
-          "variantes": [],
+          "variantes": [
+            "Пуловер с гантелью",
+            "Пуловер на блоке"
+          ],
           "consignes": {
             "Positionnement": "Сядьте, выпрямив грудь, возьмитесь за ручки, опустите плечи.",
             "Mouvement": "Опустите руки, напрягая широчайшие мышцы спины.",
@@ -171179,7 +171207,10 @@
             "لا تتقوس",
             "أكتاف منخفضة"
           ],
-          "variantes": [],
+          "variantes": [
+            "بول أوفر بالدمبل",
+            "بول أوفر بالكابل"
+          ],
           "consignes": {
             "Positionnement": "اجلس، وصدرك مدعم، ومقابضك ممسكة، وأكتافك منخفضة.",
             "Mouvement": "أنزل ذراعيك إلى الأسفل عن طريق قبض عضلة الظهر العريضة.",
@@ -194174,6 +194205,992 @@
         "jointTags": [
           "shoulder",
           "elbow",
+          "neck"
+        ],
+        "injuryCautions": [],
+        "difficultyTag": "all",
+        "programRoles": [
+          "main_session",
+          "main_lift"
+        ]
+      }
+    },
+    {
+      "id": "T400",
+      "nom": "Pullover haltère",
+      "categorie_utilisation": [
+        "training"
+      ],
+      "groupe_musculaire": "Dos",
+      "objectifs": [
+        "Prise de masse",
+        "Endurance",
+        "Force",
+        "Postural",
+        "Remise au sport"
+      ],
+      "muscles_secondaires": [
+        "Pectoraux",
+        "Triceps"
+      ],
+      "articulations_solicitees": [
+        "Épaules"
+      ],
+      "tendons_solicites": [
+        "Tendons du grand dorsal"
+      ],
+      "type": "Exercice d'isolation",
+      "niveau": "Tous niveaux",
+      "materiel": [
+        "Haltères",
+        "Banc"
+      ],
+      "position": [
+        "Allongé"
+      ],
+      "contraintes": [
+        "Coudes légèrement fléchis et fixes",
+        "Amplitude confortable",
+        "Mouvement contrôlé"
+      ],
+      "consignes": {
+        "Positionnement": "Allongé sur le banc, pieds au sol, tenir un haltère à deux mains au-dessus de la poitrine.",
+        "Mouvement": "Descendre les bras derrière la tête avec les coudes légèrement fléchis, dans une amplitude confortable.",
+        "Retour": "Ramener l’haltère au-dessus de la poitrine sans modifier la flexion des coudes.",
+        "Respiration": "Inspirer à la descente, expirer en ramenant l’haltère.",
+        "Posture": "Garder les abdominaux engagés, les côtes basses et le dos sans cambrure excessive."
+      },
+      "parametres_objectif": {
+        "prise_de_masse": {
+          "series": [
+            3,
+            5
+          ],
+          "repetitions": [
+            10,
+            15
+          ],
+          "temps_effort": [
+            30,
+            45
+          ],
+          "temps_par_repetition": 3,
+          "repos": [
+            60,
+            90
+          ]
+        },
+        "endurance": {
+          "series": [
+            3,
+            5
+          ],
+          "repetitions": [
+            15,
+            20
+          ],
+          "temps_effort": [
+            45,
+            60
+          ],
+          "temps_par_repetition": 2,
+          "repos": [
+            30,
+            60
+          ]
+        },
+        "force": {
+          "series": [
+            4,
+            5
+          ],
+          "repetitions": [
+            8,
+            12
+          ],
+          "temps_effort": [
+            25,
+            35
+          ],
+          "temps_par_repetition": 3,
+          "repos": [
+            90,
+            120
+          ]
+        },
+        "postural": {
+          "series": [
+            2,
+            3
+          ],
+          "repetitions": [
+            12,
+            15
+          ],
+          "temps_effort": [
+            30,
+            40
+          ],
+          "temps_par_repetition": 2,
+          "repos": [
+            45,
+            60
+          ]
+        },
+        "remise_au_sport": {
+          "series": [
+            2,
+            3
+          ],
+          "repetitions": [
+            10,
+            12
+          ],
+          "temps_effort": [
+            30,
+            40
+          ],
+          "temps_par_repetition": 2,
+          "repos": [
+            60,
+            90
+          ]
+        }
+      },
+      "mode_pro": true,
+      "image_homme": "",
+      "image_femme": "",
+      "translations": {
+        "en": {
+          "nom": "Dumbbell pullover",
+          "groupe_musculaire": "Back",
+          "objectifs": [
+            "Mass gain",
+            "Endurance",
+            "Strength",
+            "Postural",
+            "Return to sport"
+          ],
+          "muscles_secondaires": [
+            "Pectorals",
+            "Triceps"
+          ],
+          "articulations_solicitees": [
+            "Shoulders"
+          ],
+          "tendons_solicites": [
+            "Latissimus dorsi tendons"
+          ],
+          "type": "Isolation exercise",
+          "niveau": "All levels",
+          "materiel": [
+            "Dumbbells",
+            "Bench"
+          ],
+          "position": [
+            "Lying"
+          ],
+          "contraintes": [
+            "Keep the core engaged and ribs down; avoid excessive back arching."
+          ],
+          "variantes": [
+            "Pullover by machine",
+            "Cable pullover"
+          ],
+          "consignes": {
+            "Positionnement": "Lie on a bench with feet on the floor, holding one dumbbell in both hands above the chest.",
+            "Mouvement": "Lower the arms behind the head with elbows slightly bent, within a comfortable range.",
+            "Retour": "Bring the dumbbell back above the chest without changing the elbow bend.",
+            "Respiration": "Inhale while lowering, exhale while bringing the dumbbell back.",
+            "Posture": "Keep the core engaged and ribs down; avoid excessive back arching."
+          }
+        },
+        "it": {
+          "nom": "Pullover con manubrio",
+          "groupe_musculaire": "Dorso",
+          "objectifs": [
+            "Guadagno di massa",
+            "Resistenza",
+            "Forza",
+            "Posturale",
+            "Ritorno allo sport"
+          ],
+          "muscles_secondaires": [
+            "Pettorali",
+            "Tricipiti"
+          ],
+          "articulations_solicitees": [
+            "Spalle"
+          ],
+          "tendons_solicites": [
+            "Tendini del gran dorsale"
+          ],
+          "type": "Esercizio di isolamento",
+          "niveau": "Tutti i livelli",
+          "materiel": [
+            "Manubri",
+            "Panca"
+          ],
+          "position": [
+            "Sdraiato"
+          ],
+          "contraintes": [
+            "Mantieni addominali attivi e costole basse, senza inarcare eccessivamente la schiena."
+          ],
+          "variantes": [
+            "Pullover a macchina",
+            "Pullover al cavo"
+          ],
+          "consignes": {
+            "Positionnement": "Sdraiati sulla panca, piedi a terra, con un manubrio tenuto con entrambe le mani sopra il petto.",
+            "Mouvement": "Abbassa le braccia dietro la testa, gomiti leggermente piegati, entro un movimento confortevole.",
+            "Retour": "Riporta il manubrio sopra il petto senza modificare la flessione dei gomiti.",
+            "Respiration": "Inspira scendendo, espira riportando il manubrio.",
+            "Posture": "Mantieni addominali attivi e costole basse, senza inarcare eccessivamente la schiena."
+          }
+        },
+        "es": {
+          "nom": "Pullover con mancuerna",
+          "groupe_musculaire": "Espalda",
+          "objectifs": [
+            "ganancia de masa",
+            "Resistencia",
+            "fuerza",
+            "posturales",
+            "volver al deporte"
+          ],
+          "muscles_secondaires": [
+            "Pectorales",
+            "tríceps"
+          ],
+          "articulations_solicitees": [
+            "Hombros"
+          ],
+          "tendons_solicites": [
+            "Tendones del dorsal ancho"
+          ],
+          "type": "ejercicio de aislamiento",
+          "niveau": "Todos los niveles",
+          "materiel": [
+            "Mancuernas",
+            "Banco"
+          ],
+          "position": [
+            "Tumbado"
+          ],
+          "contraintes": [
+            "Mantén el abdomen activo y las costillas bajas, sin arquear excesivamente la espalda."
+          ],
+          "variantes": [
+            "Jersey a máquina",
+            "Pullover en polea"
+          ],
+          "consignes": {
+            "Positionnement": "Túmbate en el banco, pies en el suelo, sujetando una mancuerna con ambas manos sobre el pecho.",
+            "Mouvement": "Baja los brazos detrás de la cabeza con los codos ligeramente flexionados, dentro de un recorrido cómodo.",
+            "Retour": "Devuelve la mancuerna sobre el pecho sin cambiar la flexión de los codos.",
+            "Respiration": "Inspira al bajar y espira al volver.",
+            "Posture": "Mantén el abdomen activo y las costillas bajas, sin arquear excesivamente la espalda."
+          }
+        },
+        "de": {
+          "nom": "Kurzhantel-Pullover",
+          "groupe_musculaire": "Rücken",
+          "objectifs": [
+            "Massengewinn",
+            "Ausdauer",
+            "Stärke",
+            "Haltung",
+            "Zurück zum Sport"
+          ],
+          "muscles_secondaires": [
+            "Brustmuskeln",
+            "Trizeps"
+          ],
+          "articulations_solicitees": [
+            "Schultern"
+          ],
+          "tendons_solicites": [
+            "Latissimus dorsi-Sehnen"
+          ],
+          "type": "Isolationsübung",
+          "niveau": "Alle Ebenen",
+          "materiel": [
+            "Kurzhanteln",
+            "Bank"
+          ],
+          "position": [
+            "Liegend"
+          ],
+          "contraintes": [
+            "Bauch anspannen, Rippen unten halten und ein starkes Hohlkreuz vermeiden."
+          ],
+          "variantes": [
+            "Pullover maschinell",
+            "Kabel-Pullover"
+          ],
+          "consignes": {
+            "Positionnement": "Auf der Bank liegen, Füße am Boden, eine Kurzhantel mit beiden Händen über der Brust halten.",
+            "Mouvement": "Die Arme mit leicht gebeugten Ellenbogen hinter den Kopf senken, nur so weit wie angenehm.",
+            "Retour": "Die Hantel über die Brust zurückführen, ohne den Ellenbogenwinkel zu verändern.",
+            "Respiration": "Beim Absenken einatmen, beim Zurückführen ausatmen.",
+            "Posture": "Bauch anspannen, Rippen unten halten und ein starkes Hohlkreuz vermeiden."
+          }
+        },
+        "ru": {
+          "nom": "Пуловер с гантелью",
+          "groupe_musculaire": "Спина",
+          "objectifs": [
+            "Прирост массы",
+            "Выносливость",
+            "Сила",
+            "Постуральный",
+            "Вернуться в спорт"
+          ],
+          "muscles_secondaires": [
+            "Пекторали",
+            "Трицепс"
+          ],
+          "articulations_solicitees": [
+            "Плечи"
+          ],
+          "tendons_solicites": [
+            "Сухожилия широчайшей мышцы спины"
+          ],
+          "type": "Изолирующее упражнение",
+          "niveau": "Все уровни",
+          "materiel": [
+            "Гантели",
+            "Скамья"
+          ],
+          "position": [
+            "Лёжа"
+          ],
+          "contraintes": [
+            "Напрягайте пресс, не поднимайте рёбра и избегайте чрезмерного прогиба спины."
+          ],
+          "variantes": [
+            "Пуловер на машине",
+            "Пуловер на блоке"
+          ],
+          "consignes": {
+            "Positionnement": "Лягте на скамью, стопы на полу, держите одну гантель двумя руками над грудью.",
+            "Mouvement": "Опускайте руки за голову, слегка согнув локти, в комфортной амплитуде.",
+            "Retour": "Верните гантель над грудью, не меняя угол сгиба локтей.",
+            "Respiration": "Вдох при опускании, выдох при возвращении гантели.",
+            "Posture": "Напрягайте пресс, не поднимайте рёбра и избегайте чрезмерного прогиба спины."
+          }
+        },
+        "ar": {
+          "nom": "بول أوفر بالدمبل",
+          "groupe_musculaire": "الظهر",
+          "objectifs": [
+            "مكاسب جماعية",
+            "التحمل",
+            "القوة",
+            "وضعي",
+            "العودة إلى الرياضة"
+          ],
+          "muscles_secondaires": [
+            "صدريات",
+            "ثلاثية الرؤوس"
+          ],
+          "articulations_solicitees": [
+            "أكتاف"
+          ],
+          "tendons_solicites": [
+            "الأوتار العريضة الظهرية"
+          ],
+          "type": "تمرين العزلة",
+          "niveau": "جميع المستويات",
+          "materiel": [
+            "دمبل",
+            "مقعد"
+          ],
+          "position": [
+            "استلقاء"
+          ],
+          "contraintes": [
+            "شد عضلات البطن وأبقِ الأضلاع منخفضة دون تقويس الظهر بشكل مفرط."
+          ],
+          "variantes": [
+            "السترة بواسطة الآلة",
+            "بول أوفر بالكابل"
+          ],
+          "consignes": {
+            "Positionnement": "استلقِ على المقعد والقدمان على الأرض، وأمسك دمبلًا واحدًا بكلتا اليدين فوق الصدر.",
+            "Mouvement": "اخفض الذراعين خلف الرأس مع ثني المرفقين قليلًا، ضمن مدى مريح.",
+            "Retour": "أعد الدمبل فوق الصدر دون تغيير ثني المرفقين.",
+            "Respiration": "خذ شهيقًا عند الخفض وزفيرًا عند إعادة الدمبل.",
+            "Posture": "شد عضلات البطن وأبقِ الأضلاع منخفضة دون تقويس الظهر بشكل مفرط."
+          }
+        }
+      },
+      "variantes": [
+        {
+          "nom": "Pullover à la machine",
+          "id": "T348",
+          "docId": "Pullover_à_la_machine",
+          "collection": "training"
+        },
+        {
+          "nom": "Pullover poulie",
+          "id": "T401",
+          "docId": "Pullover_poulie",
+          "collection": "training"
+        }
+      ],
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body",
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "back"
+        ],
+        "secondaryMuscleTags": [
+          "chest",
+          "shoulders",
+          "triceps",
+          "neck"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "strength",
+          "hypertrophy",
+          "endurance",
+          "return_to_training",
+          "posture"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "primary",
+        "resistanceProfile": [
+          "free_weight",
+          "dumbbell"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "local_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "foundation"
+        ],
+        "equipmentTags": [
+          "dumbbells",
+          "bench"
+        ],
+        "equipmentTier": "free_weights",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "shoulder",
+          "elbow",
+          "wrist",
+          "spine",
+          "neck"
+        ],
+        "injuryCautions": [],
+        "difficultyTag": "all",
+        "programRoles": [
+          "main_session",
+          "main_lift"
+        ]
+      }
+    },
+    {
+      "id": "T401",
+      "nom": "Pullover poulie",
+      "categorie_utilisation": [
+        "training"
+      ],
+      "groupe_musculaire": "Dos",
+      "objectifs": [
+        "Prise de masse",
+        "Endurance",
+        "Force",
+        "Postural",
+        "Remise au sport"
+      ],
+      "muscles_secondaires": [
+        "Pectoraux",
+        "Triceps"
+      ],
+      "articulations_solicitees": [
+        "Épaules"
+      ],
+      "tendons_solicites": [
+        "Tendons du grand dorsal"
+      ],
+      "type": "Exercice d'isolation",
+      "niveau": "Tous niveaux",
+      "materiel": [
+        "Poulie"
+      ],
+      "position": [
+        "Debout"
+      ],
+      "contraintes": [
+        "Coudes légèrement fléchis et fixes",
+        "Amplitude confortable",
+        "Mouvement contrôlé"
+      ],
+      "consignes": {
+        "Positionnement": "Debout face à une poulie haute, saisir la barre, reculer légèrement et incliner le buste, genoux souples.",
+        "Mouvement": "Ramener la barre vers les cuisses avec les coudes légèrement fléchis et fixes.",
+        "Retour": "Laisser remonter les bras lentement, sans perdre le contrôle de la charge.",
+        "Respiration": "Expirer en abaissant la barre, inspirer au retour.",
+        "Posture": "Garder le buste stable, les épaules basses et éviter de prendre de l’élan."
+      },
+      "parametres_objectif": {
+        "prise_de_masse": {
+          "series": [
+            3,
+            5
+          ],
+          "repetitions": [
+            10,
+            15
+          ],
+          "temps_effort": [
+            30,
+            45
+          ],
+          "temps_par_repetition": 3,
+          "repos": [
+            60,
+            90
+          ]
+        },
+        "endurance": {
+          "series": [
+            3,
+            5
+          ],
+          "repetitions": [
+            15,
+            20
+          ],
+          "temps_effort": [
+            45,
+            60
+          ],
+          "temps_par_repetition": 2,
+          "repos": [
+            30,
+            60
+          ]
+        },
+        "force": {
+          "series": [
+            4,
+            5
+          ],
+          "repetitions": [
+            8,
+            12
+          ],
+          "temps_effort": [
+            25,
+            35
+          ],
+          "temps_par_repetition": 3,
+          "repos": [
+            90,
+            120
+          ]
+        },
+        "postural": {
+          "series": [
+            2,
+            3
+          ],
+          "repetitions": [
+            12,
+            15
+          ],
+          "temps_effort": [
+            30,
+            40
+          ],
+          "temps_par_repetition": 2,
+          "repos": [
+            45,
+            60
+          ]
+        },
+        "remise_au_sport": {
+          "series": [
+            2,
+            3
+          ],
+          "repetitions": [
+            10,
+            12
+          ],
+          "temps_effort": [
+            30,
+            40
+          ],
+          "temps_par_repetition": 2,
+          "repos": [
+            60,
+            90
+          ]
+        }
+      },
+      "mode_pro": true,
+      "image_homme": "",
+      "image_femme": "",
+      "translations": {
+        "en": {
+          "nom": "Cable pullover",
+          "groupe_musculaire": "Back",
+          "objectifs": [
+            "Mass gain",
+            "Endurance",
+            "Strength",
+            "Postural",
+            "Return to sport"
+          ],
+          "muscles_secondaires": [
+            "Pectorals",
+            "Triceps"
+          ],
+          "articulations_solicitees": [
+            "Shoulders"
+          ],
+          "tendons_solicites": [
+            "Latissimus dorsi tendons"
+          ],
+          "type": "Isolation exercise",
+          "niveau": "All levels",
+          "materiel": [
+            "Cable machine"
+          ],
+          "position": [
+            "Standing"
+          ],
+          "contraintes": [
+            "Keep the torso stable and shoulders down; avoid swinging."
+          ],
+          "variantes": [
+            "Pullover by machine",
+            "Dumbbell pullover"
+          ],
+          "consignes": {
+            "Positionnement": "Stand facing a high pulley, hold the bar, step back and lean forward slightly with soft knees.",
+            "Mouvement": "Pull the bar towards the thighs, keeping elbows slightly bent and fixed.",
+            "Retour": "Let the arms rise slowly while controlling the weight.",
+            "Respiration": "Exhale while lowering the bar, inhale on the return.",
+            "Posture": "Keep the torso stable and shoulders down; avoid swinging."
+          }
+        },
+        "it": {
+          "nom": "Pullover al cavo",
+          "groupe_musculaire": "Dorso",
+          "objectifs": [
+            "Guadagno di massa",
+            "Resistenza",
+            "Forza",
+            "Posturale",
+            "Ritorno allo sport"
+          ],
+          "muscles_secondaires": [
+            "Pettorali",
+            "Tricipiti"
+          ],
+          "articulations_solicitees": [
+            "Spalle"
+          ],
+          "tendons_solicites": [
+            "Tendini del gran dorsale"
+          ],
+          "type": "Esercizio di isolamento",
+          "niveau": "Tutti i livelli",
+          "materiel": [
+            "Cavo"
+          ],
+          "position": [
+            "In piedi"
+          ],
+          "contraintes": [
+            "Mantieni busto stabile e spalle basse, senza slanci."
+          ],
+          "variantes": [
+            "Pullover a macchina",
+            "Pullover con manubrio"
+          ],
+          "consignes": {
+            "Positionnement": "In piedi davanti al cavo alto, afferra la barra, arretra e inclina leggermente il busto con ginocchia morbide.",
+            "Mouvement": "Porta la barra verso le cosce mantenendo i gomiti leggermente piegati e fermi.",
+            "Retour": "Lascia risalire lentamente le braccia controllando il carico.",
+            "Respiration": "Espira abbassando la barra, inspira al ritorno.",
+            "Posture": "Mantieni busto stabile e spalle basse, senza slanci."
+          }
+        },
+        "es": {
+          "nom": "Pullover en polea",
+          "groupe_musculaire": "Espalda",
+          "objectifs": [
+            "ganancia de masa",
+            "Resistencia",
+            "fuerza",
+            "posturales",
+            "volver al deporte"
+          ],
+          "muscles_secondaires": [
+            "Pectorales",
+            "tríceps"
+          ],
+          "articulations_solicitees": [
+            "Hombros"
+          ],
+          "tendons_solicites": [
+            "Tendones del dorsal ancho"
+          ],
+          "type": "ejercicio de aislamiento",
+          "niveau": "Todos los niveles",
+          "materiel": [
+            "Polea"
+          ],
+          "position": [
+            "De pie"
+          ],
+          "contraintes": [
+            "Mantén el torso estable y los hombros bajos, sin impulso."
+          ],
+          "variantes": [
+            "Jersey a máquina",
+            "Pullover con mancuerna"
+          ],
+          "consignes": {
+            "Positionnement": "De pie frente a una polea alta, sujeta la barra, retrocede e inclina ligeramente el torso con las rodillas relajadas.",
+            "Mouvement": "Lleva la barra hacia los muslos manteniendo los codos ligeramente flexionados y fijos.",
+            "Retour": "Deja subir los brazos lentamente controlando la carga.",
+            "Respiration": "Espira al bajar la barra e inspira al volver.",
+            "Posture": "Mantén el torso estable y los hombros bajos, sin impulso."
+          }
+        },
+        "de": {
+          "nom": "Kabel-Pullover",
+          "groupe_musculaire": "Rücken",
+          "objectifs": [
+            "Massengewinn",
+            "Ausdauer",
+            "Stärke",
+            "Haltung",
+            "Zurück zum Sport"
+          ],
+          "muscles_secondaires": [
+            "Brustmuskeln",
+            "Trizeps"
+          ],
+          "articulations_solicitees": [
+            "Schultern"
+          ],
+          "tendons_solicites": [
+            "Latissimus dorsi-Sehnen"
+          ],
+          "type": "Isolationsübung",
+          "niveau": "Alle Ebenen",
+          "materiel": [
+            "Kabelzug"
+          ],
+          "position": [
+            "Stehend"
+          ],
+          "contraintes": [
+            "Oberkörper stabil und Schultern tief halten, keinen Schwung nehmen."
+          ],
+          "variantes": [
+            "Pullover maschinell",
+            "Kurzhantel-Pullover"
+          ],
+          "consignes": {
+            "Positionnement": "Vor einem hohen Kabelzug stehen, die Stange greifen, zurücktreten und den Oberkörper bei lockeren Knien leicht vorbeugen.",
+            "Mouvement": "Die Stange mit leicht gebeugten, fixierten Ellenbogen zu den Oberschenkeln ziehen.",
+            "Retour": "Die Arme langsam und kontrolliert zurückführen.",
+            "Respiration": "Beim Herunterziehen ausatmen, beim Zurückführen einatmen.",
+            "Posture": "Oberkörper stabil und Schultern tief halten, keinen Schwung nehmen."
+          }
+        },
+        "ru": {
+          "nom": "Пуловер на блоке",
+          "groupe_musculaire": "Спина",
+          "objectifs": [
+            "Прирост массы",
+            "Выносливость",
+            "Сила",
+            "Постуральный",
+            "Вернуться в спорт"
+          ],
+          "muscles_secondaires": [
+            "Пекторали",
+            "Трицепс"
+          ],
+          "articulations_solicitees": [
+            "Плечи"
+          ],
+          "tendons_solicites": [
+            "Сухожилия широчайшей мышцы спины"
+          ],
+          "type": "Изолирующее упражнение",
+          "niveau": "Все уровни",
+          "materiel": [
+            "Блочный тренажёр"
+          ],
+          "position": [
+            "Стоя"
+          ],
+          "contraintes": [
+            "Держите корпус неподвижно, плечи опущенными, без раскачивания."
+          ],
+          "variantes": [
+            "Пуловер на машине",
+            "Пуловер с гантелью"
+          ],
+          "consignes": {
+            "Positionnement": "Встаньте лицом к верхнему блоку, возьмите рукоять, отступите и слегка наклоните корпус, смягчив колени.",
+            "Mouvement": "Тяните рукоять к бёдрам, сохраняя небольшой постоянный сгиб в локтях.",
+            "Retour": "Медленно поднимайте руки, контролируя вес.",
+            "Respiration": "Выдох при опускании рукояти, вдох при возврате.",
+            "Posture": "Держите корпус неподвижно, плечи опущенными, без раскачивания."
+          }
+        },
+        "ar": {
+          "nom": "بول أوفر بالكابل",
+          "groupe_musculaire": "الظهر",
+          "objectifs": [
+            "مكاسب جماعية",
+            "التحمل",
+            "القوة",
+            "وضعي",
+            "العودة إلى الرياضة"
+          ],
+          "muscles_secondaires": [
+            "صدريات",
+            "ثلاثية الرؤوس"
+          ],
+          "articulations_solicitees": [
+            "أكتاف"
+          ],
+          "tendons_solicites": [
+            "الأوتار العريضة الظهرية"
+          ],
+          "type": "تمرين العزلة",
+          "niveau": "جميع المستويات",
+          "materiel": [
+            "جهاز الكابل"
+          ],
+          "position": [
+            "وقوف"
+          ],
+          "contraintes": [
+            "أبقِ الجذع ثابتًا والكتفين منخفضين وتجنب التأرجح."
+          ],
+          "variantes": [
+            "السترة بواسطة الآلة",
+            "بول أوفر بالدمبل"
+          ],
+          "consignes": {
+            "Positionnement": "قف أمام بكرة علوية، وأمسك البار وتراجع قليلًا مع إمالة الجذع وثني الركبتين قليلًا.",
+            "Mouvement": "اسحب البار نحو الفخذين مع إبقاء المرفقين ثابتين ومثنيين قليلًا.",
+            "Retour": "دع الذراعين ترتفعان ببطء مع التحكم بالوزن.",
+            "Respiration": "أخرج الزفير عند خفض البار وخذ شهيقًا عند العودة.",
+            "Posture": "أبقِ الجذع ثابتًا والكتفين منخفضين وتجنب التأرجح."
+          }
+        }
+      },
+      "variantes": [
+        {
+          "nom": "Pullover à la machine",
+          "id": "T348",
+          "docId": "Pullover_à_la_machine",
+          "collection": "training"
+        },
+        {
+          "nom": "Pullover haltère",
+          "id": "T400",
+          "docId": "Pullover_haltère",
+          "collection": "training"
+        }
+      ],
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body",
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "back"
+        ],
+        "secondaryMuscleTags": [
+          "chest",
+          "shoulders",
+          "triceps",
+          "neck"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "strength",
+          "hypertrophy",
+          "endurance",
+          "return_to_training",
+          "posture"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "primary",
+        "resistanceProfile": [
+          "guided_machine",
+          "cable"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "external_guided_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "foundation"
+        ],
+        "equipmentTags": [
+          "cable"
+        ],
+        "equipmentTier": "gym_machine",
+        "contexts": [
+          "gym"
+        ],
+        "jointTags": [
+          "shoulder",
+          "elbow",
+          "spine",
           "neck"
         ],
         "injuryCautions": [],

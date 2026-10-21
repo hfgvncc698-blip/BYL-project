@@ -15832,8 +15832,8 @@
       "Niedrige Schultern"
     ],
     "variantes": [
-      "Hantelpullover",
-      "Pulley-Pullover"
+      "Kurzhantel-Pullover",
+      "Kabel-Pullover"
     ],
     "consignes": {
       "Positionnement": "Sitzen Sie mit abgestützter Brust, greifen Sie die Griffe und senken Sie die Schultern.",
@@ -17832,6 +17832,93 @@
       "Retour": "Komm langsam zurück.",
       "Respiration": "Beim Zurückkehren einatmen, beim Stoßen ausatmen.",
       "Posture": "Schultern tief, Brust offen."
+    }
+  },
+  "T400": {
+    "nom": "Kurzhantel-Pullover",
+    "groupe_musculaire": "Rücken",
+    "objectifs": [
+      "Massengewinn",
+      "Ausdauer",
+      "Stärke",
+      "Haltung",
+      "Zurück zum Sport"
+    ],
+    "muscles_secondaires": [
+      "Brustmuskeln",
+      "Trizeps"
+    ],
+    "articulations_solicitees": [
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Latissimus dorsi-Sehnen"
+    ],
+    "type": "Isolationsübung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Kurzhanteln",
+      "Bank"
+    ],
+    "position": [
+      "Liegend"
+    ],
+    "contraintes": [
+      "Bauch anspannen, Rippen unten halten und ein starkes Hohlkreuz vermeiden."
+    ],
+    "variantes": [
+      "Pullover maschinell",
+      "Kabel-Pullover"
+    ],
+    "consignes": {
+      "Positionnement": "Auf der Bank liegen, Füße am Boden, eine Kurzhantel mit beiden Händen über der Brust halten.",
+      "Mouvement": "Die Arme mit leicht gebeugten Ellenbogen hinter den Kopf senken, nur so weit wie angenehm.",
+      "Retour": "Die Hantel über die Brust zurückführen, ohne den Ellenbogenwinkel zu verändern.",
+      "Respiration": "Beim Absenken einatmen, beim Zurückführen ausatmen.",
+      "Posture": "Bauch anspannen, Rippen unten halten und ein starkes Hohlkreuz vermeiden."
+    }
+  },
+  "T401": {
+    "nom": "Kabel-Pullover",
+    "groupe_musculaire": "Rücken",
+    "objectifs": [
+      "Massengewinn",
+      "Ausdauer",
+      "Stärke",
+      "Haltung",
+      "Zurück zum Sport"
+    ],
+    "muscles_secondaires": [
+      "Brustmuskeln",
+      "Trizeps"
+    ],
+    "articulations_solicitees": [
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Latissimus dorsi-Sehnen"
+    ],
+    "type": "Isolationsübung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Kabelzug"
+    ],
+    "position": [
+      "Stehend"
+    ],
+    "contraintes": [
+      "Oberkörper stabil und Schultern tief halten, keinen Schwung nehmen."
+    ],
+    "variantes": [
+      "Pullover maschinell",
+      "Kurzhantel-Pullover"
+    ],
+    "consignes": {
+      "Positionnement": "Vor einem hohen Kabelzug stehen, die Stange greifen, zurücktreten und den Oberkörper bei lockeren Knien leicht vorbeugen.",
+      "Mouvement": "Die Stange mit leicht gebeugten, fixierten Ellenbogen zu den Oberschenkeln ziehen.",
+      "Retour": "Die Arme langsam und kontrolliert zurückführen.",
+      "Respiration": "Beim Herunterziehen ausatmen, beim Zurückführen einatmen.",
+      "Posture": "Oberkörper stabil und Schultern tief halten, keinen Schwung nehmen."
     }
   }
 }

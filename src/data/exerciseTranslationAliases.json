@@ -422,7 +422,9 @@
     "clean press kettlebell": "T393",
     "developpe couche halteres prise neutre": "T395",
     "developpe incline halteres prise neutre": "T397",
-    "developpe decline machine": "T398"
+    "developpe decline machine": "T398",
+    "pullover haltere": "T400",
+    "pullover poulie": "T401"
   },
   "cooldown": {
     "posture de l enfant child s pose": "C001",

@@ -507,7 +507,8 @@
       "program_required_description": "Select a program assigned to this client.",
       "no_plannable_program_description": "This client does not have a program with schedulable sessions yet.",
       "session_required_title": "Session required",
-      "session_required_description": "Select a valid session for this program."
+      "session_required_description": "Select a valid session for this program.",
+      "server_unavailable": "The server is temporarily unavailable. Your information is kept in this form. Try again shortly."
     },
     "club_goals": {
       "title": "Club goals",

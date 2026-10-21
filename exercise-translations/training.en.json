@@ -15832,8 +15832,8 @@
       "Low shoulders"
     ],
     "variantes": [
-      "Dumbbell jumper",
-      "Pulley pullover"
+      "Dumbbell pullover",
+      "Cable pullover"
     ],
     "consignes": {
       "Positionnement": "Sit, chest braced, handles grasped, shoulders low.",
@@ -17832,6 +17832,93 @@
       "Retour": "Come back slowly.",
       "Respiration": "Inhale on the return, exhale on the push.",
       "Posture": "Shoulders low, chest open."
+    }
+  },
+  "T400": {
+    "nom": "Dumbbell pullover",
+    "groupe_musculaire": "Back",
+    "objectifs": [
+      "Mass gain",
+      "Endurance",
+      "Strength",
+      "Postural",
+      "Return to sport"
+    ],
+    "muscles_secondaires": [
+      "Pectorals",
+      "Triceps"
+    ],
+    "articulations_solicitees": [
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Latissimus dorsi tendons"
+    ],
+    "type": "Isolation exercise",
+    "niveau": "All levels",
+    "materiel": [
+      "Dumbbells",
+      "Bench"
+    ],
+    "position": [
+      "Lying"
+    ],
+    "contraintes": [
+      "Keep the core engaged and ribs down; avoid excessive back arching."
+    ],
+    "variantes": [
+      "Pullover by machine",
+      "Cable pullover"
+    ],
+    "consignes": {
+      "Positionnement": "Lie on a bench with feet on the floor, holding one dumbbell in both hands above the chest.",
+      "Mouvement": "Lower the arms behind the head with elbows slightly bent, within a comfortable range.",
+      "Retour": "Bring the dumbbell back above the chest without changing the elbow bend.",
+      "Respiration": "Inhale while lowering, exhale while bringing the dumbbell back.",
+      "Posture": "Keep the core engaged and ribs down; avoid excessive back arching."
+    }
+  },
+  "T401": {
+    "nom": "Cable pullover",
+    "groupe_musculaire": "Back",
+    "objectifs": [
+      "Mass gain",
+      "Endurance",
+      "Strength",
+      "Postural",
+      "Return to sport"
+    ],
+    "muscles_secondaires": [
+      "Pectorals",
+      "Triceps"
+    ],
+    "articulations_solicitees": [
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Latissimus dorsi tendons"
+    ],
+    "type": "Isolation exercise",
+    "niveau": "All levels",
+    "materiel": [
+      "Cable machine"
+    ],
+    "position": [
+      "Standing"
+    ],
+    "contraintes": [
+      "Keep the torso stable and shoulders down; avoid swinging."
+    ],
+    "variantes": [
+      "Pullover by machine",
+      "Dumbbell pullover"
+    ],
+    "consignes": {
+      "Positionnement": "Stand facing a high pulley, hold the bar, step back and lean forward slightly with soft knees.",
+      "Mouvement": "Pull the bar towards the thighs, keeping elbows slightly bent and fixed.",
+      "Retour": "Let the arms rise slowly while controlling the weight.",
+      "Respiration": "Exhale while lowering the bar, inhale on the return.",
+      "Posture": "Keep the torso stable and shoulders down; avoid swinging."
     }
   }
 }
