@@ -361,13 +361,13 @@ export default function ProgramsPage() {
 
       if (isAutoProgramme(baseProg)) {
         navigate(withAdminCoach(`/auto-program-preview/${baseProg.id}`), {
-          state: { prefetchedProgram: baseProg, programmeName: fallbackName, from: "programsPage" },
+          state: { prefetchedProgram: baseProg.__summaryOnly ? undefined : baseProg, programmeName: fallbackName, from: "programsPage" },
         });
         return;
       }
 
       navigate(withAdminCoach(`/programmes/${baseProg.id}`), {
-        state: { prefetchedProgram: baseProg, programmeName: fallbackName, from: "programsPage" },
+        state: { prefetchedProgram: baseProg.__summaryOnly ? undefined : baseProg, programmeName: fallbackName, from: "programsPage" },
       });
     },
     [navigate, prettyProgramName, withAdminCoach]
@@ -419,20 +419,20 @@ export default function ProgramsPage() {
       }
 
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
-      const [pSnap, clientSnaps] = await Promise.all([
-        readDashboardTemplates(effectiveCoachUid, {
-          request: apiFetch,
-          fallback: () => getDocs(progQ),
-          cachedPrograms: force || forceFresh ? [] : cached?.programmes || [],
-        }),
-        clientSnapsPromise,
-      ]);
+      const pSnap = await readDashboardTemplates(effectiveCoachUid, {
+        request: apiFetch,
+          summaries: true,
+        fallback: () => getDocs(progQ),
+        cachedPrograms: force || forceFresh ? [] : cached?.programmes || [],
+      });
       if (!load.current()) return;
       const progs = pSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
       progs.sort((a, b) => getMillis(b) - getMillis(a));
-      // Fresh templates should not wait for every client's assignment history.
+      // Display templates before the independent client queries and histories.
       setProgrammes(progs);
       setLoading(false);
+      const clientSnaps = await clientSnapsPromise;
+      if (!load.current()) return;
       const clientsById = new Map();
       clientSnaps.forEach((snap) => {
         snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));

@@ -1,11 +1,11 @@
 // Retain the existing Firestore-shaped consumer and lossless document contents.
 // A rolling deployment with an older API can still use the direct SDK path.
-export async function readDashboardTemplates(coachId, { request, fallback, cachedPrograms = [] }) {
+export async function readDashboardTemplates(coachId, { request, fallback, cachedPrograms = [], summaries = false }) {
   try {
     const known = new Map(cachedPrograms.filter(program => program.__dashboardReadVersion && program.createdBy === coachId).map(program => [program.id, program]));
     const response = await request('/programs/dashboard-templates', {
-      method: 'POST', timeoutMs: 10000,
-      body: JSON.stringify({ coachId, knownVersions: Object.fromEntries([...known].map(([id, program]) => [id, program.__dashboardReadVersion])) }),
+      method: 'POST', timeoutMs: 20000,
+      body: JSON.stringify({ coachId, summaries, knownVersions: Object.fromEntries([...known].map(([id, program]) => [id, program.__dashboardReadVersion])) }),
     });
     if (!Array.isArray(response.programs) || !Array.isArray(response.unchanged)) throw new Error("Invalid program response");
     const retained = response.unchanged.map(id => {

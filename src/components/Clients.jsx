@@ -346,7 +346,7 @@ const LANGS = [
  * - nb programmes
  * - ✅ _lastInteractionMs (même logique CoachDashboard)
  */
-async function buildClientComputedStats(client, readPool) {
+async function buildClientComputedStats(client, readPool, onProgramCount) {
   const clientId = client.id;
 
   const since7 = new Date();
@@ -354,6 +354,7 @@ async function buildClientComputedStats(client, readPool) {
 
   const progSnap = await readPool.run(() => getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES)));
   const nbProg = progSnap.size;
+  onProgramCount?.(nbProg);
 
   let totalSessions = 0;
   let completedSessions = 0;
@@ -365,7 +366,7 @@ async function buildClientComputedStats(client, readPool) {
     const totalProgSessions = getProgramPlannedSessionTotal(progData);
 
     const sessEffCol = collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE);
-    const sessEffSnap = await readPool.run(() => getDocs(sessEffCol));
+    const sessEffSnap = await readPool.run(() => getDocs(sessEffCol), { priority: 1 });
 
     const sessionsEffectuees = [];
     let programmeSessions7j = 0;
@@ -828,7 +829,9 @@ const Clients = () => {
                 programmeCount: getCachedSportProgramCount(c),
                 _lastInteractionMs: getCachedClientActivityMs(c),
               }
-            : await buildClientComputedStats(c, readPool);
+            : await buildClientComputedStats(c, readPool, (count) => {
+                if (load.current()) setProgrammeCountMap(previous => ({ ...previous, [c.id]: count }));
+              });
           const latestNutritionMs = await nutritionPromise;
 
           progressEntries[c.id] = computed.progress;

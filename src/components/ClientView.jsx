@@ -807,6 +807,16 @@ function GlobalClientView({ onBack } = {}) {
     const requestedClientId = clientId;
     const programmesRef = collection(db, "clients", requestedClientId, SUBCOL_PROGRAMMES);
     setProgrammeDetailsReady(false);
+    let visibleProgrammes = [];
+    const publishProgrammes = (rows) => {
+      if (loadSeq !== programmesLoadSeqRef.current) return;
+      visibleProgrammes = rows;
+      setProgrammes(rows);
+      clientViewMemoryCache.set(requestedClientId, {
+        ...(clientViewMemoryCache.get(requestedClientId) || {}),
+        programmes: rows,
+      });
+    };
 
     const paintQuickProgrammes = (progSnap) => {
       const cachedRows = normalizePrefetchedProgrammes(
@@ -833,12 +843,7 @@ function GlobalClientView({ onBack } = {}) {
         };
       });
 
-      if (loadSeq !== programmesLoadSeqRef.current) return;
-      setProgrammes(quickProgrammes);
-      clientViewMemoryCache.set(requestedClientId, {
-        ...(clientViewMemoryCache.get(requestedClientId) || {}),
-        programmes: quickProgrammes,
-      });
+      publishProgrammes(quickProgrammes);
     };
 
     // Firestore peut mettre plusieurs secondes à établir sa première connexion.
@@ -927,7 +932,7 @@ function GlobalClientView({ onBack } = {}) {
           // silencieux
         }
 
-        return {
+        const enrichedProgramme = {
           id: d.id,
           ...data,
           nomProgramme: resolvedName,
@@ -938,6 +943,10 @@ function GlobalClientView({ onBack } = {}) {
           __lastRatingDate: lastRatingDate,
           __detailsLoaded: true,
         };
+        publishProgrammes(visibleProgrammes.map(programme =>
+          programme.id === d.id ? enrichedProgramme : programme
+        ));
+        return enrichedProgramme;
       })
     );
 

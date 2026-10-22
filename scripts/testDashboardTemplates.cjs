@@ -20,7 +20,7 @@ admin.firestore = () => ({ getAll: async (...refs) => { fullReads += refs.length
     return { limit(value) { assert.equal(value, 200); return { select(...fields) { assert.equal(fields.length, 0); return { get: async () => ({ docs: [document] }) }; } }; } };
   } };
 } });
-async function invoke(profile, { target = 'coach-A', uid = 'coach-A', verified = true, gzip = true, knownVersions = {} } = {}) {
+async function invoke(profile, { target = 'coach-A', uid = 'coach-A', verified = true, gzip = true, knownVersions = {}, summaries = false } = {}) {
   requester = profile; queriedOwner = null;
   const result = { statusCode: 200, headers: {} };
   const res = {
@@ -30,7 +30,7 @@ async function invoke(profile, { target = 'coach-A', uid = 'coach-A', verified =
     vary(value) { result.vary = value; return this; }, type() { return this; },
     send(body) { result.body = body; return this; },
   };
-  await handler({ auth: { uid, token: { email_verified: verified } }, body: { coachId: target, knownVersions }, acceptsEncodings: () => gzip }, res);
+  await handler({ auth: { uid, token: { email_verified: verified } }, body: { coachId: target, knownVersions, summaries }, acceptsEncodings: () => gzip }, res);
   return result;
 }
 (async () => {
@@ -46,6 +46,16 @@ async function invoke(profile, { target = 'coach-A', uid = 'coach-A', verified =
     assert.deepEqual(decoded.programs[0].createdAt, { seconds: 1234, nanoseconds: 567 });
     assert.deepEqual(decoded.programs[0].sessions[0].exercises[0].updatedAt, decoded.programs[0].createdAt);
     assert.ok(result.body.length < JSON.stringify(decoded).length / 10);
+    const summary = JSON.parse(gunzipSync((await invoke(coach, { summaries:true })).body));
+    assert.equal(summary.programs[0].__summaryOnly, true);
+    assert.equal(summary.programs[0].sessions.length, program.sessions.length);
+    assert.equal(summary.programs[0].sessions[0].exercises, undefined);
+    assert.ok(JSON.stringify(summary).length < JSON.stringify(decoded).length / 100);
+    assert.equal(summary.programs[0].__dashboardReadVersion, 'summary:5:10');
+    const summaryUnchanged = JSON.parse(gunzipSync((await invoke(coach, {summaries:true,knownVersions:{'test-program':'summary:5:10'}})).body));
+    assert.deepEqual(summaryUnchanged.unchanged,['test-program']);
+    const fullAfterSummary = JSON.parse(gunzipSync((await invoke(coach, {knownVersions:{'test-program':'summary:5:10'}})).body));
+    assert.ok(fullAfterSummary.programs[0].sessions[0].exercises);
     fullReads = 0;
     const unchanged = JSON.parse(gunzipSync((await invoke(coach, { knownVersions: { 'test-program': '5:10' } })).body));
     assert.deepEqual(unchanged, { programs: [], unchanged: ['test-program'] });

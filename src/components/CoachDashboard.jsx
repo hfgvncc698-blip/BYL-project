@@ -18,7 +18,7 @@ import {currentCoachProgram} from '../utils/currentCoachProgram';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from
 "react";
 import { useDashboardTiming } from "../hooks/useDashboardTiming.js";
-import { createDashboardReadPool } from "../utils/coachDashboardLoading.js";
+import { createDashboardReadPool, mergeDashboardClientProgress } from "../utils/coachDashboardLoading.js";
 import {
   Box,
   Checkbox,
@@ -3033,14 +3033,14 @@ p.nomProgramme.trim() : "";
       const fallbackName = prettyProgramNameBase(baseProg);
       if (isAutoProgramme(baseProg)) {
         navigate(withAdminCoach(`/auto-program-preview/${baseProg.id}`), {
-          state: { prefetchedProgram: baseProg, programmeName: fallbackName, from:
+          state: { prefetchedProgram: baseProg.__summaryOnly ? undefined : baseProg, programmeName: fallbackName, from:
 "coachDashboard" },
         });
         return false;
       }
       navigate(withAdminCoach(`/programmes/${baseProg.id}`), {
 
-          state: { prefetchedProgram: baseProg, programmeName: fallbackName, from:
+          state: { prefetchedProgram: baseProg.__summaryOnly ? undefined : baseProg, programmeName: fallbackName, from:
 "coachDashboard" },
         });
      },
@@ -3448,8 +3448,18 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
        ];
        const programmesSnapPromise = readDashboardTemplates(effectiveCoachUid, {
          request: apiFetch,
+          summaries: true,
          fallback: () => getDocs(progsQ),
          cachedPrograms: dashboardPerfFresh ? [] : (cachedDashboardDataForRefresh || readDashboardDataCacheEntry(effectiveCoachUid, effectiveClubId, { allowStale: true })?.data)?.programmesBase || [],
+       }).then((snapshot) => {
+         // Templates are independent of client roots and assignment histories.
+         // Publish fresh results immediately, including cached-page refreshes.
+         if (isLatestLoad()) {
+           const templates = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+           templates.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+           setProgrammesBase(templates);
+         }
+         return snapshot;
        });
        // It runs in parallel; observe early failures until the awaited join.
        void programmesSnapPromise.catch(() => {});
@@ -3595,6 +3605,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
       }
       })();
       // Start every client read before waiting for the large program templates.
+      if (!backgroundRefresh && isLatestLoad()) setClients(quickDashboardClients);
       const detailReadPool = createDashboardReadPool(24);
       const detailedClientsPromise = Promise.all(quickDashboardClients.map(async (client) => {
           if (!isLatestLoad()) return client;
@@ -3615,7 +3626,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
 assignMs;
                 const sessSnap = await detailReadPool.run(() => isLatestLoad() ? getDocs(
                   collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees")
-                ) : { docs: [] });
+                ) : { docs: [] }, { priority: 1 });
                 const sessionsEffectuees = dedupeCalendarCompletions(sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() })));
                 const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
                 const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
@@ -3718,15 +3729,16 @@ assignMs;
             );
 
             const _lastInteractionMs = Math.max(latestSessionMs, latestAssignMs, lastClientUpdate);
-            return { ...client, programmesAssignes:
+            const completedClient = { ...client, programmesAssignes:
 progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
+            if (isLatestLoad()) setClients(previous => mergeDashboardClientProgress(previous, completedClient));
+            return completedClient;
          })).then(value => ({ value }), error => ({ error }));
        const pSnap = await programmesSnapPromise;
        const progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data()
 }));
        progs.sort((a, b) => toMillis(b.createdAt) -
 toMillis(a.createdAt));
-       if (!backgroundRefresh && isLatestLoad()) setProgrammesBase(progs);
        const quickCounts = {};
        const quickAssignedMap = {};
        quickDashboardClients.forEach((client) => {
@@ -3754,7 +3766,6 @@ toMillis(a.createdAt));
          partial: true,
        });
        if (!backgroundRefresh && isLatestLoad()) {
-         setClients(quickDashboardClients);
          setAssignedCounts(quickCounts);
          setAssignedClientsMap(quickAssignedMap);
          setLoadingData(false);

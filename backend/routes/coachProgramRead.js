@@ -3,6 +3,7 @@ const { gzip } = require("node:zlib");
 const { promisify } = require("node:util");
 const admin = require("../firebaseAdmin");
 const { requireFirebaseAuth, hasActiveProfessionalAccess } = require("../utils/firebaseAuth");
+const programListSummary = require("../utils/programListSummary");
 const compress = promisify(gzip);
 const router = express.Router();
 
@@ -26,13 +27,15 @@ router.post("/dashboard-templates", requireFirebaseAuth, async (req, res) => {
     }
     const db = admin.firestore();
     const snapshot = await db.collection("programmes").where("createdBy", "==", coachId).limit(200).select().get();
+    const summaries = req.body?.summaries === true;
+    const readVersion = document => summaries ? `summary:${versionOf(document)}` : versionOf(document);
     const knownVersions = req.body?.knownVersions || {};
-    const changed = snapshot.docs.filter(document => knownVersions[document.id] !== versionOf(document));
+    const changed = snapshot.docs.filter(document => knownVersions[document.id] !== readVersion(document));
     const documents = changed.length ? await db.getAll(...changed.map(document => document.ref)) : [];
     // Recheck ownership after the projection in case a document was transferred.
     const programs = documents.filter(document => document.exists && document.data().createdBy === coachId)
-      .map(document => ({ ...document.data(), id: document.id, __dashboardReadVersion: versionOf(document) }));
-    const unchanged = snapshot.docs.filter(document => knownVersions[document.id] === versionOf(document)).map(document => document.id);
+      .map(document => ({ ...(summaries ? programListSummary(document.data()) : document.data()), id: document.id, __dashboardReadVersion: readVersion(document) }));
+    const unchanged = snapshot.docs.filter(document => knownVersions[document.id] === readVersion(document)).map(document => document.id);
     const serialized = JSON.stringify({ programs, unchanged }, function (key, value) {
       const original = this[key];
       // Match web SDK Timestamp.toJSON(), including nested exercise dates.

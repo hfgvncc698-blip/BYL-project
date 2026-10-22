@@ -21,10 +21,13 @@ export function createDashboardReadPool(concurrency = 12) {
   };
   return {
     stats,
-    run(task) {
+    run(task, { priority = 0 } = {}) {
       stats.reads += 1;
       return new Promise((resolve, reject) => {
-        queue.push({ run: task, resolve, reject });
+        const entry = { run: task, resolve, reject, priority };
+        const position = queue.findIndex(pending => pending.priority < priority);
+        if (position < 0) queue.push(entry);
+        else queue.splice(position, 0, entry);
         drain();
       });
     },
@@ -40,4 +43,25 @@ export function mergeCompletedClientRows(previous, completedIds, visible) {
       .map(client => updates.get(client.id) || client),
     ...visible.filter(client => !previousIds.has(client.id)),
   ];
+}
+
+// Refresh progress immediately, retaining the existing coach-only activity
+// scope until calendar reconciliation has completed for the whole dashboard.
+export function mergeDashboardClientProgress(rows, completed) {
+  return rows.map(previous => {
+    if (previous.id !== completed.id) return previous;
+    const known = new Map((previous.programmesAssignes || []).map(p => [p.id, p]));
+    return {
+      ...previous,
+      programmesAssignes: (completed.programmesAssignes || []).map(program => {
+        const scoped = known.get(program.id) || {};
+        return {
+          ...scoped,
+          ...program,
+          _progressSessionsEffectuees: program.sessionsEffectuees || [],
+          sessionsEffectuees: scoped.sessionsEffectuees || [],
+        };
+      }),
+    };
+  });
 }
