@@ -157,3 +157,12 @@ for (const record of validationFormats) {
   }
 }
 console.log('Legacy validation formats and partial exclusions on both surfaces: OK');
+
+// Missing programme is valid for clients without a cycle, waiting for the next
+// assignment, or while dashboard data is still loading.
+for (const missing of [null, undefined]) {
+  assert.equal(getProgramValidatedSessionCount(missing), 0);
+  assert.equal(getProgramPlannedSessionTotal(missing), 0);
+  assert.doesNotThrow(() => formatProgramWeekProgress(missing));
+}
+console.log("Missing programme during dashboard loading and empty cycles: OK");

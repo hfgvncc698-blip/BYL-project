@@ -100,6 +100,7 @@ export function isProgramRestDay(program = {}, date = new Date()) {
 }
 
 export function getProgramValidatedSessionCount(program = {}) {
+  if (!program || typeof program !== "object") return 0;
   // Dashboard activity may be scoped to calendar-linked sessions. Progress uses
   // the complete history, as on the client profile.
   const hasProgressHistory = Array.isArray(program?._progressSessionsEffectuees);
