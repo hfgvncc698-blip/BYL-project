@@ -19,3 +19,10 @@ module.exports = function programListSummary(data) {
   }
   return result;
 };
+
+module.exports.fields = fields;
+module.exports.sessionCount = data => {
+  // The programme writer maintains nbSeances alongside the weekly template.
+  const count = data.nbSeances ?? data.sessionCount ?? data.totalSessions;
+  return Number.isInteger(count) && count >= 0 && count <= 100 ? count : null;
+};

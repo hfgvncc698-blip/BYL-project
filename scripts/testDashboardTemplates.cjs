@@ -17,7 +17,7 @@ admin.firestore = () => ({ getAll: async (...refs) => { fullReads += refs.length
   assert.equal(name, 'programmes');
   return { where(field, operator, owner) {
     assert.equal(field, 'createdBy'); assert.equal(operator, '=='); queriedOwner = owner;
-    return { limit(value) { assert.equal(value, 200); return { select(...fields) { assert.equal(fields.length, 0); return { get: async () => ({ docs: [document] }) }; } }; } };
+    return { limit(value) { assert.equal(value, 200); return { select(...fields) { assert.ok(fields.length === 0 || fields.includes('nbSeances')); return { get: async () => ({ docs: [document] }) }; } }; } };
   } };
 } });
 async function invoke(profile, { target = 'coach-A', uid = 'coach-A', verified = true, gzip = true, knownVersions = {}, summaries = false } = {}) {
@@ -46,6 +46,13 @@ async function invoke(profile, { target = 'coach-A', uid = 'coach-A', verified =
     assert.deepEqual(decoded.programs[0].createdAt, { seconds: 1234, nanoseconds: 567 });
     assert.deepEqual(decoded.programs[0].sessions[0].exercises[0].updatedAt, decoded.programs[0].createdAt);
     assert.ok(result.body.length < JSON.stringify(decoded).length / 10);
+    program.nbSeances = 1;
+    fullReads = 0;
+    const projected = JSON.parse(gunzipSync((await invoke(coach, { summaries:true })).body));
+    assert.equal(fullReads, 0, 'metadata listing must never download full exercise documents when count is present');
+    assert.equal(projected.programs[0].sessions.length, 1);
+    assert.equal(projected.programs[0].sessions[0].exercises, undefined);
+    delete program.nbSeances;
     const summary = JSON.parse(gunzipSync((await invoke(coach, { summaries:true })).body));
     assert.equal(summary.programs[0].__summaryOnly, true);
     assert.equal(summary.programs[0].sessions.length, program.sessions.length);

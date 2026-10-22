@@ -26,12 +26,27 @@ router.post("/dashboard-templates", requireFirebaseAuth, async (req, res) => {
       return res.status(403).json({ error: "forbidden" });
     }
     const db = admin.firestore();
-    const snapshot = await db.collection("programmes").where("createdBy", "==", coachId).limit(200).select().get();
     const summaries = req.body?.summaries === true;
+    // Firestore projects metadata on the server: no exercise bodies cross the
+    // database connection for current templates with a stored session count.
+    const snapshot = await db.collection("programmes").where("createdBy", "==", coachId).limit(200)
+      .select(...(summaries ? programListSummary.fields : [])).get();
     const readVersion = document => summaries ? `summary:${versionOf(document)}` : versionOf(document);
     const knownVersions = req.body?.knownVersions || {};
     const changed = snapshot.docs.filter(document => knownVersions[document.id] !== readVersion(document));
-    const documents = changed.length ? await db.getAll(...changed.map(document => document.ref)) : [];
+    const needsFullDocument = changed.filter(document =>
+      !summaries || programListSummary.sessionCount(document.data()) == null);
+    const fullDocuments = needsFullDocument.length
+      ? await db.getAll(...needsFullDocument.map(document => document.ref)) : [];
+    const fullById = new Map(fullDocuments.map(document => [document.id, document]));
+    const documents = changed.map(document => {
+      if (!summaries || programListSummary.sessionCount(document.data()) == null) return fullById.get(document.id);
+      const data = document.data();
+      return {
+        id: document.id, exists: true, updateTime: document.updateTime,
+        data: () => ({ ...data, sessions: Array.from({length: programListSummary.sessionCount(data)}, () => ({})) }),
+      };
+    }).filter(Boolean);
     // Recheck ownership after the projection in case a document was transferred.
     const programs = documents.filter(document => document.exists && document.data().createdBy === coachId)
       .map(document => ({ ...(summaries ? programListSummary(document.data()) : document.data()), id: document.id, __dashboardReadVersion: readVersion(document) }));
