@@ -66,6 +66,9 @@ import {
   MdCancel,
   MdReport,
 } from "react-icons/md";
+import AdminAccessSummary from "../components/admin/AdminAccessSummary";
+import AdminLocationSummary from "../components/admin/AdminLocationSummary";
+import AdminProfileActions, { openAdminProfileTab } from "../components/admin/AdminProfileActions";
 import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import { getAuthHeaders } from "../utils/authHeaders";
@@ -318,14 +321,16 @@ export default function AdminCoach() {
       bg: theme.surfaceSoft,
       borderColor: theme.borderColor,
     },
-    ".chakra-tabs__tablist": { borderColor: theme.borderColor },
+    ".chakra-tabs__tablist": { border: 0, bg: theme.surfaceSoft, borderRadius: 'full', p: 1, gap: 1 },
+    ".chakra-tabs__tab": { border: 0, borderRadius: 'full', fontWeight: 700, px: 5 },
     ".chakra-tabs__tab[aria-selected=true]": {
-      bg: theme.surfaceSoft,
+      bg: theme.surfaceBg,
       borderColor: theme.borderColor,
       color: theme.textColor,
     },
   };
 
+  const [adminTab, setAdminTab] = useState(searchParams.get("tab") === "emails" ? 5 : 0);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null); // users/:id (si existe)
   const [coachData, setCoachData] = useState(null); // coachs/:id (si existe)
@@ -507,10 +512,17 @@ export default function AdminCoach() {
     if (!userData) return null;
     return getAccessMeta(userData);
   }, [userData]);
-  const subscribedAccess = useMemo(
-    () => subscriptionAccessFor(userData || {}, stripeInfo),
-    [stripeInfo, userData]
-  );
+
+
+  // Display saved entitlements, never unsaved form values.
+  const savedClientLimit = useMemo(() => {
+    if (!userData) return undefined;
+    if (userData.manualEntitlements === true) {
+      return userData.clientLimit ?? userData.proAccess?.clientLimit ?? null;
+    }
+    return subscriptionAccessFor(userData, stripeInfo).clientLimit;
+  }, [userData, stripeInfo]);
+  const openCapacity = () => openAdminProfileTab(setAdminTab, 7);
 
   const lastActivityValue = useMemo(
     () =>
@@ -933,11 +945,11 @@ export default function AdminCoach() {
 
   return (
     <Box p={{ base: 4, md: 8 }} bg={theme.pageBg} color={theme.textColor} minH="calc(100vh - 112px)" sx={adminPageSx}>
-      <VStack align="stretch" spacing={6} maxW="1480px" mx="auto">
+      <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
       <HStack justify="space-between" align="start" flexWrap="wrap" gap={3} mb={4}>
         <HStack flexWrap="wrap" gap={2}>
           <Button variant="outline" leftIcon={<Icon as={MdArrowBack} />} onClick={() => navigate("/admin")}>{i18n.t("auto.CoachDashboard.retour_admin", "Retour admin")}</Button>
-          <Tag colorScheme="blue">{i18n.t("auto.AdminCoach.coach_uid", "Coach UID:")}{id}</Tag>
+
         </HStack>
 
         <HStack flexWrap="wrap" gap={2}>
@@ -952,20 +964,22 @@ export default function AdminCoach() {
         </Alert>
       )}
 
-      <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol} mb={6}>
+      <Card bg={cardBg} backgroundImage="radial-gradient(circle at 15% 0%, rgba(16,185,129,.10), transparent 45%), radial-gradient(circle at 95% 5%, rgba(59,130,246,.15), transparent 55%)" borderRadius="3xl" shadow="sm" border="1px solid" borderColor={borderCol} mb={2}>
         <CardBody>
           <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
             <Box minW={{ base: "100%", md: "auto" }}>
-              <Heading size="lg" noOfLines={2}>
+              <Heading fontSize={{ base: "2xl", md: "4xl" }} noOfLines={2}>
                 {titleName}
               </Heading>
               <Text color={muted} noOfLines={1}>
                 {email}
               </Text>
 
-              <Wrap mt={2} spacing={2}>
+              <Wrap mt={2} spacing={2} align="center" sx={{
+                '& .chakra-badge': { display: 'inline-flex', alignItems: 'center', minHeight: '32px', px: 3, py: 1, borderRadius: 'full', fontSize: 'xs', fontWeight: 700, lineHeight: 'short', textTransform: 'none' },
+              }}>
                 <WrapItem>
-                  <Badge colorScheme="cyan">{i18n.t("auto.AdminCoach.role", "rôle:")}{role || "coach"}</Badge>
+                  <Badge colorScheme="cyan">{i18n.t("auto.AdminCoach.role", "rôle:")} {role || "coach"}</Badge>
                 </WrapItem>
                 {!!subscriptionBadge && (
                   <WrapItem>
@@ -973,10 +987,14 @@ export default function AdminCoach() {
                   </WrapItem>
                 )}
                 <WrapItem>
-                  <Badge colorScheme="blue">{clients.length}{i18n.t("auto.ClubDashboard.client_s_2", "client(s)")}</Badge>
+                  <Badge as="button" type="button" colorScheme="blue" onClick={openCapacity} cursor="pointer" _hover={{ filter: "brightness(0.95)" }} _focusVisible={{ outline: "2px solid", outlineColor: "blue.500", outlineOffset: "2px" }}>
+                    {i18n.t("dashboard.stats_total_clients", "Clients")} : {clients.length} / {savedClientLimit === undefined ? "—" : savedClientLimit === null ? i18n.t("adminLayout.unlimited") : savedClientLimit}
+                  </Badge>
                 </WrapItem>
                 <WrapItem>
-                  <Badge colorScheme="purple">{programs.length}{i18n.t("auto.AdminCoach.programme_s", "programme(s)")}</Badge>
+                  <Badge as="button" type="button" colorScheme="purple" onClick={openCapacity} cursor="pointer" _hover={{ filter: "brightness(0.95)" }} _focusVisible={{ outline: "2px solid", outlineColor: "purple.500", outlineOffset: "2px" }}>
+                    {i18n.t("clientsList.table.programs", "Programmes")} : {programs.length}
+                  </Badge>
                 </WrapItem>
               </Wrap>
             </Box>
@@ -990,7 +1008,7 @@ export default function AdminCoach() {
 
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
             <Box p={3} bg={softBg} borderRadius="xl" border="1px solid" borderColor={borderCol}>
-              <Text fontSize="sm" color={muted}>{i18n.t("auto.AdminCoach.cree_le_users_coachs", "Créé le (users/coachs)")}</Text>
+              <Text fontSize="sm" color={muted}>{i18n.t("clientView.createdOn", "Créé le")}</Text>
               <Text fontWeight="700">{toLocale(userData?.createdAt || coachData?.createdAt)}</Text>
             </Box>
 
@@ -1015,7 +1033,7 @@ export default function AdminCoach() {
         </CardBody>
       </Card>
 
-      <Tabs variant="enclosed" colorScheme="blue" defaultIndex={searchParams.get("tab") === "emails" ? 5 : 0} isLazy lazyBehavior="keepMounted">
+      <Tabs id="admin-profile-tabs" scrollMarginTop="90px" variant="enclosed" colorScheme="blue" index={adminTab} onChange={setAdminTab} isLazy lazyBehavior="keepMounted">
         <TabList flexWrap="wrap">
           <Tab>{i18n.t("auto.AdminCoach.resume", "Résumé")}</Tab>
           <Tab>{i18n.t("dashboard.stats_total_clients", "Clients")}</Tab>
@@ -1024,14 +1042,32 @@ export default function AdminCoach() {
           <Tab>{i18n.t("auto.AdminCoach.stripe", "Stripe")}</Tab>
           <Tab>E-mails</Tab>
           <Tab>{i18n.t("auto.AdminCoach.donnees_brutes", "Données brutes")}</Tab>
+          <Tab>{i18n.t("adminLayout.capacity")}</Tab>
         </TabList>
 
         <TabPanels>
           {/* Résumé */}
           <TabPanel px={0}>
+            <VStack align="stretch" spacing={5} mb={5}>
+      <AdminLocationSummary location={lastActivityLocation} />
+
+
+      <AdminProfileActions items={[
+        { label: i18n.t('dashboard.stats_total_clients', 'Clients'), value: clients.length, icon: MdPeople, color: 'blue.500', onClick: () => openAdminProfileTab(setAdminTab, 1) },
+        { label: i18n.t('clientsList.table.programs', 'Programmes'), value: programs.length, icon: MdFitnessCenter, color: 'purple.500', onClick: () => openAdminProfileTab(setAdminTab, 2) },
+        { label: i18n.t('adminLayout.manageAccount'), icon: MdManageAccounts, color: 'teal.500', onClick: () => openAdminProfileTab(setAdminTab, 3) },
+        { label: i18n.t('auto.AdminEmails.emails', 'E-mails'), icon: MdSend, onClick: () => openAdminProfileTab(setAdminTab, 5) },
+      ]} />
+      <AdminAccessSummary uid={id} account={userData} profile={coachData} onEmails={() => openAdminProfileTab(setAdminTab, 5)} onAccess={() => openAdminProfileTab(setAdminTab, 3)} />
+      {clients.length > 0 && <Box as="details" {...theme.cardProps} p={5}>
+        <Box as="summary" cursor="pointer" fontWeight="800">{i18n.t('adminSupport.consistency')} · {clients.length}</Box>
+        <Text fontSize="sm" my={2}>{i18n.t('adminSupport.chooseClient')}</Text>
+        <Wrap>{clients.map(client => <WrapItem key={client.id}><Button size="sm" variant="outline" onClick={() => navigate(`/admin/client/${encodeURIComponent(client.id)}#admin-consistency`)}>{`${client.prenom || client.firstName || ''} ${client.nom || client.lastName || ''}`.trim() || client.email || client.id}</Button></WrapItem>)}</Wrap>
+      </Box>}
+            </VStack>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-              <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
-                <CardHeader>
+              <Card as="details" bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+                <CardHeader as="summary" cursor="pointer" listStyleType="none" position="relative" pe={12} _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5 }}>
                   <Heading size="md">{i18n.t("auto.AdminCoach.infos_compte", "Infos compte")}</Heading>
                   <Text color={muted} fontSize="sm">{i18n.t("auto.AdminCoach.users", "users/")}{id}
                   </Text>
@@ -1064,8 +1100,8 @@ export default function AdminCoach() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
-                <CardHeader>
+              <Card as="details" bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+                <CardHeader as="summary" cursor="pointer" listStyleType="none" position="relative" pe={12} _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5 }}>
                   <Heading size="md">{i18n.t("auto.AdminCoach.infos_coach", "Infos coach")}</Heading>
                   <Text color={muted} fontSize="sm">{i18n.t("auto.AdminCoach.coachs", "coachs/")}{id}
                   </Text>
@@ -1152,7 +1188,6 @@ export default function AdminCoach() {
                 <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
                   <Box>
                     <Heading size="md">{i18n.t("auto.ClubDashboard.programmes_crees", "Programmes créés")}</Heading>
-                    <Text color={muted} fontSize="sm">{i18n.t("auto.AdminCoach.recherche_programmes_createdby", "Recherche: programmes.createdBy ==")}{id}{i18n.t("auto.AdminCoach.fallback_coachid_coachuid", "(fallback coachId/coachUid)")}</Text>
                   </Box>
                   <Tag colorScheme="purple">{programs.length}{i18n.t("auto.AdminCoach.trouve_s", "trouvé(s)")}</Tag>
                 </HStack>
@@ -1254,48 +1289,7 @@ export default function AdminCoach() {
               </CardBody>
             </Card>
 
-            <Card mt={5} bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
-              <CardHeader>
-                <Heading size="md">Espaces, modules et quotas</Heading>
-                <Text color={muted} fontSize="sm">
-                  Réglages manuels prioritaires sur l’offre facturée, y compris pendant une période d’essai.
-                </Text>
-              </CardHeader>
-              <CardBody>
-                <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
-                  <FormControl>
-                    <FormLabel>Accès professionnel</FormLabel>
-                    <Select value={accessPackage} onChange={(e) => setAccessPackage(e.target.value)}>
-                      <option value="sport">Espace coach — Sport</option>
-                      <option value="nutrition">Espace coach — Nutrition</option>
-                      <option value="complete">Espace coach — Sport + Nutrition</option>
-                      <option value="club">Espace club — Sport + Nutrition</option>
-                    </Select>
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Nombre maximal de clients</FormLabel>
-                    <Input type="number" min="0" step="1" value={clientLimitInput} onChange={(e) => setClientLimitInput(e.target.value)} placeholder="Illimité" />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Nombre maximal de coachs / contacts</FormLabel>
-                    <Input type="number" min="0" step="1" value={proLimitInput} onChange={(e) => setProLimitInput(e.target.value)} placeholder="Illimité" />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Quota de stockage (Go)</FormLabel>
-                    <Input type="number" min="1" step="1" value={storageLimitGbInput} onChange={(e) => setStorageLimitGbInput(e.target.value)} placeholder="Illimité" />
-                  </FormControl>
-                </SimpleGrid>
-                <Text mt={3} fontSize="sm" color={muted}>
-                  Valeurs reprises depuis {subscribedAccess.sourceLabel} : {subscribedAccess.clientLimit ?? "clients illimités"}
-                  {subscribedAccess.clientLimit == null ? "" : " clients"} • {subscribedAccess.proLimit ?? "contacts illimités"}
-                  {subscribedAccess.proLimit == null ? "" : " coach(s) / contact(s)"} • {subscribedAccess.storageLimitGb ?? "stockage illimité"}
-                  {subscribedAccess.storageLimitGb == null ? "" : " Go de stockage"}. Les valeurs restent modifiables manuellement ; un champ vide signifie illimité.
-                </Text>
-                <Button mt={4} width="100%" leftIcon={<Icon as={MdManageAccounts} />} onClick={updateEntitlements} isLoading={busy.setEntitlements}>
-                  Appliquer les accès et quotas
-                </Button>
-              </CardBody>
-            </Card>
+
           </TabPanel>
 
           {/* Stripe */}
@@ -1604,6 +1598,47 @@ export default function AdminCoach() {
                 </CardBody>
               </Card>
             </SimpleGrid>
+          </TabPanel>
+          <TabPanel px={0}>
+      <Card id="admin-capacity" scrollMarginTop="100px" mb={5} bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+        <CardHeader>
+          <Heading size="md">{i18n.t("adminLayout.capacity")}</Heading>
+          <Text color={muted} fontSize="sm">
+            {i18n.t("adminLayout.capacityHint")}
+          </Text>
+        </CardHeader>
+        <CardBody>
+          <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
+            <FormControl>
+              <FormLabel>{i18n.t("adminLayout.professionalAccess")}</FormLabel>
+              <Select value={accessPackage} onChange={(e) => setAccessPackage(e.target.value)}>
+                <option value="sport">Espace coach — Sport</option>
+                <option value="nutrition">Espace coach — Nutrition</option>
+                <option value="complete">Espace coach — Sport + Nutrition</option>
+                <option value="club">Espace club — Sport + Nutrition</option>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>{i18n.t("adminLayout.clientLimit")}</FormLabel>
+              <Input type="number" min="0" step="1" value={clientLimitInput} onChange={(e) => setClientLimitInput(e.target.value)} placeholder={i18n.t("adminLayout.unlimited")} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>{i18n.t("adminLayout.proLimit")}</FormLabel>
+              <Input type="number" min="0" step="1" value={proLimitInput} onChange={(e) => setProLimitInput(e.target.value)} placeholder={i18n.t("adminLayout.unlimited")} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>{i18n.t("adminLayout.storageLimit")}</FormLabel>
+              <Input type="number" min="1" step="1" value={storageLimitGbInput} onChange={(e) => setStorageLimitGbInput(e.target.value)} placeholder={i18n.t("adminLayout.unlimited")} />
+            </FormControl>
+          </SimpleGrid>
+          <Text mt={3} fontSize="sm" color={muted}>
+            {i18n.t("adminLayout.emptyUnlimited")}
+          </Text>
+          <Button mt={4} width="100%" leftIcon={<Icon as={MdManageAccounts} />} onClick={updateEntitlements} isLoading={busy.setEntitlements}>
+            {i18n.t("adminLayout.saveCapacity")}
+          </Button>
+        </CardBody>
+      </Card>
           </TabPanel>
         </TabPanels>
       </Tabs>

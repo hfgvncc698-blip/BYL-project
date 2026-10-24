@@ -57,7 +57,8 @@
     "perf:check": "node scripts/checkPerformanceBudgets.mjs",
     "audit:sport-engine:samples": "node scripts/auditSportEngineSamples.cjs",
     "audit:public-pages": "node scripts/auditPublicPages.mjs",
-    "test:club": "node scripts/testClubSubscriptions.cjs && node scripts/testClubMemberships.cjs && node scripts/testClubClassBooking.cjs && node scripts/testClubWelcomeEmails.cjs && node scripts/testClubPaymentCurrencies.cjs && node scripts/testClubClientNames.cjs && node scripts/testClubTranslations.cjs && node scripts/testClubAppointmentSeries.cjs && node scripts/testClubAppointmentStatus.cjs && node scripts/testClubGroupClass.cjs && node scripts/testClubRecurrence.cjs && node scripts/testClubPlanningPdf.mjs && node scripts/testClubMoney.mjs && node scripts/testClubSessionPacks.cjs && node scripts/testClubReferents.cjs && node scripts/testClubDeparture.cjs && node scripts/testIndependentFollowups.cjs && node scripts/testCoachSharedCalendar.cjs && node scripts/testCoachFollowupActivity.mjs"
+    "test:club": "node scripts/testClubSubscriptions.cjs && node scripts/testClubMemberships.cjs && node scripts/testClubClassBooking.cjs && node scripts/testClubWelcomeEmails.cjs && node scripts/testClubPaymentCurrencies.cjs && node scripts/testClubClientNames.cjs && node scripts/testClubTranslations.cjs && node scripts/testClubAppointmentSeries.cjs && node scripts/testClubAppointmentStatus.cjs && node scripts/testClubGroupClass.cjs && node scripts/testClubRecurrence.cjs && node scripts/testClubPlanningPdf.mjs && node scripts/testClubMoney.mjs && node scripts/testClubSessionPacks.cjs && node scripts/testClubReferents.cjs && node scripts/testClubDeparture.cjs && node scripts/testIndependentFollowups.cjs && node scripts/testCoachSharedCalendar.cjs && node scripts/testCoachFollowupActivity.mjs",
+    "test:admin-diagnostics": "node scripts/testAdminDiagnostics.mjs"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.2.4",

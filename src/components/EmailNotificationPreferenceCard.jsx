@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   Box,
+  Button,
+  Collapse,
   Circle,
   Flex,
   Heading,
@@ -15,6 +17,7 @@ import { MdOutlineEmail } from "react-icons/md";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import { apiFetch } from "../utils/api";
+import { AppSurface } from "./ui/AppPrimitives";
 
 const SAVE_TIMEOUT_MS = 12000;
 
@@ -32,6 +35,8 @@ function messagingNotificationsEnabled(user) {
 export default function EmailNotificationPreferenceCard({
   surfaceProps = {},
   compact = false,
+  coachView = false,
+  clientView = false,
   textColor = "inherit",
   mutedText = "gray.500",
   borderColor = "gray.200",
@@ -43,6 +48,9 @@ export default function EmailNotificationPreferenceCard({
   const toast = useToast();
   const [enabled, setEnabled] = useState(() => notificationsEnabled(user));
   const [messagingEnabled, setMessagingEnabled] = useState(() => messagingNotificationsEnabled(user));
+  const [expanded, setExpanded] = useState(false);
+  const [activityEnabled, setActivityEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -53,13 +61,14 @@ export default function EmailNotificationPreferenceCard({
       signal: controller.signal,
     })
       .then((data) => {
+        if (typeof data?.activityEnabled === "boolean") setActivityEnabled(data.activityEnabled);
         if (typeof data?.enabled === "boolean") setEnabled(data.enabled);
         if (typeof data?.messagingEnabled === "boolean") setMessagingEnabled(data.messagingEnabled);
       })
       .catch(() => {
         // La valeur du profil déjà chargée reste un repli valide.
       })
-      .finally(() => globalThis.clearTimeout(timeoutId));
+      .finally(() => { globalThis.clearTimeout(timeoutId); setLoading(false); });
     return () => {
       globalThis.clearTimeout(timeoutId);
       controller.abort();
@@ -158,6 +167,64 @@ export default function EmailNotificationPreferenceCard({
       setSaving(false);
     }
   };
+
+  const handleActivityChange = async (event) => {
+    if (!user?.uid || saving) return;
+    const next = event.target.checked;
+    const controller = new AbortController();
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
+    setSaving(true);
+    try {
+      const data = await apiFetch("/client-profile/email-preferences", {
+        method: "PUT", body: JSON.stringify({ activityEnabled: next }), signal: controller.signal,
+      });
+      if (data.activityEnabled !== next) throw new Error(t("settings.email.save_error_description"));
+      setActivityEnabled(data.activityEnabled);
+    } catch {
+      toast({ title: t("settings.email.save_error_title"), description: t("settings.email.save_error_description"), status: "error", isClosable: true });
+    } finally {
+      globalThis.clearTimeout(timeoutId);
+      setSaving(false);
+    }
+  };
+
+  const audience = clientView ? "client" : "coach";
+
+  if (coachView || clientView) return (
+    <AppSurface {...surfaceProps} px={{ base: 5, md: 6 }} py={4} alignSelf="start">
+      <HStack spacing={3} align="start">
+        <Circle size="42px" bg="rgba(37,99,235,0.10)" color={accentColor} flexShrink={0}><Icon as={MdOutlineEmail} boxSize="20px" /></Circle>
+        <Box>
+          <Heading as="h2" size="md" color={textColor}>{t("settings.email.coachTitle")}</Heading>
+          <Text mt={1} fontSize="sm" color={mutedText}>{t(`settings.email.${audience}Description`)}</Text>
+        </Box>
+      </HStack>
+      <Flex mt={3} align="center" justify="space-between" gap={3} flexWrap="wrap">
+        <Box>
+          <Text id="coach-email-master" fontWeight="800" color={textColor}>{t("settings.email.coachToggle")}</Text>
+          <Text fontSize="sm" color={mutedText} aria-live="polite">{saving ? t("settings.email.saving") : enabled ? t("settings.email.status_enabled") : t("settings.email.status_disabled")}</Text>
+        </Box>
+        <HStack spacing={4} ml="auto">
+        <Switch size="lg" colorScheme="blue" aria-labelledby="coach-email-master" isChecked={enabled} isDisabled={saving || loading} onChange={handleChange} />
+      <Button display="flex" variant="outline" color={textColor} bg={softBg} borderColor={borderColor} borderRadius="full" h="40px" px={5} fontWeight="700" aria-expanded={expanded} aria-controls="coach-email-choices" onClick={() => setExpanded(value => !value)}>
+        {t("settings.email.chooseEmails")} {expanded ? "▴" : "▾"}
+      </Button>
+        </HStack>
+      </Flex>
+      <Collapse in={expanded}>
+        <VStack id="coach-email-choices" align="stretch" spacing={4} mt={4} p={4} border="1px solid" borderColor={borderColor} borderRadius="18px" opacity={enabled ? 1 : 0.6}>
+          {[
+            { key: `${audience}Messages`, hint: `${audience}MessagesHint`, checked: messagingEnabled, change: handleMessagingChange },
+            { key: `${audience}Activity`, hint: `${audience}ActivityHint`, checked: activityEnabled, change: handleActivityChange },
+          ].map(item => <Flex key={item.key} justify="space-between" align="center" gap={4}>
+            <Box><Text id={item.key} fontWeight="700" color={textColor}>{t(`settings.email.${item.key}`)}</Text><Text fontSize="sm" color={mutedText}>{t(`settings.email.${item.hint}`)}</Text></Box>
+            <Switch colorScheme="blue" aria-labelledby={item.key} isChecked={item.checked} isDisabled={!enabled || saving || loading} onChange={item.change} />
+          </Flex>)}
+        </VStack>
+      </Collapse>
+      <Text mt={2} fontSize="xs" color={mutedText}>{t("settings.email.essential_notice")}</Text>
+    </AppSurface>
+  );
 
   return (
     <Box {...surfaceProps} p={{ base: 5, md: 6 }}>

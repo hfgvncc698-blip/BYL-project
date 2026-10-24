@@ -282,6 +282,7 @@ export default function SettingsPageClient() {
           <LocationPreferenceCard surfaceProps={{ bg: cardBg, borderWidth: "1px", borderColor: borderStrong, borderRadius: "22px", p: { base: 5, md: 7 }, boxShadow: glassShadow }} mutedText={mutedText} />
 
           <EmailNotificationPreferenceCard
+            clientView
             surfaceProps={{
               bg: cardBg,
               borderRadius: "22px",

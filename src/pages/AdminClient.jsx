@@ -55,6 +55,10 @@ import {
   MdReport,
   MdVisibility,
 } from "react-icons/md";
+import AdminAccessSummary from "../components/admin/AdminAccessSummary";
+import AdminClientDiagnostics from "../components/admin/AdminClientDiagnostics";
+import AdminLocationSummary from "../components/admin/AdminLocationSummary";
+import AdminProfileActions, { openAdminProfileTab } from "../components/admin/AdminProfileActions";
 import AppLoading from "../components/ui/AppLoading";
 import AdminClientLocationSettings from "../components/admin/AdminClientLocationSettings";
 import { useAppTheme } from "../styles/appTheme";
@@ -383,14 +387,16 @@ export default function AdminClient() {
       bg: theme.surfaceSoft,
       borderColor: theme.borderColor,
     },
-    ".chakra-tabs__tablist": { borderColor: theme.borderColor },
+    ".chakra-tabs__tablist": { border: 0, bg: theme.surfaceSoft, borderRadius: 'full', p: 1, gap: 1 },
+    ".chakra-tabs__tab": { border: 0, borderRadius: 'full', fontWeight: 700, px: 5 },
     ".chakra-tabs__tab[aria-selected=true]": {
-      bg: theme.surfaceSoft,
+      bg: theme.surfaceBg,
       borderColor: theme.borderColor,
       color: theme.textColor,
     },
   };
 
+  const [adminTab, setAdminTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [kind, setKind] = useState(null); // "Compte" | "Fiche" | null
   const [userData, setUserData] = useState(null); // users/:id
@@ -1099,11 +1105,11 @@ export default function AdminClient() {
 
   return (
     <Box p={{ base: 4, md: 8 }} bg={theme.pageBg} color={theme.textColor} minH="calc(100vh - 112px)" sx={adminPageSx}>
-      <VStack align="stretch" spacing={6} maxW="1480px" mx="auto">
+      <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
       <HStack justify="space-between" align="start" flexWrap="wrap" gap={3} mb={4}>
         <HStack flexWrap="wrap" gap={2}>
           <Button variant="outline" leftIcon={<Icon as={MdArrowBack} />} onClick={() => navigate("/admin")}>{i18n.t("auto.CoachDashboard.retour_admin", "Retour admin")}</Button>
-          <Tag colorScheme="blue">{i18n.t("auto.AdminClient.id", "ID:")}{id}</Tag>
+
         </HStack>
 
         <HStack flexWrap="wrap" gap={2}>
@@ -1118,11 +1124,11 @@ export default function AdminClient() {
         </Alert>
       )}
 
-      <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol} mb={6}>
+      <Card bg={cardBg} backgroundImage="radial-gradient(circle at 15% 0%, rgba(16,185,129,.10), transparent 45%), radial-gradient(circle at 95% 5%, rgba(59,130,246,.15), transparent 55%)" borderRadius="3xl" shadow="sm" border="1px solid" borderColor={borderCol} mb={2}>
         <CardBody>
           <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
             <Box minW={{ base: "100%", md: "auto" }}>
-              <Heading size="lg" noOfLines={2}>
+              <Heading fontSize={{ base: "2xl", md: "4xl" }} noOfLines={2}>
                 {titleName}
               </Heading>
               <Text color={muted} noOfLines={1}>
@@ -1149,7 +1155,7 @@ export default function AdminClient() {
             </Box>
 
             <HStack flexWrap="wrap" gap={2}>
-              <Button variant="outline" onClick={() => navigate(`/admin?clientPreview=${encodeURIComponent(id)}`)}>{i18n.t("adminClientNavigation.notes")}</Button>
+
               <Button variant="outline" rightIcon={<Icon as={MdOpenInNew} />} onClick={() => navigate(`/clients/${clientData?.id || userData?.linkedClientId || id}?adminMode=1`)}>{i18n.t("auto.AdminClient.ouvrir_fiche_en_vue_coach", "Ouvrir fiche en vue coach")}</Button>
               <Button
                 variant="outline"
@@ -1175,9 +1181,6 @@ export default function AdminClient() {
               <Text fontWeight="700" noOfLines={1}>
                 {coachMeta ? pickName(coachMeta, "Nom coach indisponible") : clientData?.createdBy || "—"}
               </Text>
-              {coachMeta?.id && (
-                <Text fontSize="xs" color={muted} noOfLines={1}>{i18n.t("auto.AdminClient.id", "ID:")}{coachMeta.id}</Text>
-              )}
             </Box>
 
             <Box p={3} bg={softBg} borderRadius="xl" border="1px solid" borderColor={borderCol}>
@@ -1186,7 +1189,7 @@ export default function AdminClient() {
               {lastVisitLocation !== "—" && (
                 <Box>
                   <Text fontSize="sm">{lastVisitLocation}</Text>
-                  <Text fontSize="xs" color={muted}>{visitPlace.detail}</Text>
+
                 </Box>
               )}
             </Box>
@@ -1208,8 +1211,17 @@ export default function AdminClient() {
         </Alert>
       )}
 
-      <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
-        <CardHeader>
+      <AdminLocationSummary location={lastVisitLocation} />
+      <AdminProfileActions items={[
+        { label: i18n.t('clientsList.table.programs', 'Programmes'), value: programsCount, icon: MdPlaylistAdd, color: 'purple.500', onClick: () => openAdminProfileTab(setAdminTab, 1) },
+        { label: i18n.t('adminLayout.manageAccount'), icon: MdPayment, color: 'teal.500', onClick: () => openAdminProfileTab(setAdminTab, 2) },
+        { label: i18n.t('auto.AdminEmails.emails', 'E-mails'), icon: MdSend, onClick: () => openAdminProfileTab(setAdminTab, 3) },
+        { label: i18n.t('adminClientNavigation.notes'), icon: MdEdit, onClick: () => navigate(`/admin?clientPreview=${encodeURIComponent(id)}`) },
+      ]} />
+      <AdminAccessSummary uid={userData?.id || clientData?.linkedUserId || clientData?.uid || clientData?.accountUid} account={userData} profile={clientData} onEmails={() => openAdminProfileTab(setAdminTab, 3)} onAccess={() => openAdminProfileTab(setAdminTab, 2)} />
+      <AdminClientDiagnostics clientId={clientData?.id} />
+      <Card as="details" bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+        <CardHeader as="summary" cursor="pointer" listStyleType="none" position="relative" pe={12} _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5 }}>
           <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
             <Box>
               <Heading size="md">Profil unifié</Heading>
@@ -1288,6 +1300,8 @@ export default function AdminClient() {
       </Card>
 
       <Tabs
+        id="admin-profile-tabs" scrollMarginTop="90px"
+        index={adminTab} onChange={setAdminTab}
         variant="enclosed"
         colorScheme="blue"
         isLazy
@@ -1305,8 +1319,8 @@ export default function AdminClient() {
           {/* Résumé */}
           <TabPanel px={0}>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-              <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
-                <CardHeader>
+              <Card as="details" bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+                <CardHeader as="summary" cursor="pointer" listStyleType="none" position="relative" pe={12} _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5 }}>
                   <Heading size="md">{i18n.t("auto.AdminClient.infos_compte", "Infos compte")}</Heading>
                   <Text color={muted} fontSize="sm">{i18n.t("auto.AdminClient.users", "users/")}{id}
                   </Text>
@@ -1338,8 +1352,8 @@ export default function AdminClient() {
                 </CardBody>
               </Card>
 
-              <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
-                <CardHeader>
+              <Card as="details" bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+                <CardHeader as="summary" cursor="pointer" listStyleType="none" position="relative" pe={12} _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5 }}>
                   <Heading size="md">{i18n.t("auto.AdminClient.infos_fiche", "Infos fiche")}</Heading>
                   <Text color={muted} fontSize="sm">{i18n.t("auto.AdminClient.clients", "clients/")}{id}
                   </Text>

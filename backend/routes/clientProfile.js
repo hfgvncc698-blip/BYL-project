@@ -8,6 +8,9 @@ const {
 } = require("../utils/brandedEmail");
 
 const router = express.Router();
+// Group existing delivery preferences so all current senders respect this setting.
+const ACTIVITY_EMAIL_KEYS = ["welcome", "programAssigned", "sessionScheduled", "programCompleted", "inactivity", "nutritionAssigned", "subscription"];
+const activityEmailsEnabled = (user) => ACTIVITY_EMAIL_KEYS.some(key => user?.emailPreferences?.[key] !== false);
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const passwordResetAttempts = new Map();
@@ -511,6 +514,19 @@ router.get("/resolve-client", requireFirebaseAuth, async (req, res) => {
   }
 });
 
+// Only disclose the authenticated member's resolved display label, never provider profiles.
+router.get("/navigation-brand", requireFirebaseAuth, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    const { resolveNavigationBrand } = require("../utils/navigationBranding");
+    const label = await resolveNavigationBrand(admin.firestore(), req.auth.uid);
+    return res.json({ label });
+  } catch (error) {
+    console.warn("[navigation-brand] lookup failed:", error?.message);
+    return res.status(503).json({ label: null });
+  }
+});
+
 router.get("/email-preferences", requireFirebaseAuth, async (req, res) => {
   try {
     const userSnap = await admin.firestore().collection("users").doc(req.auth.uid).get();
@@ -523,6 +539,7 @@ router.get("/email-preferences", requireFirebaseAuth, async (req, res) => {
         user.settings?.emailNotificationsEnabled !== false &&
         user.emailPreferences?.allAutomatic !== false,
       messagingEnabled: user.emailPreferences?.messaging !== false,
+      activityEnabled: activityEmailsEnabled(user),
     });
   } catch (error) {
     console.error("[client-profile] email preference read failed:", error);
@@ -534,7 +551,8 @@ router.put("/email-preferences", requireFirebaseAuth, async (req, res) => {
   try {
     const hasGlobalPreference = typeof req.body?.enabled === "boolean";
     const hasMessagingPreference = typeof req.body?.messagingEnabled === "boolean";
-    if (!hasGlobalPreference && !hasMessagingPreference) {
+    const hasActivityPreference = typeof req.body?.activityEnabled === "boolean";
+    if (!hasGlobalPreference && !hasMessagingPreference && !hasActivityPreference) {
       return res.status(400).json({ error: "email-preference-boolean-required" });
     }
 
@@ -559,6 +577,9 @@ router.put("/email-preferences", requireFirebaseAuth, async (req, res) => {
     if (hasMessagingPreference) {
       update["emailPreferences.messaging"] = req.body.messagingEnabled;
     }
+    if (hasActivityPreference) {
+      for (const key of ACTIVITY_EMAIL_KEYS) update[`emailPreferences.${key}`] = req.body.activityEnabled;
+    }
     batch.update(userRef, update);
     if (clientSnap) batch.update(clientSnap.ref, update);
     await batch.commit();
@@ -572,6 +593,7 @@ router.put("/email-preferences", requireFirebaseAuth, async (req, res) => {
       messagingEnabled: hasMessagingPreference
         ? req.body.messagingEnabled
         : userSnap.data()?.emailPreferences?.messaging !== false,
+      activityEnabled: hasActivityPreference ? req.body.activityEnabled : activityEmailsEnabled(userSnap.data()),
       linkedClientId: clientSnap?.id || null,
     });
   } catch (error) {

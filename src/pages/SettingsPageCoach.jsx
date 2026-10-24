@@ -359,20 +359,17 @@ export default function SettingsPageCoach() {
     return <AppLoading label={t("common.loading", "Chargement...")} />;
   }
 
-  const SurfaceCard = ({ children, ...props }) => (
-    <AppSurface
-      bg={cardBg}
-      borderRadius="22px"
-      border="1px solid"
-      borderColor={borderStrong}
-      boxShadow={glassShadow}
-      position="relative"
-      overflow="hidden"
-      {...props}
-    >
-      {children}
-    </AppSurface>
-  );
+  // Keep the component type stable while drafts update; a render-local
+  // component would remount every input and discard its focus/caret.
+  const surfaceCardProps = {
+    bg: cardBg,
+    borderRadius: "22px",
+    border: "1px solid",
+    borderColor: borderStrong,
+    boxShadow: glassShadow,
+    position: "relative",
+    overflow: "hidden",
+  };
 
   const MetricTile = ({ label, value, helper }) => (
     <AppSurface variant="tile" bg={cardBg} borderRadius="18px" p={{ base: 3.5, md: 4 }} minH="92px">
@@ -428,7 +425,7 @@ export default function SettingsPageCoach() {
         </SimpleGrid>
 
         <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={{ base: 3.5, md: 6 }}>
-          <SurfaceCard p={{ base: 5, md: 6 }}>
+          <AppSurface {...surfaceCardProps} p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4}>
               <Circle size="42px" bg="rgba(59,130,246,0.10)" color="#3B82F6">
                 <Icon as={MdLanguage} boxSize="20px" />
@@ -457,11 +454,12 @@ export default function SettingsPageCoach() {
                 <option value="ar">العربية</option>
               </Select>
             </FormControl>
-          </SurfaceCard>
+          </AppSurface>
 
           <LocationPreferenceCard surfaceProps={{ bg: cardBg, borderWidth: "1px", borderColor, borderRadius: "2xl", p: { base: 5, md: 7 }, boxShadow: glassShadow }} mutedText={mutedText} />
 
           <EmailNotificationPreferenceCard
+            coachView
             surfaceProps={{
               bg: cardBg,
               borderRadius: "22px",
@@ -477,7 +475,7 @@ export default function SettingsPageCoach() {
             softBg={subCardBg}
           />
 
-          <SurfaceCard p={{ base: 5, md: 6 }}>
+          <AppSurface {...surfaceCardProps} p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4} align="flex-start">
               <Circle size="42px" bg="rgba(139,92,246,0.10)" color="#8B5CF6" flexShrink={0}>
                 <Icon as={MdOutlineBadge} boxSize="20px" />
@@ -530,7 +528,7 @@ export default function SettingsPageCoach() {
                 onClick={handleNavbarBrandSave}
               >{t("auto.SettingsPageCoach.enregistrer_le_nom", "Enregistrer le nom")}</Button>
             </Flex>
-          </SurfaceCard>
+          </AppSurface>
 
           <TutorialSettingsPanel
             role={tutorialRole}
@@ -542,7 +540,7 @@ export default function SettingsPageCoach() {
             shortcutLabelOverrides={nutritionTutorialLabelOverrides}
           />
 
-          <SurfaceCard p={{ base: 5, md: 6 }}>
+          <AppSurface {...surfaceCardProps} p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4}>
               <Circle size="42px" bg="rgba(16,185,129,0.10)" color="#10B981">
                 <Icon as={MdOutlineCreditCard} boxSize="20px" />
@@ -585,9 +583,9 @@ export default function SettingsPageCoach() {
                 </Button>
               </Flex>
             )}
-          </SurfaceCard>
+          </AppSurface>
 
-          <SurfaceCard data-tour="settings-security" p={{ base: 5, md: 6 }}>
+          <AppSurface {...surfaceCardProps} data-tour="settings-security" p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4}>
               <Circle size="42px" bg="rgba(59,130,246,0.10)" color="#3B82F6">
                 <Icon as={MdOutlineLock} boxSize="20px" />
@@ -640,9 +638,9 @@ export default function SettingsPageCoach() {
                 {t("settings.buttons.send_reset")}
               </Button>
             </Flex>
-          </SurfaceCard>
+          </AppSurface>
 
-          <SurfaceCard p={{ base: 5, md: 6 }}>
+          <AppSurface {...surfaceCardProps} p={{ base: 5, md: 6 }}>
             <Flex direction={{ base: "column", sm: "row" }} justify="space-between" align={{ base: "stretch", sm: "center" }} gap={4}>
               <HStack spacing={3}>
                 <Circle size="42px" bg="rgba(239,68,68,0.10)" color="#EF4444" flexShrink={0}>
@@ -670,7 +668,7 @@ export default function SettingsPageCoach() {
                 {t("settings.buttons.delete_account")}
               </Button>
             </Flex>
-          </SurfaceCard>
+          </AppSurface>
         </SimpleGrid>
       </VStack>
 

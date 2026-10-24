@@ -243,7 +243,15 @@ const pickProgramName = (program = {}, fallback = "Programme") =>
       fallback
   ).trim() || fallback;
 
+const openAdminSection = (id) => {
+  const element = document.getElementById(id);
+  if (!element) return;
+  if (element.tagName === 'DETAILS') element.open = true;
+  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
 const getAccessBadge = (row = {}) => {
+  if (row.authDisabled || row.authMissing) return { label: i18n.t(`adminSupport.${row.authMissing ? 'missing' : 'disabled'}`), colorScheme: 'red' };
   const status = norm(row.subscriptionStatus || row.accessStatus || row.status);
   if (status === "pending_verification") {
     return { label: "E-mail à confirmer", colorScheme: "orange" };
@@ -1601,6 +1609,8 @@ export default function AdminDashboard() {
               ...coach,
               emailVerified: typeof status.emailVerified === "boolean" ? status.emailVerified : coach.emailVerified,
               authProviderIds: status.providerIds || [],
+              authDisabled: status.disabled === true,
+              authMissing: status.notFound === true,
             } : coach;
           };
           setCoaches(rows => rows.map(enrich));
@@ -1858,6 +1868,15 @@ export default function AdminDashboard() {
 
     return [
       {
+        key: "authAccess",
+        label: i18n.t('adminSupport.access'),
+        count: coaches.filter(c => c.authDisabled || c.authMissing).length,
+        color: 'orange',
+        detail: i18n.t('adminLayout.accessHint'),
+        sectionId: 'admin-coaches',
+        rows: coaches.filter(c => c.authDisabled || c.authMissing).map(c => coachAction(c, i18n.t(`adminSupport.${c.authMissing ? 'missing' : 'disabled'}`))),
+      },
+      {
         key: "unverifiedEmail",
         label: "E-mails non vérifiés",
         count: unverifiedNewCoaches.length,
@@ -1882,10 +1901,10 @@ export default function AdminDashboard() {
       },
       {
         key: "payment",
-        label: "Paiements / Stripe",
+        label: i18n.t("adminLayout.payments"),
         count: paymentIssues.length + missingStripe.length,
         color: paymentIssues.length ? "red" : "purple",
-        detail: `${paymentIssues.length} statut paiement à contrôler, ${missingStripe.length} coach(s) sans customer Stripe.`,
+        detail: i18n.t("adminLayout.billingHint", { payments: paymentIssues.length, billing: missingStripe.length }),
         sectionId: "admin-coaches",
         rows: [
           ...paymentIssues.map((row) =>
@@ -2056,6 +2075,9 @@ export default function AdminDashboard() {
           email: client.email,
           name: client.name || client.email || client.id,
           source: "clients",
+          hasAccount: client.hasAccount,
+          hasFiche: client.hasFiche,
+          ficheIds: client.ficheIds,
           coach: client.coach || client.coachName || "BYL",
           kind: "client",
         });
@@ -2093,7 +2115,7 @@ export default function AdminDashboard() {
 
   const focusClub = (club) => {
     setClubFilter(club?.name || club?.id || "");
-    document.getElementById("admin-clubs")?.scrollIntoView({ behavior: "smooth" });
+    openAdminSection("admin-clubs");
   };
 
   const handleSearch = () => {
@@ -2665,7 +2687,7 @@ export default function AdminDashboard() {
       <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
       <Box
         {...theme.cardProps}
-        p={{ base: 5, md: 7 }}
+        p={{ base: 4, md: 5 }}
         position="relative"
         overflow="hidden"
         _before={{
@@ -2700,19 +2722,148 @@ export default function AdminDashboard() {
                   </Badge>
                 )}
               </HStack>
-              <Text color={mutedText} mt={1}>{i18n.t("auto.AdminDashboard.vue_d_ensemble_des_coachs_clients_programmes_trafi", "Vue d'ensemble des coachs, clients, programmes, trafic et actions à traiter.")}</Text>
+              <Text color={mutedText} mt={1}>{i18n.t("adminLayout.welcome")}</Text>
             </Box>
           </HStack>
+          <HStack flexWrap="wrap" gap={2} flexShrink={0}>
+            <Button
+              onClick={() => navigate('/admin/geo')}
+              leftIcon={<Icon as={MdPublic} />}
+              variant="outline"
+              size={{ base: "sm", md: "md" }}
+            >{i18n.t('adminLayout.openMap')}</Button>
           <Button
-            as={RouterLink}
-            to="/admin/geo"
-            leftIcon={<Icon as={MdPublic} />}
+            onClick={() => openAdminSection("admin-attention")}
+            leftIcon={<Icon as={MdPendingActions} />}
             {...theme.primaryButtonProps}
             size={{ base: "sm", md: "md" }}
-          >{i18n.t("auto.AdminDashboard.voir_la_carte_du_monde", "Voir la carte du monde")}</Button>
+          >{i18n.t("adminLayout.attention")}</Button>
+          </HStack>
         </HStack>
       </Box>
 
+      <Card mb={0}>
+        <CardBody>
+          <VStack align="stretch" spacing={3}>
+            <HStack justify="space-between" gap={3}>
+              <Heading size="sm">{i18n.t("auto.AdminDashboard.recherche_rapide", "Recherche rapide")}</Heading>
+              <Tag colorScheme="blue">
+                <Icon as={MdPersonSearch} mr={1} />{i18n.t("adminLayout.searchScope")}</Tag>
+            </HStack>
+            <HStack gap={2}>
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSearch();
+                }}
+                placeholder={i18n.t("auto.AdminDashboard.nom_email_ou_id", "Nom, email ou ID")}
+              />
+              <Button {...theme.primaryButtonProps} onClick={handleSearch}>
+                OK
+              </Button>
+            </HStack>
+            {displayedSearchResults.length > 0 && (
+              <VStack align="stretch" spacing={2} maxH="320px" overflowY="auto">
+                {displayedSearchResults.slice(0, 8).map((r) => (
+                  <Box key={`quick-${r.source}-${r.id}`} position="relative">
+                  <Box
+                    as="button"
+                    type="button"
+                    w="100%"
+                    minW={0}
+                    textAlign="left"
+                    p={3}
+                    pe={r.kind === "club" ? 3 : 12}
+                    borderWidth="1px"
+                    borderRadius="lg"
+                    borderColor={theme.borderColor}
+                    bg={theme.surfaceSoft}
+                    onClick={() =>
+                      r.kind === "coach"
+                        ? navigate(`/admin/coach/${encodeURIComponent(r.id)}`)
+                        : r.kind === "club"
+                        ? focusClub(r)
+                        : openClientProfile(r)
+                    }
+	                  >
+                    <HStack justify="space-between" align="start" gap={3}>
+                      <Box minW={0}>
+                        <Text fontWeight="800" noOfLines={1}>
+                          {r.name}
+                        </Text>
+                        <Text fontSize="sm" color="gray.500" noOfLines={1}>
+                          {r.email || r.id}
+                        </Text>
+                        <Text fontSize="xs" mt={1}>{i18n.t(`adminSupport.${r.kind === 'coach' ? 'account' : r.kind === 'club' ? 'club' : r.hasAccount && r.hasFiche ? 'linked' : r.hasAccount ? 'account' : 'record'}`)}{r.coach && r.coach !== '—' ? ` · ${r.coach}` : ''}</Text>
+                        {displayedSearchResults.some(other => other.id !== r.id && normalizedEmail(other.email) && normalizedEmail(other.email) === normalizedEmail(r.email)) && <Badge mt={1} colorScheme="orange">{i18n.t('adminSupport.sameEmail')}</Badge>}
+                        {r.ficheIds?.length > 1 && <Badge mt={1} colorScheme="purple">{i18n.t('adminSupport.records', { count: r.ficheIds.length })}</Badge>}
+                      </Box>
+	                      <Badge colorScheme={r.kind === "coach" ? "orange" : r.kind === "club" ? "green" : "blue"}>
+	                        {r.kind === "coach" ? "Coach" : r.kind === "club" ? "Club" : "Client"}
+	                      </Badge>
+                    </HStack>
+                  </Box>
+                  {r.kind !== "club" && <ClientPreviewButton position="absolute" insetEnd={3} top="50%" transform="translateY(-50%)" onClick={() => r.kind === "coach" ? openCoachDrawer({ id: r.id }) : openClientDrawer(r)} />}
+                  </Box>
+                ))}
+              </VStack>
+            )}
+          </VStack>
+        </CardBody>
+      </Card>
+
+      <SimpleGrid columns={{ base: 2, lg: 4 }} spacing={4}>
+        {[
+          { id: 'admin-coaches', title: i18n.t('auto.AdminDashboard.coachs', 'Coachs'), count: coaches.length, icon: MdOutlineBadge, color: 'blue', hint: i18n.t('adminLayout.coachesHint') },
+          { id: 'admin-clients', title: i18n.t('dashboard.stats_total_clients', 'Clients'), count: totalClients, icon: MdPeople, color: 'teal', hint: i18n.t('auto.AdminDashboard.comptes_particuliers_fiches', 'Comptes particuliers + fiches') },
+          { id: 'admin-programs', title: i18n.t('clientsList.table.programs', 'Programmes'), count: totalPrograms, icon: MdFitnessCenter, color: 'purple', hint: i18n.t('adminLayout.programsHint') },
+          { id: 'admin-clubs', title: i18n.t('auto.AdminDashboard.clubs', 'Clubs'), count: clubRows.length, icon: MdPeople, color: 'orange', hint: i18n.t('auto.AdminDashboard.structures_rattachees', 'Structures rattachées') },
+        ].map(item => <Box key={item.id} as="button" type="button" {...theme.cardProps} p={{ base: 4, md: 5 }} textAlign="start" onClick={() => openAdminSection(item.id)} _hover={{ transform: 'translateY(-2px)', borderColor: theme.accentBlue }} _focusVisible={{ outline: '2px solid', outlineColor: theme.accentBlue, outlineOffset: '3px' }} transition="transform .15s" minW={0}>
+          <HStack spacing={3} align="start"><Box p={3} borderRadius="2xl" bg={theme.surfaceSoft} color={`${item.color}.500`}><Icon as={item.icon} boxSize={6} /></Box><Box minW={0}><Heading size="md">{item.title}</Heading><Text color={mutedText} fontSize="sm" mt={1}>{item.hint}</Text></Box></HStack>
+          <HStack justify="space-between" mt={5}><Text fontSize="4xl" fontWeight="800" lineHeight={1}>{item.count}</Text><Text fontSize="sm" color={theme.accentBlue}>{i18n.t('adminLayout.view')} →</Text></HStack>
+        </Box>)}
+      </SimpleGrid>
+
+        <Card id="admin-attention" scrollMarginTop="100px">
+          <CardHeader>
+            <HStack justify="space-between" align="center" gap={3}>
+              <HStack>
+                <Icon as={MdWarning} boxSize={5} />
+                <Heading size="md">{i18n.t("adminLayout.attention")}</Heading>
+              </HStack>
+              <Badge colorScheme={attentionTotal ? "orange" : "green"}>{i18n.t("adminLayout.categories", { count: attentionItems.filter(item => item.count > 0).length })}</Badge>
+            </HStack>
+          </CardHeader>
+          <CardBody>
+            <Text color={mutedText} fontSize="sm" mb={4}>{i18n.t("adminLayout.attentionHint")}</Text>
+            <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3}>
+              {!attentionTotal && <Text color={mutedText}>{i18n.t("adminSupport.clear")}</Text>}
+              {attentionItems.filter(item => item.count > 0).map((item) => (
+                <Box
+                  key={item.key}
+                  as="button"
+                  type="button"
+                  textAlign="left"
+                  p={3}
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  borderColor={theme.borderColor}
+                  bg={theme.surfaceSoft}
+                  onClick={() => setSelectedAttention(item)}
+                >
+                  <HStack justify="space-between" gap={3} align="start">
+                    <Box minW={0}>
+                      <Text fontWeight="800" noOfLines={1}>{item.label}</Text>
+                      <Text fontSize="sm" color={mutedText} noOfLines={2}>{item.detail}</Text>
+                    </Box>
+                    <Badge colorScheme={item.color}>{item.count}</Badge>
+                  </HStack>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </CardBody>
+        </Card>
       <Card>
         <CardBody>
           <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
@@ -2721,24 +2872,24 @@ export default function AdminDashboard() {
 	            </Box>
 	            <Wrap>
 	              <WrapItem>
-	                <Button size="sm" variant="outline" onClick={() => document.getElementById("admin-new-registrations")?.scrollIntoView({ behavior: "smooth" })}>
+	                <Button size="sm" variant="outline" onClick={() => openAdminSection("admin-new-registrations")}>
                     Nouveaux ({recentRegistrationTotal})
                   </Button>
 	              </WrapItem>
 	              <WrapItem>
-	                <Button size="sm" variant="outline" onClick={() => document.getElementById("admin-clubs")?.scrollIntoView({ behavior: "smooth" })}>{i18n.t("auto.AdminDashboard.clubs", "Clubs")}</Button>
+	                <Button size="sm" variant="outline" onClick={() => openAdminSection("admin-clubs")}>{i18n.t("auto.AdminDashboard.clubs", "Clubs")}</Button>
 	              </WrapItem>
 	              <WrapItem>
-	                <Button size="sm" variant="outline" onClick={() => document.getElementById("admin-coaches")?.scrollIntoView({ behavior: "smooth" })}>{i18n.t("auto.AdminDashboard.coachs", "Coachs")}</Button>
+	                <Button size="sm" variant="outline" onClick={() => openAdminSection("admin-coaches")}>{i18n.t("auto.AdminDashboard.coachs", "Coachs")}</Button>
 	              </WrapItem>
               <WrapItem>
-                <Button size="sm" variant="outline" onClick={() => document.getElementById("admin-clients")?.scrollIntoView({ behavior: "smooth" })}>{i18n.t("dashboard.stats_total_clients", "Clients")}</Button>
+                <Button size="sm" variant="outline" onClick={() => openAdminSection("admin-clients")}>{i18n.t("dashboard.stats_total_clients", "Clients")}</Button>
               </WrapItem>
               <WrapItem>
-                <Button size="sm" variant="outline" onClick={() => document.getElementById("admin-programs")?.scrollIntoView({ behavior: "smooth" })}>{i18n.t("clientsList.table.programs", "Programmes")}</Button>
+                <Button size="sm" variant="outline" onClick={() => openAdminSection("admin-programs")}>{i18n.t("clientsList.table.programs", "Programmes")}</Button>
               </WrapItem>
               <WrapItem>
-                <Button size="sm" variant="outline" onClick={() => document.getElementById("admin-exercises")?.scrollIntoView({ behavior: "smooth" })}>{i18n.t("auto.AdminDashboard.exercices", "Exercices")}</Button>
+                <Button size="sm" variant="outline" onClick={() => openAdminSection("admin-exercises")}>{i18n.t("auto.AdminDashboard.exercices", "Exercices")}</Button>
               </WrapItem>
               <WrapItem>
                 <Button size="sm" leftIcon={<Icon as={MdPublic} />} {...theme.primaryButtonProps} onClick={() => navigate("/admin/geo")}>{i18n.t("auto.AdminDashboard.geographie", "Géographie")}</Button>
@@ -2759,125 +2910,8 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      <Card mb={0}>
-        <CardBody>
-          <VStack align="stretch" spacing={3}>
-            <HStack justify="space-between" gap={3}>
-              <Heading size="sm">{i18n.t("auto.AdminDashboard.recherche_rapide", "Recherche rapide")}</Heading>
-              <Tag colorScheme="blue">
-                <Icon as={MdPersonSearch} mr={1} />{i18n.t("auto.AdminDashboard.multi_index", "multi-index")}</Tag>
-            </HStack>
-            <HStack gap={2}>
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearch();
-                }}
-                placeholder={i18n.t("auto.AdminDashboard.nom_email_ou_id", "Nom, email ou ID")}
-              />
-              <Button {...theme.primaryButtonProps} onClick={handleSearch}>
-                OK
-              </Button>
-            </HStack>
-            {displayedSearchResults.length > 0 && (
-              <VStack align="stretch" spacing={2} maxH="320px" overflowY="auto">
-                {displayedSearchResults.slice(0, 8).map((r) => (
-                  <Box key={`quick-${r.source}-${r.id}`} display="flex" alignItems="center" gap={2}>
-                  <Box
-                    as="button"
-                    type="button"
-                    w="100%"
-                    minW={0}
-                    textAlign="left"
-                    p={3}
-                    borderWidth="1px"
-                    borderRadius="lg"
-                    borderColor={theme.borderColor}
-                    bg={theme.surfaceSoft}
-                    onClick={() =>
-                      r.kind === "coach"
-                        ? openCoachDrawer({ id: r.id })
-                        : r.kind === "club"
-                        ? focusClub(r)
-                        : openClientProfile(r)
-                    }
-	                  >
-                    <HStack justify="space-between" align="start" gap={3}>
-                      <Box minW={0}>
-                        <Text fontWeight="800" noOfLines={1}>
-                          {r.name}
-                        </Text>
-                        <Text fontSize="sm" color="gray.500" noOfLines={1}>
-                          {r.email || r.id}
-                        </Text>
-                      </Box>
-	                      <Badge colorScheme={r.kind === "coach" ? "orange" : r.kind === "club" ? "green" : "blue"}>
-	                        {r.kind === "coach" ? "Coach" : r.kind === "club" ? "Club" : "Client"}
-	                      </Badge>
-                    </HStack>
-                  </Box>
-                  {r.kind !== "coach" && r.kind !== "club" && <ClientPreviewButton onClick={() => openClientDrawer(r)} />}
-                  </Box>
-                ))}
-              </VStack>
-            )}
-          </VStack>
-        </CardBody>
-      </Card>
-
-	      <SimpleGrid columns={{ base: 1, sm: 2, lg: 3, xl: 8 }} spacing={3}>
-	        <Stat {...compactStatProps}>
-	          <StatLabel>{i18n.t("auto.AdminDashboard.total_clubs", "Total clubs")}</StatLabel>
-	          <StatNumber {...compactStatNumberProps}>{clubRows.length}</StatNumber>
-	          <StatHelpText>{i18n.t("auto.AdminDashboard.structures_rattachees", "Structures rattachées")}</StatHelpText>
-	        </Stat>
-
-	        <Stat {...compactStatProps} position="relative" overflow="hidden">
-          <StatLabel>{i18n.t("auto.AdminDashboard.total_coaches", "Total coaches")}</StatLabel>
-          <StatNumber {...compactStatNumberProps}>{coaches.length}</StatNumber>
-          <StatHelpText>{i18n.t("auto.AdminDashboard.role_coach", "Rôle = coach")}</StatHelpText>
-        </Stat>
-
-        <Stat {...compactStatProps}>
-          <StatLabel>{i18n.t("auto.AdminDashboard.total_clients_auto_crees", "Total clients (auto + créés)")}</StatLabel>
-          <StatNumber {...compactStatNumberProps}>{totalClients}</StatNumber>
-          <StatHelpText>{i18n.t("auto.AdminDashboard.comptes_particuliers_fiches", "Comptes particuliers + fiches")}</StatHelpText>
-        </Stat>
-
-        <Stat {...compactStatProps}>
-          <StatLabel>{i18n.t("clientView.totalPrograms", "Total programmes")}</StatLabel>
-          <StatNumber {...compactStatNumberProps}>{totalPrograms}</StatNumber>
-          <StatHelpText>{i18n.t("auto.AdminDashboard.actifs_en_base", "Actifs en base")}</StatHelpText>
-        </Stat>
-
-        <Stat {...compactStatProps}>
-          <StatLabel>{i18n.t("auto.AdminDashboard.visiteurs_uniques_aujourd_hui", "Visiteurs uniques (Aujourd’hui)")}</StatLabel>
-          <StatNumber {...compactStatNumberProps}>{visitorsKpi.vToday}</StatNumber>
-          <StatHelpText>{visitorsKpi.today}</StatHelpText>
-        </Stat>
-
-        <Stat {...compactStatProps}>
-          <StatLabel>{i18n.t("auto.AdminDashboard.visiteurs_uniques_7_j", "Visiteurs uniques (7 j)")}</StatLabel>
-          <StatNumber {...compactStatNumberProps}>{visitorsKpi.v7}</StatNumber>
-          <StatHelpText>{i18n.t("auto.AdminDashboard.cumul_7_jours", "cumul 7 jours")}</StatHelpText>
-        </Stat>
-
-        <Stat {...compactStatProps}>
-          <StatLabel>{i18n.t("auto.AdminDashboard.visiteurs_uniques_30_j", "Visiteurs uniques (30 j)")}</StatLabel>
-          <StatNumber {...compactStatNumberProps}>{visitorsKpi.v30}</StatNumber>
-          <StatHelpText>{i18n.t("auto.AdminDashboard.cumul_30_jours", "cumul 30 jours")}</StatHelpText>
-        </Stat>
-
-        <Stat {...compactStatProps}>
-          <StatLabel>{i18n.t("auto.AdminDashboard.pages_vues_30_j", "Pages vues (30 j)")}</StatLabel>
-          <StatNumber {...compactStatNumberProps}>{totals30.pageviews}</StatNumber>
-          <StatHelpText>{i18n.t("auto.AdminDashboard.pageviews", "Pageviews")}</StatHelpText>
-        </Stat>
-      </SimpleGrid>
-
-      <Card id="admin-new-registrations" data-testid="admin-new-registrations">
-        <CardHeader>
+      <Card as="details" scrollMarginTop="100px" id="admin-new-registrations" data-testid="admin-new-registrations">
+        <CardHeader as="summary" cursor="pointer" position="relative" pe={12} listStyleType="none" _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5, fontSize: "xl" }}>
           <HStack justify="space-between" align="start" gap={4} flexWrap="wrap">
             <Box>
               <HStack spacing={2}>
@@ -2985,44 +3019,7 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-        <Card>
-          <CardHeader>
-            <HStack justify="space-between" align="center" gap={3}>
-              <HStack>
-                <Icon as={MdWarning} boxSize={5} />
-                <Heading size="md">{i18n.t("auto.AdminDashboard.a_surveiller", "À surveiller")}</Heading>
-              </HStack>
-              <Badge colorScheme={attentionTotal ? "orange" : "green"}>{attentionTotal}</Badge>
-            </HStack>
-          </CardHeader>
-          <CardBody>
-            <VStack align="stretch" spacing={3}>
-              {attentionItems.map((item) => (
-                <Box
-                  key={item.key}
-                  as="button"
-                  type="button"
-                  textAlign="left"
-                  p={3}
-                  borderWidth="1px"
-                  borderRadius="lg"
-                  borderColor={theme.borderColor}
-                  bg={theme.surfaceSoft}
-                  onClick={() => setSelectedAttention(item)}
-                >
-                  <HStack justify="space-between" gap={3} align="start">
-                    <Box minW={0}>
-                      <Text fontWeight="800" noOfLines={1}>{item.label}</Text>
-                      <Text fontSize="sm" color={mutedText} noOfLines={2}>{item.detail}</Text>
-                    </Box>
-                    <Badge colorScheme={item.color}>{item.count}</Badge>
-                  </HStack>
-                </Box>
-              ))}
-            </VStack>
-          </CardBody>
-        </Card>
+<Box as="details"><Box as="summary" cursor="pointer" py={4} fontWeight="800">{i18n.t("adminLayout.tools")}</Box><SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
 
         <Card>
           <CardHeader>
@@ -3085,7 +3082,8 @@ export default function AdminDashboard() {
         </Card>
       </SimpleGrid>
 
-      <Card id="admin-exercises" mb={6}>
+</Box>
+<Box as="details" id="admin-exercises" scrollMarginTop="100px"><Box as="summary" cursor="pointer" py={4} fontWeight="800">{i18n.t("auto.AdminDashboard.exercices_a_completer", "Exercices à compléter")} · {pendingExercises.length}</Box>      <Card  mb={6}>
         <CardHeader>
           <HStack justify="space-between" flexWrap="wrap" gap={3}>
             <HStack>
@@ -3175,28 +3173,10 @@ export default function AdminDashboard() {
             </>
           )}
         </CardBody>
-      </Card>
+      </Card></Box>
 
-	      <Card mb={6}>
-	        <CardHeader>
-	          <Heading size="md">{i18n.t("auto.AdminDashboard.trafic_30_derniers_jours", "Trafic 30 derniers jours")}</Heading>
-        </CardHeader>
-        <CardBody>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <ReTooltip />
-              <Line type="monotone" dataKey="pageviews" />
-              <Line type="monotone" dataKey="unique" />
-            </LineChart>
-          </ResponsiveContainer>
-	        </CardBody>
-	      </Card>
-
-	      <Card id="admin-clubs" mb={6}>
-	        <CardHeader>
+	      <Card as="details" scrollMarginTop="100px" id="admin-clubs" mb={6}>
+	        <CardHeader as="summary" cursor="pointer" position="relative" pe={12} listStyleType="none" _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5, fontSize: "xl" }}>
 	          <HStack justify="space-between" gap={3} flexWrap="wrap">
 	            <Box>
 	              <Heading size="md">{i18n.t("auto.AdminDashboard.clubs_2", "Clubs")}</Heading>
@@ -3345,8 +3325,8 @@ export default function AdminDashboard() {
 	        </CardBody>
 	      </Card>
 
-	      <Card id="admin-coaches" mb={6}>
-        <CardHeader>
+	      <Card as="details" scrollMarginTop="100px" id="admin-coaches" mb={6}>
+        <CardHeader as="summary" cursor="pointer" position="relative" pe={12} listStyleType="none" _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5, fontSize: "xl" }}>
           <HStack justify="space-between" gap={3} flexWrap="wrap">
             <Heading size="md">{i18n.t("auto.AdminDashboard.coachs", "Coachs")}</Heading>
             <Text fontSize="sm" color="gray.500">{i18n.t("auto.AdminDashboard.clique_sur_une_ligne_pour_voir_le_detail_clients_p", "(Clique sur une ligne pour voir le détail + clients + programmes)")}</Text>
@@ -3375,7 +3355,8 @@ export default function AdminDashboard() {
                   createdAt={c.createdAt}
                   lastVisit={c.lastVisit}
                   lastVisitLocation={c.lastVisitLocation}
-                  onClick={() => openCoachDrawer({ id: c.id })}
+                  onClick={() => navigate(`/admin/coach/${encodeURIComponent(c.id)}`)}
+                  onPreview={() => openCoachDrawer({ id: c.id })}
                   badges={
                     <>
                       <WrapItem>
@@ -3418,10 +3399,10 @@ export default function AdminDashboard() {
                     <Tr
                       key={c.id}
                       _hover={{ bg: rowHoverBg, cursor: "pointer" }}
-                      onClick={() => openCoachDrawer({ id: c.id })}
+                      onClick={() => navigate(`/admin/coach/${encodeURIComponent(c.id)}`)}
                     >
                       <Td maxW={{ base: "180px", md: "260px" }}>
-                        <Text noOfLines={1}>{c.name}</Text>
+                        <HStack justify="space-between"><Text noOfLines={1}>{c.name}</Text><ClientPreviewButton onClick={() => openCoachDrawer({ id: c.id })} /></HStack>
                         <Text fontSize="xs" color="gray.500" noOfLines={1}>{i18n.t("auto.AdminDashboard.id", "ID:")}{c.id}
                         </Text>
                       </Td>
@@ -3468,8 +3449,8 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      <Card id="admin-clients" mb={6}>
-        <CardHeader>
+      <Card as="details" scrollMarginTop="100px" id="admin-clients" mb={6}>
+        <CardHeader as="summary" cursor="pointer" position="relative" pe={12} listStyleType="none" _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5, fontSize: "xl" }}>
           <HStack justify="space-between" gap={3} flexWrap="wrap">
             <Heading size="md">{i18n.t("dashboard.stats_total_clients", "Clients")}</Heading>
             <Text fontSize="sm" color="gray.500">{i18n.t("adminClientNavigation.hint")}</Text>
@@ -3585,8 +3566,8 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      <Card id="admin-programs" mb={6}>
-        <CardHeader>
+      <Card as="details" scrollMarginTop="100px" id="admin-programs" mb={6}>
+        <CardHeader as="summary" cursor="pointer" position="relative" pe={12} listStyleType="none" _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5, fontSize: "xl" }}>
           <HStack justify="space-between" gap={3} flexWrap="wrap">
             <HStack>
               <Icon as={MdTableView} boxSize={5} />
@@ -3682,6 +3663,50 @@ export default function AdminDashboard() {
           </Box>
         </CardBody>
       </Card>
+
+<Box as="details" id="admin-traffic"><Box as="summary" cursor="pointer" py={4} fontWeight="800">{i18n.t("adminLayout.traffic")}</Box><SimpleGrid columns={{ base: 2, lg: 4 }} spacing={3}>
+        <Stat {...compactStatProps}>
+          <StatLabel>{i18n.t("auto.AdminDashboard.visiteurs_uniques_aujourd_hui", "Visiteurs uniques (Aujourd’hui)")}</StatLabel>
+          <StatNumber {...compactStatNumberProps}>{visitorsKpi.vToday}</StatNumber>
+          <StatHelpText>{visitorsKpi.today}</StatHelpText>
+        </Stat>
+
+        <Stat {...compactStatProps}>
+          <StatLabel>{i18n.t("auto.AdminDashboard.visiteurs_uniques_7_j", "Visiteurs uniques (7 j)")}</StatLabel>
+          <StatNumber {...compactStatNumberProps}>{visitorsKpi.v7}</StatNumber>
+          <StatHelpText>{i18n.t("auto.AdminDashboard.cumul_7_jours", "cumul 7 jours")}</StatHelpText>
+        </Stat>
+
+        <Stat {...compactStatProps}>
+          <StatLabel>{i18n.t("auto.AdminDashboard.visiteurs_uniques_30_j", "Visiteurs uniques (30 j)")}</StatLabel>
+          <StatNumber {...compactStatNumberProps}>{visitorsKpi.v30}</StatNumber>
+          <StatHelpText>{i18n.t("auto.AdminDashboard.cumul_30_jours", "cumul 30 jours")}</StatHelpText>
+        </Stat>
+
+        <Stat {...compactStatProps}>
+          <StatLabel>{i18n.t("auto.AdminDashboard.pages_vues_30_j", "Pages vues (30 j)")}</StatLabel>
+          <StatNumber {...compactStatNumberProps}>{totals30.pageviews}</StatNumber>
+          <StatHelpText>{i18n.t("auto.AdminDashboard.pageviews", "Pageviews")}</StatHelpText>
+        </Stat>
+      </SimpleGrid>
+
+	      <Card mb={6}>
+	        <CardHeader>
+	          <Heading size="md">{i18n.t("auto.AdminDashboard.trafic_30_derniers_jours", "Trafic 30 derniers jours")}</Heading>
+        </CardHeader>
+        <CardBody>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="day" />
+              <YAxis />
+              <ReTooltip />
+              <Line type="monotone" dataKey="pageviews" />
+              <Line type="monotone" dataKey="unique" />
+            </LineChart>
+          </ResponsiveContainer>
+	        </CardBody>
+	      </Card>
 
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mb={6}>
         <Card>
@@ -3779,6 +3804,7 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
+</Box>
       <Modal
         isOpen={!!selectedAttention}
         onClose={() => setSelectedAttention(null)}
@@ -3825,7 +3851,7 @@ export default function AdminDashboard() {
                       }
                       if (row.sectionId) {
                         requestAnimationFrame(() =>
-                          document.getElementById(row.sectionId)?.scrollIntoView({ behavior: "smooth" })
+                          openAdminSection(row.sectionId)
                         );
                       }
                     }}

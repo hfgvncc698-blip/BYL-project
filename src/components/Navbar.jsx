@@ -1,6 +1,7 @@
 // src/components/Navbar.jsx
  
 import React from "react";
+import { apiFetch } from "../utils/api";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Flex,
@@ -199,8 +200,42 @@ export default function Navbar() {
   const isNutritionOnlyCoach = showCoachUI && hasNutritionAccess && !hasSportAccess;
   const isMixedCoach = showCoachUI && hasNutritionAccess && hasSportAccess;
   const customNavbarName = user?.settings?.navbarBrandName?.trim?.();
-  const brandLabel =
-    (isClubContext || user?.clubId) && user?.clubName?.trim()
+  const inheritsBrand = isClient || (user?.accountType === "club_member" && user?.clubRole !== "owner");
+  const [inheritedBrand, setInheritedBrand] = React.useState(null);
+  React.useEffect(() => {
+    setInheritedBrand(null);
+    if (!inheritsBrand || !user?.uid) return undefined;
+    let active = true;
+    let controller;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      controller?.abort();
+      controller = new AbortController();
+      const requestController = controller;
+      const signal = requestController.signal;
+      const timer = setTimeout(() => requestController.abort(), 10000);
+      try {
+        const result = await apiFetch("/client-profile/navigation-brand", { signal });
+        if (active && !signal.aborted) setInheritedBrand({ uid: user.uid, label: result.label });
+      } catch {
+        if (active && controller === requestController) setInheritedBrand(null);
+      } finally { clearTimeout(timer); }
+    };
+    refresh();
+    const interval = setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      controller?.abort();
+      clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [inheritsBrand, user?.uid, location.pathname]);
+  const brandLabel = inheritsBrand
+    ? (inheritedBrand?.uid === user?.uid && inheritedBrand.label) || DEFAULT_BRAND_LABEL
+    : (isClubContext || user?.clubId) && user?.clubName?.trim()
       ? user.clubName.trim()
       : navbarBrandAllowed && customNavbarName
       ? customNavbarName
