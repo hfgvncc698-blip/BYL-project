@@ -838,6 +838,7 @@
       "memory_modal_description": "Ordena los puntos que debe comprobar el Copiloto. Ningún cambio se aplica sin validación del coach.",
       "actions": {
         "copy_message": "Copiar el seguimiento",
+        "open_message": "Escribir seguimiento",
         "review_adjustment": "Validar ajuste",
         "prepare_block": "Preparar bloque",
         "finalize_nutrition": "Finalizar",

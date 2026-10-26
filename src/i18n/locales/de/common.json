@@ -838,6 +838,7 @@
       "memory_modal_description": "Ordne die Punkte, die der Copilot prüfen soll. Keine Änderung wird ohne Bestätigung des Coaches angewendet.",
       "actions": {
         "copy_message": "Nachricht kopieren",
+        "open_message": "Nachricht verfassen",
         "review_adjustment": "Anpassung prüfen",
         "prepare_block": "Block vorbereiten",
         "finalize_nutrition": "Abschließen",

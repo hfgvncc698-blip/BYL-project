@@ -72,7 +72,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
   const loadErrorLabel = t("messaging.loadError");
 
   useEffect(() => {
-    if (!conversationId || !user?.uid) {
+    if (!conversationId || !user?.uid || !contact?.clientUid) {
       setLiveMessages([]);
       setOlderMessages([]);
       setHasOlder(false);
@@ -102,7 +102,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
       setLoading(false);
       setError(loadErrorLabel);
     });
-  }, [conversationId, loadErrorLabel, pageSize, user?.uid]);
+  }, [contact?.clientUid, conversationId, loadErrorLabel, pageSize, user?.uid]);
 
   const loadOlderMessages = async () => {
     const cursor = historyCursorRef.current;
@@ -276,6 +276,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
       </VStack>
 
       <Box p={3} borderTop="1px solid" borderColor={theme.borderColor}>
+        {!contact?.clientUid || !contact?.coachUid ? <Text mb={2} fontSize="xs" color={theme.mutedText}>{t("messaging.unlinkedAccount")}</Text> : null}
         {error ? <Text mb={2} fontSize="xs" color="red.500">{error}</Text> : null}
         <HStack align="end" spacing={2}>
           <Textarea
@@ -301,7 +302,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
             borderRadius="full"
             px={5}
             isLoading={sending}
-            isDisabled={!draft.trim()}
+            isDisabled={!draft.trim() || !contact?.clientUid || !contact?.coachUid}
             onClick={(event) => {
               event.preventDefault();
               void sendMessage();

@@ -838,6 +838,7 @@
       "memory_modal_description": "Classe les points que le Copilote doit vérifier, dans l'ordre. Aucun changement ne sera appliqué sans validation du coach.",
       "actions": {
         "copy_message": "Copier la relance",
+        "open_message": "Écrire la relance",
         "review_adjustment": "Valider l'ajustement",
         "prepare_block": "Préparer un bloc",
         "finalize_nutrition": "Finaliser",

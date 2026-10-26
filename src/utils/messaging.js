@@ -285,7 +285,7 @@ export async function loadCoachMessagingContacts({ currentUid, effectiveCoachUid
     return cachedClients
       .filter((client) => client?.id)
       .map((client) => contactFromClient(client, { currentUid, coachUid: targetCoachUid }))
-      .filter((contact) => contact.title && contact.clientUid)
+      .filter((contact) => contact.title)
       .sort((a, b) => a.title.localeCompare(b.title));
   }
   const snapshots = isAdmin && !effectiveCoachUid
@@ -303,6 +303,6 @@ export async function loadCoachMessagingContacts({ currentUid, effectiveCoachUid
     }));
   }));
   return [...byId.values()]
-    .filter((contact) => contact.title && contact.clientUid)
+    .filter((contact) => contact.title)
     .sort((a, b) => a.title.localeCompare(b.title));
 }

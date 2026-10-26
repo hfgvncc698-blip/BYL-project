@@ -838,6 +838,7 @@
       "memory_modal_description": "رتّب النقاط التي يجب على المساعد فحصها. لا يتم تطبيق أي تغيير دون موافقة المدرب.",
       "actions": {
         "copy_message": "نسخ رسالة المتابعة",
+        "open_message": "كتابة رسالة متابعة",
         "review_adjustment": "مراجعة التعديل",
         "prepare_block": "تحضير مرحلة",
         "finalize_nutrition": "إنهاء",

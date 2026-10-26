@@ -838,6 +838,7 @@
       "memory_modal_description": "Ordina i punti che il Copilota deve controllare. Nessuna modifica viene applicata senza conferma del coach.",
       "actions": {
         "copy_message": "Copia il follow-up",
+        "open_message": "Scrivi un sollecito",
         "review_adjustment": "Valida aggiustamento",
         "prepare_block": "Prepara blocco",
         "finalize_nutrition": "Finalizza",

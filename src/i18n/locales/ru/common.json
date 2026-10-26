@@ -838,6 +838,7 @@
       "memory_modal_description": "Расставьте пункты, которые должен проверять Copilot. Изменения не применяются без подтверждения тренера.",
       "actions": {
         "copy_message": "Скопировать сообщение",
+        "open_message": "Написать сообщение",
         "review_adjustment": "Проверить корректировку",
         "prepare_block": "Подготовить блок",
         "finalize_nutrition": "Завершить",

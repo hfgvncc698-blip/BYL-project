@@ -838,6 +838,7 @@
       "memory_modal_description": "Order the points the Copilot should check. No change is applied without coach validation.",
       "actions": {
         "copy_message": "Copy follow-up message",
+        "open_message": "Write follow-up",
         "review_adjustment": "Review adjustment",
         "prepare_block": "Prepare block",
         "finalize_nutrition": "Finalize",

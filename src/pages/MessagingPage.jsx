@@ -50,7 +50,7 @@ function ProfessionalMessagingPage() {
   const selectedContact = allContacts.find((contact) => contact.id === selectedId) || null;
   const visibleContacts = isClient || directoryOpen || search.trim()
     ? allContacts
-    : allContacts.filter((contact) => contact.clubContact || contact.conversation);
+    : allContacts.filter((contact) => contact.clubContact || contact.conversation || contact.id === selectedId);
   const filteredContacts = visibleContacts.filter((contact) => normalize([contact.title, contact.email].join(" ")).includes(normalize(search)));
 
   const selectContact = (contact) => setSearchParams({ conversation: contact.id }, {state:location.state});
@@ -138,7 +138,7 @@ function ProfessionalMessagingPage() {
               {selectedContact ? (
                 selectedContact.clubContact
                   ? <ClubThread suggestedClassRequest={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.classRequest : null} suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} key={selectedContact.id} contact={selectedContact} preview={false} ownerView={false} onBack={() => setSearchParams({})} t={t} />
-                  : <MessagingThread suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} contact={selectedContact} onBack={() => setSearchParams({})} />
+                  : <MessagingThread key={selectedContact.id} suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} contact={selectedContact} onBack={() => setSearchParams({})} />
               ) : (
                 <Flex h="full" align="center" justify="center" textAlign="center" px={6}>
                   <Box>

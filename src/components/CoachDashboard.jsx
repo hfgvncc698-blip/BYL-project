@@ -1,3 +1,4 @@
+import { conversationIdForClient } from "../utils/messaging";
 import { nutritionCalendarHistory } from "../utils/nutritionCalendarHistory";
 import BookingCredits from './offers/BookingCredits';
 import OfferRenewalAlerts from './offers/OfferRenewalAlerts';
@@ -62,6 +63,7 @@ import {
   Portal,
 } from "@chakra-ui/react";
 import {
+  ChatIcon,
   DeleteIcon,
   CopyIcon,
   CheckCircleIcon,
@@ -740,11 +742,11 @@ const getCopilotPrimaryAction = (item = {}) => {
   if (kind === "adjust") return "adjust_session";
   if (kind === "next_block") return "assign_program";
   if (kind === "nutrition") return "open_nutrition";
-  if (kind === "follow_up") return "copy_followup";
+  if (kind === "follow_up") return "open_followup";
   return (item.quickActions || [])[0] || "open_program";
 };
 const getCopilotPrimaryLabel = (item = {}, primaryAction, t) => {
-  if (primaryAction === "copy_followup") return t("dashboard.copilot.actions.copy_message", "Copier la relance");
+  if (primaryAction === "open_followup") return t("dashboard.copilot.actions.open_message", "Écrire la relance");
   if (primaryAction === "adjust_session") return t("dashboard.copilot.actions.review_adjustment", "Valider l'ajustement");
   if (primaryAction === "assign_program") return t("dashboard.copilot.actions.prepare_block", "Préparer un bloc");
   if (primaryAction === "open_nutrition") {
@@ -6033,7 +6035,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
           ? event.start.getTime()
           : Math.max(toMillis(event.start), toMillis(event.startsAt), toMillis(event.updatedAt), 0);
       if (eventMs && nowMs - eventMs > 14 * DAY_MS) return;
-      const clientName = getClientFullName(client) || event.type === "group" ? (event._sessionTitle || event.title) : event._clientName || t("dashboard.client", "Client");
+      const clientName = getClientFullName(client) || event._clientName || client.email || t("dashboard.client", "Client");
       const missedProgram = (client.programmesAssignes || []).find((programme) => programme.id === event.programmeId) || null;
       const missedProgramName = missedProgram ? prettyAssignedProgramName(missedProgram) : event._programmeName || "";
       const missedSessionTitle = event._sessionTitle || event.title || "";
@@ -6529,8 +6531,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
         detail: labels.join(" · "),
         decisionNote: t("dashboard.copilot.decision_notes.grouped", "Plusieurs signaux concernent ce client : faire un point global avant d'agir séparément."),
         quickActions: ["plan_session", "open_client"],
-        primaryAction: "copy_followup",
-        primaryLabel: t("dashboard.copilot.actions.copy_message", "Copier relance"),
+        primaryAction: "open_followup",
+        primaryLabel: t("dashboard.copilot.actions.open_message", "Écrire la relance"),
       });
     });
     return [
@@ -6569,8 +6571,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
               })
             : t("dashboard.radar.details.no_follow_up", "Aucun suivi détecté"),
           quickActions: ["plan_session", "open_client"],
-          primaryAction: "copy_followup",
-          primaryLabel: t("dashboard.copilot.actions.copy_message", "Copier relance"),
+          primaryAction: "open_followup",
+          primaryLabel: t("dashboard.copilot.actions.open_message", "Écrire la relance"),
         };
       }),
     [copilotQueueItems, inactiveClients, t, effectiveCoachUid]
@@ -7004,45 +7006,29 @@ month;
     [clients]
   );
 
-  const handleCopyCopilotMessage = useCallback(
-    async (item) => {
-      const message = await getCopilotFollowUpMessage(item);
-      try {
-        await navigator.clipboard.writeText(message);
-        toast({
-          status: "success",
-          title: t("dashboard.copilot.toasts.message_copied", "Message copié"),
-          description: message,
-          position: "bottom",
-          duration: 6500,
-          isClosable: true,
-        });
-        recordCopilotEvent({
-          type: "message_prepared",
-          title: item?.title || t("dashboard.copilot.history.message_title", "Relance préparée"),
-          detail: message,
-          clientId: item?.clientId,
-        });
-        suppressCopilotItem(item, "snoozed", { silent: true });
-      } catch {
-        toast({
-          status: "info",
-          title: t("dashboard.copilot.toasts.message_ready", "Message prêt"),
-          description: message,
-          position: "bottom",
-          duration: 6500,
-          isClosable: true,
-        });
-      }
+  const handleOpenCopilotMessage = useCallback(
+    async (item, preparedMessage) => {
+      if (!item?.clientId || !effectiveCoachUid) return;
+      const message = preparedMessage || await getCopilotFollowUpMessage(item);
+      const conversation = conversationIdForClient(item.clientId, effectiveCoachUid);
+      recordCopilotEvent({
+        type: "message_prepared",
+        title: item?.title || t("dashboard.copilot.history.message_title", "Relance préparée"),
+        detail: message,
+        clientId: item.clientId,
+      });
+      navigate(withAdminCoach(`/messages?conversation=${encodeURIComponent(conversation)}`), {
+        state: { suggestedMessage: { conversation, text: message } },
+      });
     },
-    [getCopilotFollowUpMessage, recordCopilotEvent, suppressCopilotItem, t, toast]
+    [effectiveCoachUid, getCopilotFollowUpMessage, navigate, recordCopilotEvent, t, withAdminCoach]
   );
 
   const handleCopilotDecision = useCallback(
     async (item) => {
       const action = item?.primaryAction || getCopilotPrimaryAction(item);
-      if (action === "copy_followup") {
-        await handleCopyCopilotMessage(item);
+      if (action === "open_followup") {
+        await handleOpenCopilotMessage(item);
         return;
       }
       recordCopilotEvent({
@@ -7053,7 +7039,7 @@ month;
       });
       await handleRadarQuickAction(item, action);
     },
-    [handleCopyCopilotMessage, handleRadarQuickAction, recordCopilotEvent, t]
+    [handleOpenCopilotMessage, handleRadarQuickAction, recordCopilotEvent, t]
   );
 
   const CalendarEvent = useCallback(
@@ -10909,13 +10895,13 @@ MdOutlineLibraryBooks : CheckCircleIcon} />
                       <Button
                         size="sm"
                         borderRadius="14px"
-                        leftIcon={<CopyIcon />}
+                        leftIcon={<ChatIcon />}
                         bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                         color="white"
                         _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                        onClick={() => handleCopyCopilotMessage(item)}
+                        onClick={() => handleOpenCopilotMessage(item)}
                       >
-                        {t("dashboard.copilot.actions.copy_message", "Copier relance")}
+                        {t("dashboard.copilot.actions.open_message", "Écrire la relance")}
                       </Button>
                       <Button
                         size="sm"
@@ -11149,6 +11135,17 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
                         <Box minW={0}>
                           <Text fontSize="sm" fontWeight="900" color={textColor}>{entry.title}</Text>
                           <Text mt={1} fontSize="sm" color={mutedText}>{entry.detail}</Text>
+                          {entry.type === "message_prepared" && entry.clientId && entry.detail ? (
+                            <Button
+                              mt={3}
+                              size="sm"
+                              borderRadius="full"
+                              leftIcon={<ChatIcon />}
+                              onClick={() => handleOpenCopilotMessage(entry, entry.detail)}
+                            >
+                              {t("dashboard.copilot.actions.open_message", "Écrire la relance")}
+                            </Button>
+                          ) : null}
                         </Box>
                         {historyDateLabel ? (
                           <Text fontSize="10px" color={subtleText} flexShrink={0}>{historyDateLabel}</Text>
