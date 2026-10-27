@@ -1,0 +1,8 @@
+Mode: built-in image_gen, edit from the supplied palm logo.
+Final prompt:
+Precise crop only of the supplied original logo. Output a square app icon. Crop away the outside white margins so the original blue rounded square fills the canvas. For app icon use, fill ONLY the remaining outer corners with the SAME blue as the square, so the output is a FULLY OPAQUE BLUE SQUARE with the original white palm silhouette. Preserve the reference palm exactly, its proportions, leaves, trunk, position and original blue hue (#285c91 approximately). The white trunk ends cleanly at the bottom canvas edge. Absolutely NO additional white shapes, marks, border, outside padding, texture, noise, transparent holes or drop shadows. All blue regions must be opaque and clean, uniformly matching the original. This is production logo cleanup, not logo design. Do not redraw or reinterpret the palm. White only belongs to the palm.
+
+The initial transparent extraction was rejected and is not used.
+Production master: public/logo-byl.png
+Derived sizes via sips: icon-192.png, icon-512.png, icon-1024.png, apple-touch-icon.png (180), favicon.png (64), favicon.ico.
+The manifest uses purpose=any so platforms preserve the entire icon when applying their own masks.

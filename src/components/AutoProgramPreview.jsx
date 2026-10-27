@@ -1,3 +1,4 @@
+import { loadProgramPdfLogos } from "../utils/programPdfLogos.js";
 import { downloadPdfFile } from "../utils/downloadPdfFile";
 // src/components/AutoProgramPreview.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -58,7 +59,6 @@ import { localizeExercise } from "../utils/exerciseI18n";
 import { getExerciseNoteLines } from "../utils/exerciseNotes";
 import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
-import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { isUnmodifiedAutomaticProgramTitle } from "../utils/programPdfTitle";
 import { settleWithTimeout } from "../utils/asyncTimeout";
 import { apiFetch } from "../utils/api";
@@ -247,7 +247,7 @@ function sanitizeStoragePath(input = "") {
 function isProbablyStoragePath(v = "") {
   const s = String(v || "").trim();
   if (!s) return false;
-  if (isAbsoluteUrl(s)) return false;
+  if (isAbsoluteUrl(s) || s.startsWith("/")) return false;
   if (s.startsWith("gs://")) return true;
   return s.includes("/") && !s.startsWith("data:") && !s.startsWith("blob:") && !s.startsWith("#");
 }
@@ -397,7 +397,8 @@ async function storagePathToDataUrl(path) {
 
   storageDataUrlCache.set(cleanedPath, pending);
   const result = await pending;
-  storageDataUrlCache.set(cleanedPath, result);
+  if (result) storageDataUrlCache.set(cleanedPath, result);
+  else storageDataUrlCache.delete(cleanedPath);
   return result;
 }
 
@@ -456,7 +457,8 @@ async function anyImageSourceToDataUrl(raw) {
 
   genericImageDataUrlCache.set(value, pending);
   const result = await pending;
-  genericImageDataUrlCache.set(value, result);
+  if (result) genericImageDataUrlCache.set(value, result);
+  else genericImageDataUrlCache.delete(value);
   return result;
 }
 
@@ -1803,7 +1805,7 @@ const PDF_I18N = {
 };
 
 /* ---------------- Logos ---------------- */
-const LEGACY_BYL_LOCAL = "/logo-byl.png";
+
 
 /* ---------------- Programme name ---------------- */
 const GOAL_LABEL_BY_KEY = {
@@ -2343,8 +2345,6 @@ export default function AutoProgramPreview() {
   const [, setPdfExerciseImageMap] = useState({});
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
-  const [headerLogo, setHeaderLogo] = useState(null);
-  const [footerLogo, setFooterLogo] = useState(null);
 
   const Llbl = PDF_I18N;
   const L = Llbl[pdfLang] || Llbl.fr;
@@ -2691,24 +2691,7 @@ export default function AutoProgramPreview() {
     }
   };
 
-  useEffect(() => {
-    (async () => {
-      const byl = await anyImageSourceToDataUrl(LEGACY_BYL_LOCAL);
-      const brandingAllowed = canUseCustomBranding(
-        user?.proAccess || {
-          packageKey: user?.packageKey,
-          packageTier: user?.packageTier,
-          branding: user?.branding,
-        }
-      );
-      const coachLogo = brandingAllowed
-        ? await anyImageSourceToDataUrl(user?.logoUrl || user?.photoURL || "")
-        : "";
-      const logo = byl || LEGACY_BYL_LOCAL;
-      setFooterLogo(logo);
-      setHeaderLogo(coachLogo || logo);
-    })();
-  }, [user?.branding, user?.logoUrl, user?.packageKey, user?.packageTier, user?.photoURL, user?.proAccess]);
+
 
   const resolveExerciseForDisplay = (exercise, fallback = "", lng = i18n.language || "fr") => {
     const cacheKey = getExerciseCacheKey(exercise, fallback);
@@ -2985,6 +2968,10 @@ export default function AutoProgramPreview() {
         import("../utils/sportProgramPdf"),
         settleWithTimeout(preloadPdfImagesForAllSessions(), 8000, {}),
       ]);
+      const { headerLogo, footerLogo } = await loadProgramPdfLogos({
+        user,
+        convertImage: anyImageSourceToDataUrl,
+      });
       const rawCoachName =
         getPrettyUserName(user) ||
         (user?.displayName && !/@/.test(user.displayName) ? user.displayName : "") ||

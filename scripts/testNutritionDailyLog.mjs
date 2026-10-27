@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   buildNutritionLogEntries,
+  normalizeNutritionLogEntry,
   calculateNutritionLogTotals,
   ciqualNutritionPer100,
   menuDayIndexForDate,
@@ -48,7 +49,7 @@ const fallbackEntries = buildNutritionLogEntries({
   totals: { kcal: 600, p: 30, f: 20, c: 75 },
   meals: [{ label: "Déjeuner", items: [{ name: "Plat", qty: "300 g" }, { name: "Fruit", qty: "100 g" }] }],
 });
-assert.equal(Math.round(fallbackEntries.reduce((sum, entry) => sum + entry.plannedKcal, 0)), 600);
+assert.equal(fallbackEntries.reduce((sum, entry) => sum + entry.plannedKcal, 0), 0, "Unknown nutrients must not be invented from daily totals");
 
 const ciqualExtra = [{ source: "extra", eaten: true, actualQuantity: 150, nutritionPer100: ciqualPer100 }];
 assert.deepEqual(roundNutritionTotals(calculateNutritionLogTotals(ciqualExtra)), {
@@ -56,3 +57,16 @@ assert.deepEqual(roundNutritionTotals(calculateNutritionLogTotals(ciqualExtra)),
 });
 
 console.log("ok - nutrition daily log calculations");
+
+const ration = buildNutritionLogEntries({totals:{kcal:2777,p:144,f:94,c:329}, meals:[{label:"Petit-déjeuner",items:[{name:"Eau",qty:250,unit:"ml"},{name:"Beurre",qty:15,unit:"g"},{name:"Céréales petit déjeuner",qty:45,unit:"g"}]}]});
+assert.equal(ration[0].nutritionKnown,true);
+assert.equal(ration[0].plannedKcal,0);
+assert.equal(ration[1].plannedF,12.15);
+assert.equal(ration[2].plannedC,32.4);
+const legacyWater = {...ration[0], nutritionKnown:false, plannedKcal:205,plannedP:10.8,plannedF:7,plannedC:24.7,eaten:true,actualQuantity:500};
+assert.equal(normalizeNutritionLogEntry(legacyWater).actualQuantity,500);
+const waterTotals = calculateNutritionLogTotals([legacyWater]);
+assert.deepEqual([waterTotals.kcal,waterTotals.p,waterTotals.f,waterTotals.c],[0,0,0,0]);
+assert.equal(waterTotals.eaten,1);
+assert.equal(calculateNutritionLogTotals([{...ration[1],eaten:true,actualQuantity:30}]).f,24.3);
+console.log("ok - water, legacy logs and food-specific quantity calculations");

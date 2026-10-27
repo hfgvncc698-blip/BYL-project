@@ -1,14 +1,12 @@
 import ClubDeparture from '../components/dashboard/ClubDeparture';
-import useSessionDraft from "../hooks/useSessionDraft";
 // src/pages/SettingsPageCoach.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Heading,
   Select,
   FormControl,
   FormLabel,
-  Input,
   Button,
   Text,
   useToast,
@@ -34,7 +32,6 @@ import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
 import {
   MdLanguage,
-  MdOutlineBadge,
   MdOutlineCreditCard,
   MdOutlineLock,
   MdOutlineWarningAmber,
@@ -50,20 +47,12 @@ import { useAppTheme } from "../styles/appTheme";
 
 import { getApiBase } from "../utils/apiBase";
 import { getAuthHeaders } from "../utils/authHeaders";
-import { canUseNavbarBranding, hasPlanModule } from "../utils/proPlanAccess";
+import { hasPlanModule } from "../utils/proPlanAccess";
 import { ensureLanguageLoaded } from "../i18n";
 
 const API_BASE = getApiBase();
 const SUPPORTED = ["fr", "en", "de", "it", "es", "ru", "ar"];
 const normalize = (lng) => (lng || "fr").split("-")[0].toLowerCase();
-const withTimeout = (promise, ms = 25000) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      globalThis.setTimeout(() => reject(new Error("timeout")), ms);
-    }),
-  ]);
-
 export default function SettingsPageCoach() {
   const { user, resetPassword } = useAuth();
   const toast = useToast();
@@ -73,7 +62,6 @@ export default function SettingsPageCoach() {
 
   const [sendingReset, setSendingReset] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
-  const [savingNavbarBrand, setSavingNavbarBrand] = useState(false);
   const pageBg = theme.pageBg;
   const cardBg = theme.surfaceBgStrong;
   const subCardBg = theme.surfaceSoft;
@@ -96,35 +84,10 @@ export default function SettingsPageCoach() {
     normalize(i18n.resolvedLanguage) ||
     "fr";
   const [selectedLang, setSelectedLang] = useState(initialLang);
-  const [navbarBrandName, setNavbarBrandName] = useState(
-    user?.settings?.navbarBrandName || ""
-  );
-  const [brandDraft, setBrandDraft] = useSessionDraft(user?.uid ? `navbar-brand:${user.uid}` : null, null);
-  const navbarBrandDirtyRef = useRef(brandDraft !== null);
-  const navbarBrandInputRef = useRef(null);
-
   useEffect(() => {
     const lng = normalize(i18n.language);
     if (SUPPORTED.includes(lng)) setSelectedLang(lng);
   }, [i18n.language]);
-
-  useEffect(() => {
-    if (user?.clubId && user?.clubRole !== "owner") {
-      if (navbarBrandInputRef.current) navbarBrandInputRef.current.value = user.clubName || "";
-      return;
-    }
-    if (brandDraft !== null && navbarBrandDirtyRef.current) {
-      setNavbarBrandName(brandDraft);
-      if (navbarBrandInputRef.current) navbarBrandInputRef.current.value = brandDraft;
-      return;
-    }
-    if (navbarBrandDirtyRef.current || savingNavbarBrand) return;
-    const nextName = user?.settings?.navbarBrandName || "";
-    setNavbarBrandName(nextName);
-    if (navbarBrandInputRef.current) {
-      navbarBrandInputRef.current.value = nextName;
-    }
-  }, [brandDraft, savingNavbarBrand, user?.settings?.navbarBrandName, user?.clubId, user?.clubRole, user?.clubName]);
 
   const subStatus = user?.subscriptionStatus || "canceled";
   const hasStripeCustomer = Boolean(user?.stripeCustomerId || user?.stripe?.customerId);
@@ -199,14 +162,6 @@ export default function SettingsPageCoach() {
     ? { coachClients: t("guidedTutorial.shortcuts.patients", "Patients") }
     : {};
   const tutorialRole = user?.accountType === "club_owner" || user?.clubRole === "owner" ? "club" : "coach";
-  const navbarBrandAllowed = !isClubMember && canUseNavbarBranding(
-    user?.proAccess || {
-      packageKey: user?.packageKey,
-      packageTier: user?.packageTier,
-      branding: user?.branding,
-    }
-  );
-
   const subBadge = useMemo(() => {
     if (subStatus === "active") return { color: "green", label: t("auto.SettingsPageCoach.acces_actif", "ACCÈS ACTIF") };
     if (subStatus === "trialing") return { color: "yellow", label: t("auto.SettingsPageCoach.trial_in_progress", "ESSAI EN COURS") };
@@ -247,52 +202,6 @@ export default function SettingsPageCoach() {
           ? t("settings.toasts.firestore_perm_denied") || "Permissions Firestore insuffisantes."
           : err?.message || t("settings.toasts.update_error") || "Erreur lors de la mise à jour.";
       notify(toast, "saveError", { description: msg });
-    }
-  };
-
-  const handleNavbarBrandSave = async () => {
-    if (!user?.uid || !navbarBrandAllowed) return;
-    const cleanName = String(navbarBrandInputRef.current?.value ?? navbarBrandName)
-      .trim()
-      .slice(0, 48);
-    setSavingNavbarBrand(true);
-
-    try {
-      const ref = doc(db, "users", user.uid);
-      try {
-        await withTimeout(updateDoc(ref, { "settings.navbarBrandName": cleanName }));
-      } catch (err) {
-        if (err?.code === "not-found" || err?.message?.includes("No document")) {
-          await withTimeout(setDoc(ref, { settings: { navbarBrandName: cleanName } }, { merge: true }));
-        } else {
-          throw err;
-        }
-      }
-      setNavbarBrandName(cleanName);
-      if (navbarBrandInputRef.current) {
-        navbarBrandInputRef.current.value = cleanName;
-      }
-      navbarBrandDirtyRef.current = false;
-      setBrandDraft(null);
-      notify(toast, "settingsSaved", {
-        description: "Nom affiché dans la navigation mis à jour.",
-      });
-    } catch (err) {
-      if (err?.message === "timeout") {
-        toast({
-          status: "warning",
-          title: t("auto.SettingsPageCoach.synchronisation_lente", "Synchronisation lente"),
-          description: t("auto.SettingsPageCoach.firebase_n_a_pas_confirme_l_enregistrement_as", "Firebase n'a pas confirmé l'enregistrement assez vite. La connexion ou le service peut être lent, réessayez dans quelques secondes."),
-          duration: 6500,
-          isClosable: true,
-        });
-        return;
-      }
-      notify(toast, "saveError", {
-        description: err?.message || "Impossible d'enregistrer ce nom pour le moment.",
-      });
-    } finally {
-      setSavingNavbarBrand(false);
     }
   };
 
@@ -474,61 +383,6 @@ export default function SettingsPageCoach() {
             borderColor={borderColor}
             softBg={subCardBg}
           />
-
-          <AppSurface {...surfaceCardProps} p={{ base: 5, md: 6 }}>
-            <HStack spacing={3} mb={4} align="flex-start">
-              <Circle size="42px" bg="rgba(139,92,246,0.10)" color="#8B5CF6" flexShrink={0}>
-                <Icon as={MdOutlineBadge} boxSize="20px" />
-              </Circle>
-              <Box minW={0}>
-                <HStack spacing={2} wrap="wrap">
-                  <Heading as="h2" size="md" color={textColor}>{t("auto.SettingsPageCoach.nom_dans_la_navigation", "Nom dans la navigation")}</Heading>
-                  {!isClubMember && <Badge borderRadius="full" colorScheme={navbarBrandAllowed ? "green" : "gray"}>
-                    {navbarBrandAllowed
-                      ? t("auto.SettingsPageCoach.inclus", "Inclus")
-                      : t("auto.SettingsPageCoach.palier_superieur", "Palier supérieur")}
-                  </Badge>}
-                </HStack>
-                <Text mt={1} color={mutedText}>
-                  {isClubMember
-                    ? t("auto.SettingsPageCoach.nom_gere_par_responsable_club", "Ce nom est géré par le responsable du club.")
-                    : t("auto.SettingsPageCoach.navbar_brand_hint", "Sur les paliers avancés, ce nom remplace BoostYourLife.coach dans la barre de navigation.")}
-                </Text>
-              </Box>
-            </HStack>
-
-            <Flex direction={{ base: "column", md: "row" }} align={{ base: "stretch", md: "flex-end" }} gap={3}>
-              <FormControl isDisabled={!navbarBrandAllowed} flex="1">
-                <FormLabel mb="1" color={subtleText}>{t("auto.SettingsPageCoach.nom_affiche", "Nom affiché")}</FormLabel>
-                <Input
-                  ref={navbarBrandInputRef}
-                  key={isClubMember ? user?.clubName : "personal-brand"}
-                  defaultValue={isClubMember ? user?.clubName || "" : navbarBrandName}
-                  onChange={(event) => {
-                    navbarBrandDirtyRef.current = true;
-                    setBrandDraft(event.target.value);
-                  }}
-                  maxLength={48}
-                  placeholder="BoostYourLife.coach"
-                  borderRadius="full"
-                  bg={subCardBg}
-                />
-              </FormControl>
-              <Button
-                alignSelf={{ base: "stretch", md: "flex-end" }}
-                bg={primaryButtonBg}
-                color={primaryButtonColor}
-                _hover={{ bg: primaryButtonHoverBg }}
-                borderRadius="full"
-                h="40px"
-                px={5}
-                fontWeight="700"
-                isDisabled={!navbarBrandAllowed}
-                isLoading={savingNavbarBrand}
-                onClick={handleNavbarBrandSave}
-              >{t("auto.SettingsPageCoach.enregistrer_le_nom", "Enregistrer le nom")}</Button>
-            </Flex>
-          </AppSurface>
 
           <TutorialSettingsPanel
             role={tutorialRole}

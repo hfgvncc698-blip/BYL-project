@@ -1,3 +1,4 @@
+import { buildSharedNutritionSummary, sortSharedNutrition } from "../utils/sharedNutritionSummary";
 import CalendarCancellationDetails from './calendar/CalendarCancellationDetails';
 import {followupColor} from '../utils/followupColor';
 import LastPackSessionBadge from "./calendar/LastPackSessionBadge";
@@ -868,6 +869,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     }, () => {});
   }, [clientId, previewMode]);
   const [nutritionSummary, setNutritionSummary] = useState(null);
+  const [nutritionClientIds, setNutritionClientIds] = useState([]);
   const [nutritionMealHabits, setNutritionMealHabits] = useState({});
   const [programmes, setProgrammes] = useState([]);
   const [premiumPrograms, setPremiumPrograms] = useState([]);
@@ -1159,6 +1161,10 @@ export default function ClientDashboard({ adminPreview = false }) {
 
     (async () => {
       setLoading(true);
+      setNutritionSummary(null);
+      setNutritionClientIds([]);
+      setDashboardNutritionMealKeys(null);
+      setNutritionMealHabits({});
 
       const clientDoc = await resolveClientRef(user);
       if (!active) return;
@@ -1179,64 +1185,58 @@ export default function ClientDashboard({ adminPreview = false }) {
       if(!active)return;
       const hiddenDossierIds=new Set(followupData.followups.filter(f=>f.hidden).map(f=>f.id));
       const dossierIds = [...new Set([clientDoc.id,...followupData.followups.map(f=>f.id)])].filter(id=>!hiddenDossierIds.has(id));
+      setNutritionClientIds(dossierIds);
       const cId = clientDoc.id;
       const clientData = clientDoc.data?.() || {};
       setClientId(cId);
       setClientProfile(clientData);
       runClientDataAccessDiagnostic(user, { source: "ClientDashboard", clientId: cId });
 
-      if(!hiddenDossierIds.has(cId)){
-      unsubNutrition = onSnapshot(
-        query(
-          collection(db, "clients", cId, "nutrition_assessments"),
-          where("clientShare.enabled", "==", true)
-        ),
-        (nutritionSnap) => {
-          const nutritionRows = nutritionSnap.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((row) => row?.clientShare?.enabled)
-            .sort((a, b) => (
-              toMillis(b.clientShare?.sharedAt || b.updatedAt || b.createdAt) || 0
-            ) - (
-              toMillis(a.clientShare?.sharedAt || a.updatedAt || a.createdAt) || 0
-            ));
-          const latestNutrition = nutritionRows[0] || null;
+      const nutritionByDossier = new Map();
+      const pendingNutrition = new Set(dossierIds);
+      let nutritionLogClientId = "";
+      const publishNutrition = () => {
+        if (!active || pendingNutrition.size) return;
+        const nutritionRows = sortSharedNutrition([...nutritionByDossier.values()].flat());
+        const latestNutrition = nutritionRows[0] || null;
           setDashboardNutritionMealKeys(null);
-          const snapshotMenuDays = latestNutrition?.clientShare?.snapshot?.menuDays || [];
-          const snapshotMealKeys = snapshotMenuDays
-            .flatMap((day) => day?.meals || [])
-            .map((meal) => meal?.mealKey || meal?.key || "")
-            .filter(Boolean);
-          const rationLines = latestNutrition?.ration?.selected?.lines || latestNutrition?.ration?.lines || [];
-          const rationMealKeys = rationLines.flatMap((line) =>
-            Object.entries(line?.meals || {})
-              .filter(([, quantity]) => Number(quantity) > 0)
-              .map(([mealKey]) => mealKey)
-          );
-          setNutritionSummary(latestNutrition ? {
-            id: latestNutrition.id,
-            objective: latestNutrition.inputs?.objectif || latestNutrition.inputs?.objective || "Plan nutrition",
-            kcal: latestNutrition.computed?.kcalTarget || latestNutrition.ration?.selected?.computed?.totals?.day?.kcal || null,
-            sharedCount: nutritionRows.length,
-            sharedAt: latestNutrition.clientShare?.sharedAt || latestNutrition.updatedAt || latestNutrition.createdAt || null,
-            mealKeys: [...new Set([...snapshotMealKeys, ...rationMealKeys])],
-            menuDays: snapshotMenuDays,
-            rationMealKeys: [...new Set(rationMealKeys)],
-          } : null);
-        },
-        (nutritionError) => {
-          console.warn("[ClientDashboard] nutrition summary unavailable", nutritionError);
-          setNutritionSummary(null);
+          setNutritionSummary(buildSharedNutritionSummary(nutritionRows));
+
+        const nextLogClientId = latestNutrition?.sourceClientId || "";
+        if (nextLogClientId !== nutritionLogClientId) {
+          unsubNutritionLogs?.();
+          unsubNutritionLogs = null;
+          nutritionLogClientId = nextLogClientId;
+          setNutritionMealHabits({});
+          if (nextLogClientId) {
+            unsubNutritionLogs = onSnapshot(
+              query(collection(db, "clients", nextLogClientId, "nutrition_daily_logs"), orderBy("dateKey", "desc"), limit(7)),
+              (snapshot) => {
+                if (active && nutritionLogClientId === nextLogClientId) setNutritionMealHabits(inferNutritionMealHabits(snapshot.docs.map((item) => item.data())));
+              },
+              () => { if (active && nutritionLogClientId === nextLogClientId) setNutritionMealHabits({}); }
+            );
+          }
         }
-      );
-
-      unsubNutritionLogs = onSnapshot(
-        query(collection(db, "clients", cId, "nutrition_daily_logs"), orderBy("dateKey", "desc"), limit(7)),
-        (snapshot) => setNutritionMealHabits(inferNutritionMealHabits(snapshot.docs.map((item) => item.data()))),
-        () => setNutritionMealHabits({})
-      );
-
-      } else {setNutritionSummary(null);setDashboardNutritionMealKeys(null);setNutritionMealHabits({});}
+      };
+      const nutritionUnsubs = dossierIds.map((sourceClientId) => onSnapshot(
+        query(collection(db, "clients", sourceClientId, "nutrition_assessments"), where("clientShare.enabled", "==", true)),
+        (snapshot) => {
+          nutritionByDossier.set(sourceClientId, snapshot.docs
+            .map((item) => ({ ...item.data(), id: item.id, sourceClientId }))
+            .filter((row) => row.clientShare?.enabled && Object.values(row.clientShare?.sections || {}).some(Boolean)));
+          pendingNutrition.delete(sourceClientId);
+          publishNutrition();
+        },
+        (error) => {
+          console.warn("[ClientDashboard] nutrition summary unavailable", error);
+          nutritionByDossier.delete(sourceClientId);
+          pendingNutrition.delete(sourceClientId);
+          publishNutrition();
+        }
+      ));
+      unsubNutrition = () => nutritionUnsubs.forEach((unsubscribe) => unsubscribe());
+      publishNutrition();
 
       // ✅ sessions (calendar) EN LIVE : deux listeners + merge
       const mergeSessions = (a = [], b = [], c = []) => {
@@ -2437,7 +2437,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     ? `program:${clientId}:${focusProgramme.id}:${focusProgramme._assignedAtMs || focusProgramme._createdAtMs || 0}`
     : "";
   const nutritionFollowUpSeenKey = nutritionSummary?.id && clientId
-    ? `nutrition:${clientId}:${nutritionSummary.id}:${toMillis(nutritionSummary.sharedAt) || 0}`
+    ? `nutrition:${nutritionSummary.sourceClientId || clientId}:${nutritionSummary.id}:${toMillis(nutritionSummary.sharedAt) || 0}`
     : "";
   const focusProgrammeIsNew = Boolean(
     focusProgramme &&
@@ -3056,29 +3056,14 @@ export default function ClientDashboard({ adminPreview = false }) {
                   textAlign={{ base: "center", md: "left" }}
                   gap={{ base: 2, md: 3 }}
                 >
-                  <Flex
-                  display={{ base: "none", md: "flex" }}
-                  w={{ base: "50px", md: "56px" }}
-                  h={{ base: "50px", md: "56px" }}
-                  borderRadius={{ base: "15px", md: "16px" }}
-                  bg={modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
-                  border="1px solid"
-                  borderColor={borderStrong}
-                  overflow="hidden"
-                  align="center"
-                  justify="center"
-                  boxShadow={modeValue(
-                    "0 18px 40px rgba(15,23,42,0.08)",
-                    "0 18px 40px rgba(0,0,0,0.22)"
-                  )}
-                  flexShrink={0}
-                >
                   <ClubLogo
                     src={resolvedLogoUrl}
                     alt={t('client_dash.logo_alt')}
-                    w="100%" h="100%" border="none" borderRadius="inherit" p={1.5}
+                    adaptiveSize={{ base: 50, md: 56 }}
+                    display={{ base: "none", md: "block" }}
+                    borderRadius="16px"
+                    borderColor={borderStrong}
                   />
-                </Flex>
                   <Box minW={0} w="full">
                     <Heading size={{ base: 'md', md: 'md' }} lineHeight="1.08" letterSpacing="-0.025em" color={textColor}>
                       {t('client_dash.hello_name', { name: firstName || user.displayName || t('client_dash.client') })} 👋
@@ -3446,7 +3431,8 @@ export default function ClientDashboard({ adminPreview = false }) {
       {user && hasNutritionFollowUp ? (
         <React.Suspense fallback={<Box minH="220px" />}>
           <ClientNutritionSharedSection
-            clientId={clientId}
+            clientId={nutritionSummary?.sourceClientId || clientId}
+            clientIds={nutritionClientIds}
             variant="compact"
             isNew={nutritionFollowUpIsNew}
             onOpenNutrition={(panelKey) => {

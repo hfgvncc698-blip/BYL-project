@@ -1,11 +1,12 @@
 import React, { useMemo } from "react";
 import { FormControl, FormLabel, Input, Select, SimpleGrid, Text } from "@chakra-ui/react";
 import { expandRecurringDates } from "../../utils/calendarRecurrence";
+import PlanInclusionBadge from "../PlanInclusionBadge";
 
 const optionStyle = { color: "black" };
 
-export default function CalendarRecurrenceFields({ value, onChange, startDateTime, t, inputProps = {} }) {
-  const frequency = value?.frequency || "none";
+export default function CalendarRecurrenceFields({ value, onChange, startDateTime, t, inputProps = {}, included = true }) {
+  const frequency = included ? value?.frequency || "none" : "none";
   const occurrenceCount = useMemo(
     () => expandRecurringDates(startDateTime, value).length,
     [startDateTime, value]
@@ -13,11 +14,11 @@ export default function CalendarRecurrenceFields({ value, onChange, startDateTim
 
   return (
     <>
-      <FormControl>
-        <FormLabel>{t("calendar.recurrence.label", "Récurrence")}</FormLabel>
+      <FormControl isDisabled={!included}>
+        <FormLabel>{t("calendar.recurrence.label", "Récurrence")} <PlanInclusionBadge included={included} /></FormLabel>
         <Select
           value={frequency}
-          onChange={(event) => onChange({ ...value, frequency: event.target.value })}
+          onChange={(event) => { if (included) onChange({ ...value, frequency: event.target.value }); }}
           {...inputProps}
         >
           <option value="none" style={optionStyle}>{t("calendar.recurrence.none", "Ne pas répéter")}</option>

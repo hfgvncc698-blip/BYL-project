@@ -1,3 +1,5 @@
+import PlanInclusionBadge from "../components/PlanInclusionBadge";
+import NavbarBrandProfileCard from "../components/NavbarBrandProfileCard";
 import ClubLogo from "../components/dashboard/ClubLogo";
 // src/pages/ProfilePageCoach.jsx
 import React, { useState, useEffect, useRef } from "react";
@@ -10,7 +12,6 @@ import {
   Button,
   Stack,
   useToast,
-  Image,
   Progress,
   HStack,
   Text,
@@ -38,7 +39,6 @@ import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/
 import { useTranslation } from "react-i18next";
 import {
   MdOutlineAlternateEmail,
-  MdOutlineBadge,
   MdOutlineImage,
   MdOutlineMailOutline,
   MdOutlinePerson,
@@ -124,6 +124,7 @@ function StatMini({
 
 function SectionCard({
   title,
+  included = true,
   subtitle,
   icon,
   accent,
@@ -161,9 +162,10 @@ function SectionCard({
             <Icon as={icon} boxSize="20px" />
           </Circle>
           <Box>
-            <Heading size="md" letterSpacing="-0.02em">
-              {title}
-            </Heading>
+            <HStack spacing={2} flexWrap="wrap">
+              <Heading size="md" letterSpacing="-0.02em">{title}</Heading>
+              <PlanInclusionBadge included={included} />
+            </HStack>
             {subtitle ? (
               <Text mt={1} fontSize="sm" color={subtleText}>
                 {subtitle}
@@ -195,8 +197,21 @@ export default function ProfilePageCoach() {
   });
   const [initialEmail, setInitialEmail] = useState("");
   const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState("");
+  const [savingLogo, setSavingLogo] = useState(false);
+  const [resettingLogo, setResettingLogo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isLoading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreview("");
+      return;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
 
   const [reauthOpen, setReauthOpen] = useState(false);
   const [reauthPwd, setReauthPwd] = useState("");
@@ -228,7 +243,12 @@ export default function ProfilePageCoach() {
   const secondaryButtonBg = useColorModeValue("white", "rgba(255,255,255,0.06)");
   const secondaryButtonHover = useColorModeValue("gray.50", "rgba(255,255,255,0.12)");
   const isClubMember = user?.accountType === "club_member" && user?.clubRole !== "owner";
-  const customBrandingAllowed = !isClubMember && (!user?.proAccess || canUseCustomBranding(user.proAccess));
+  const customBrandingIncluded = canUseCustomBranding(user?.proAccess || {
+    packageKey: user?.packageKey,
+    packageTier: user?.packageTier,
+    branding: user?.branding,
+  });
+  const customBrandingAllowed = !isClubMember && customBrandingIncluded;
 
   useEffect(() => {
     if (!user) return;
@@ -293,11 +313,31 @@ export default function ProfilePageCoach() {
     if (e.target.files?.[0]) setLogoFile(e.target.files[0]);
   };
 
+  const handleResetLogo = async () => {
+    if (!user?.uid || !customBrandingAllowed || resettingLogo || savingLogo || isLoading) return;
+    setResettingLogo(true);
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        logoUrl: "",
+        updatedAt: serverTimestamp(),
+      });
+      setForm((previous) => ({ ...previous, logoUrl: "" }));
+      setLogoFile(null);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast({ status: "success", title: t("profile.actions.defaultLogoRestored", "Logo par défaut rétabli") });
+    } catch (error) {
+      toast({ status: "error", title: t("profile.toasts.update_error_title"), description: error?.message || t("profile.toasts.update_error_desc") });
+    } finally {
+      setResettingLogo(false);
+    }
+  };
+
   const uploadLogoIfAny = () =>
     new Promise((resolve, reject) => {
       if (!logoFile) return resolve(form.logoUrl);
       if (!customBrandingAllowed) return resolve(form.logoUrl);
-      const path = `logos/${user.uid}/${logoFile.name}`;
+      const path = `logos/${user.uid}/${Date.now()}-${logoFile.name}`;
       const storageRef = ref(storage, path);
       const uploadTask = uploadBytesResumable(storageRef, logoFile);
       uploadTask.on(
@@ -313,6 +353,25 @@ export default function ProfilePageCoach() {
       );
     });
 
+  const handleSaveLogo = async () => {
+    if (!user?.uid || !logoFile || !customBrandingAllowed || savingLogo || resettingLogo || isLoading) return;
+    setSavingLogo(true);
+    setUploadProgress(0);
+    try {
+      const logoUrl = await uploadLogoIfAny();
+      await updateDoc(doc(db, "users", user.uid), { logoUrl, updatedAt: serverTimestamp() });
+      setForm((previous) => ({ ...previous, logoUrl }));
+      setLogoFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast({ status: "success", title: t("profile.actions.logoSaved", "Logo enregistré") });
+    } catch (error) {
+      toast({ status: "error", title: t("profile.toasts.update_error_title"), description: error?.message || t("profile.toasts.update_error_desc") });
+    } finally {
+      setSavingLogo(false);
+      setUploadProgress(0);
+    }
+  };
+
   const updateFirestore = async (payloadOverrides = {}) => {
     const payload = {
       firstName: form.firstName?.trim(),
@@ -325,6 +384,8 @@ export default function ProfilePageCoach() {
     };
     await updateDoc(doc(db, "users", user.uid), payload);
     setForm((prev) => ({ ...prev, logoUrl: payload.logoUrl }));
+    setLogoFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const requestEmailChange = (newEmail) =>
@@ -338,7 +399,7 @@ export default function ProfilePageCoach() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user || !auth.currentUser) return;
+    if (!user || !auth.currentUser || resettingLogo || savingLogo) return;
     setLoading(true);
     try {
       const url = await uploadLogoIfAny();
@@ -469,7 +530,7 @@ export default function ProfilePageCoach() {
 
   const currentFileLabel = (() => {
     if (logoFile?.name) return logoFile.name;
-    if (!form.logoUrl) return t("profile.file.none");
+    if (!form.logoUrl) return t("profile.actions.defaultLogo", "Logo par défaut");
     try {
       const base = form.logoUrl.split("?")[0];
       return decodeURIComponent(base.split("/").pop() || "");
@@ -542,25 +603,7 @@ export default function ProfilePageCoach() {
             align={{ base: "stretch", xl: "center" }}
           >
             <HStack spacing={4} align="center" flex="1" minW={0}>
-              <Box
-                w={{ base: "64px", md: "78px" }}
-                h={{ base: "64px", md: "78px" }}
-                borderRadius="24px"
-                bg={heroAvatarBg}
-                border="1px solid"
-                borderColor={borderColor}
-                overflow="hidden"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                flexShrink={0}
-              >
-                {form.logoUrl ? (
-                  <Image src={form.logoUrl} alt={t("profile.alt.logo")} w="100%" h="100%" objectFit="cover" />
-                ) : (
-                  <Icon as={MdOutlineBadge} boxSize={8} color={activeBlue} />
-                )}
-              </Box>
+              <ClubLogo src={form.logoUrl} alt={t("profile.alt.logo")} adaptiveSize={{ base: 64, md: 78 }} borderRadius="18px" bg={heroAvatarBg} borderColor={borderColor} />
 
               <Box minW={0}>
                 <Badge
@@ -701,18 +744,8 @@ export default function ProfilePageCoach() {
                   />
                 </FormControl>
 
-                <HStack pt={2} spacing={3} flexWrap="wrap">
-                  <Button
-                    type="submit"
-                    isLoading={isLoading}
-                    bg={darkButtonBg}
-                    color={darkButtonColor}
-                    _hover={{ opacity: 0.92 }}
-                    borderRadius="full"
-                    px={6}
-                  >
-                    {t("profile.actions.save")}
-                  </Button>
+                <HStack pt={2} spacing={3} flexWrap="wrap" justify="space-between">
+
                   <Badge
                     px={3}
                     py={1.5}
@@ -725,24 +758,30 @@ export default function ProfilePageCoach() {
                       ? t("profile.coach.badges.emailPending", "E-mail modifié, validation requise")
                       : t("profile.coach.badges.savedState", "Coordonnées prêtes")}
                   </Badge>
+                  <Button
+                    type="submit"
+                    isLoading={isLoading}
+                    bg={darkButtonBg}
+                    color={darkButtonColor}
+                    _hover={{ opacity: 0.92 }}
+                    borderRadius="full"
+                    px={6}
+                  >
+                    {t("profile.actions.save")}
+                  </Button>
                 </HStack>
               </Stack>
             </Box>
           </SectionCard>
 
           <VStack spacing={6} align="stretch">
-            {customBrandingAllowed ? (
               <SectionCard
                 title={t("profile.coach.sections.branding", "Logo et identité visuelle")}
+                included={customBrandingIncluded}
                 subtitle={t("profile.coach.sections.brandingSub", "Ajoutez votre logo pour rendre votre espace encore plus professionnel.")}
-                icon={MdOutlineImage}
-                accent={activeGreen}
-                cardBg={cardBg}
-                borderColor={borderColor}
-                glassShadow={glassShadow}
-                subtleText={subtleText}
+                icon={MdOutlineImage} accent={activeGreen} cardBg={cardBg} borderColor={borderColor} glassShadow={glassShadow} subtleText={subtleText}
               >
-                <Stack spacing={4}>
+                <Stack spacing={2}>
                   <Input
                     ref={fileInputRef}
                     type="file"
@@ -751,35 +790,21 @@ export default function ProfilePageCoach() {
                     onChange={handleLogoSelect}
                   />
 
-                  <HStack spacing={4} align={{ base: "flex-start", md: "center" }} flexDir={{ base: "column", md: "row" }}>
-                    <Box
-                      w="96px"
-                      h="96px"
-                      borderRadius="24px"
-                      bg={surfaceBgStrong}
-                      border="1px solid"
-                      borderColor={borderStrong}
-                      overflow="hidden"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                      flexShrink={0}
-                    >
-                      {form.logoUrl ? (
-                        <Image
-                          src={form.logoUrl}
-                          boxSize="100%"
-                          objectFit="cover"
-                          alt={t("profile.alt.logo")}
-                        />
-                      ) : (
-                        <Icon as={MdOutlineBadge} boxSize={10} color={activeGreen} />
-                      )}
-                    </Box>
+                  <Stack direction={{ base: "column", md: "row" }} spacing={4} align={{ base: "stretch", md: "center" }}>
+                    <ClubLogo src={logoPreview || form.logoUrl} alt={t("profile.alt.logo")} adaptiveSize={{ base: 64, md: 72 }} borderRadius="18px" bg={surfaceBgStrong} borderColor={borderStrong} />
 
-                    <VStack align="stretch" spacing={3} flex="1" w="full">
-                      <HStack spacing={3} flexWrap="wrap">
+                    <VStack align="stretch" spacing={2} flex="1" minW={0} textAlign={{ base: "left", md: "right" }}>
+                        <Badge alignSelf={{ base: "flex-start", md: "flex-end" }} px={3} py={1.5} borderRadius="full" bg="rgba(59,130,246,0.10)" color={activeBlue} fontWeight="800">
+                          {logoFile
+                            ? t("profile.coach.badges.newLogo", "Nouveau logo sélectionné")
+                            : form.logoUrl
+                              ? t("profile.coach.badges.currentLogo", "Logo actuel")
+                              : t("profile.actions.defaultLogo", "Logo par défaut")}
+                        </Badge>
+                      <HStack spacing={2} flexWrap="wrap" justify={{ base: "flex-start", md: "flex-end" }}>
                         <Button
+                          type="button"
+                          isDisabled={!customBrandingAllowed || resettingLogo || savingLogo || isLoading}
                           onClick={() => fileInputRef.current?.click()}
                           borderRadius="full"
                           bg={secondaryButtonBg}
@@ -791,67 +816,42 @@ export default function ProfilePageCoach() {
                         >
                           {t("profile.actions.chooseFile", "Choisir un fichier")}
                         </Button>
-                        <Badge px={3} py={1.5} borderRadius="full" bg="rgba(59,130,246,0.10)" color={activeBlue} fontWeight="800">
-                          {logoFile
-                            ? t("profile.coach.badges.newLogo", "Nouveau logo sélectionné")
-                            : t("profile.coach.badges.currentLogo", "Logo actuel")}
-                        </Badge>
+                        {(form.logoUrl || logoFile) && (
+                          <Button type="button" variant="outline" borderRadius="full" onClick={handleResetLogo} isLoading={resettingLogo} isDisabled={!customBrandingAllowed || savingLogo || isLoading}>
+                            {t("profile.actions.resetLogo", "Remettre le logo par défaut")}
+                          </Button>
+                        )}
+
+                        {(logoFile || !customBrandingAllowed) && (
+                          <Button type="button" borderRadius="full" bg={darkButtonBg} color={darkButtonColor} onClick={handleSaveLogo} isLoading={savingLogo} isDisabled={!customBrandingAllowed || !logoFile || resettingLogo || isLoading}>
+                            {t("profile.actions.saveLogo", "Enregistrer le logo")}
+                          </Button>
+                        )}
                       </HStack>
 
                       <Tooltip label={currentFileLabel} hasArrow>
-                        <Text fontSize="sm" color={mutedText} noOfLines={2}>
+                        <Text fontSize="xs" color={mutedText} noOfLines={1}>
                           {currentFileLabel}
                         </Text>
                       </Tooltip>
 
-                      {logoFile ? (
+                      {logoFile && (savingLogo || isLoading) ? (
                         <Progress value={uploadProgress} size="sm" borderRadius="full" colorScheme="blue" />
                       ) : null}
                     </VStack>
-                  </HStack>
-                </Stack>
-              </SectionCard>
-            ) : (
-              <SectionCard
-                title={t("auto.ProfilePageCoach.identite_des_documents", "Identité des documents")}
-                subtitle={isClubMember ? "L'identité visuelle est gérée par le responsable du club." : "Ce palier utilise automatiquement l'identité BoostYourLife.coach sur les exports et documents partagés."}
-                icon={MdOutlineImage}
-                accent={activeGreen}
-                cardBg={cardBg}
-                borderColor={borderColor}
-                glassShadow={glassShadow}
-                subtleText={subtleText}
-              >
-                <HStack spacing={4} align={{ base: "flex-start", md: "center" }} flexDir={{ base: "column", md: "row" }}>
-                  <Box
-                    w="96px"
-                    h="96px"
-                    borderRadius="24px"
-                    bg={surfaceBgStrong}
-                    border="1px solid"
-                    borderColor={borderStrong}
-                    overflow="hidden"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    flexShrink={0}
-                    p={3}
-                  >
-                    <ClubLogo alt="BoostYourLife.coach" w="100%" h="100%" border="none" bg="transparent" />
-                  </Box>
-                  <VStack align="stretch" spacing={2} flex="1" w="full">
-                    <Badge alignSelf="flex-start" px={3} py={1.5} borderRadius="full" bg="rgba(15,23,42,0.08)" color={textColor} fontWeight="800">
-                      {isClubMember ? "Logo du club appliqué" : "Logo BYL appliqué"}
-                    </Badge>
+                  </Stack>
+                  {!customBrandingAllowed && (
                     <Text fontSize="sm" color={mutedText}>
                       {isClubMember
-                        ? "Vous pouvez gérer votre profil, mais pas modifier le logo ou l’identité du club."
-                        : "L'ajout d'un logo personnalisé démarre au palier Croissance."}
+                        ? "L’identité visuelle est gérée par le responsable du club."
+                        : "La personnalisation du logo est incluse à partir du palier Croissance."}
                     </Text>
-                  </VStack>
-                </HStack>
+                  )}
+                </Stack>
               </SectionCard>
-            )}
+
+
+            <NavbarBrandProfileCard />
 
             <SectionCard
               title={t("profile.coach.sections.security", "Sécurité de connexion")}

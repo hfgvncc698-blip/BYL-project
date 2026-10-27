@@ -1,3 +1,4 @@
+import { LOCAL_MACROS_PER100_BY_LABEL } from "./rationFoodNutrition.js";
 const finiteNumber = (value) => {
   const parsed = Number(String(value ?? "").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
@@ -70,14 +71,24 @@ export const menuDayIndexForDate = (dateKey, dayCount) => {
   return mondayBasedIndex % dayCount;
 };
 
-const totalsFrom = (dayTotals = {}, fallbackTotals = {}) => ({
-  kcal: finiteNumber(dayTotals.kcal || fallbackTotals.kcal),
-  p: finiteNumber(dayTotals.p || dayTotals.prot || dayTotals.proteinG || fallbackTotals.p),
-  f: finiteNumber(dayTotals.f || dayTotals.lip || dayTotals.fatG || fallbackTotals.f),
-  c: finiteNumber(dayTotals.c || dayTotals.glu || dayTotals.carbs || dayTotals.carbsG || fallbackTotals.c),
-});
+// Repair legacy entries whose nutrients were allocated from the whole day's totals.
+// Unknown foods remain unknown: mass alone cannot determine nutritional content.
+export function normalizeNutritionLogEntry(entry) {
+  if (!entry || entry.source === "extra" || entry.nutritionKnown) return entry;
+  const macros = LOCAL_MACROS_PER100_BY_LABEL[String(entry.name || "").trim()];
+  const unit = String(entry.unit || "g").toLowerCase();
+  const quantity = finiteNumber(entry.plannedQuantity);
+  const factor = unit === "kg" || unit === "l" ? quantity * 10
+    : unit === "unité" && entry.name === "Oeufs" ? quantity * 60 / 100
+    : ["g", "ml"].includes(unit) ? quantity / 100 : null;
+  const known = Boolean(macros && factor !== null && entry.name !== "Alcool");
+  const p = known ? macros.prot * factor : 0;
+  const f = known ? macros.lip * factor : 0;
+  const c = known ? macros.glu * factor : 0;
+  return {...entry, nutritionKnown: known, plannedKcal: p * 4 + f * 9 + c * 4, plannedP: p, plannedF: f, plannedC: c};
+}
 
-export function buildNutritionLogEntries(menuDay = {}, fallbackTotals = {}) {
+export function buildNutritionLogEntries(menuDay = {}) {
   const rows = (menuDay.meals || []).flatMap((meal, mealIndex) =>
     (meal.items || []).map((item, itemIndex) => {
       const rawQuantity = itemQuantity(item);
@@ -94,33 +105,21 @@ export function buildNutritionLogEntries(menuDay = {}, fallbackTotals = {}) {
         unit: item?.unit || parseNutritionUnit(rawQuantity, "g"),
         eaten: false,
         nutritionKnown,
-        plannedKcal: finiteNumber(item?.kcal || item?.calories),
-        plannedP: finiteNumber(item?.p || item?.prot || item?.proteinG),
-        plannedF: finiteNumber(item?.f || item?.lip || item?.fatG),
-        plannedC: finiteNumber(item?.c || item?.glu || item?.carbs || item?.carbsG),
+        plannedKcal: finiteNumber(item?.kcal ?? item?.calories),
+        plannedP: finiteNumber(item?.p ?? item?.prot ?? item?.proteinG),
+        plannedF: finiteNumber(item?.f ?? item?.lip ?? item?.fatG),
+        plannedC: finiteNumber(item?.c ?? item?.glu ?? item?.carbs ?? item?.carbsG),
       };
     })
   );
 
-  if (!rows.length) return [];
-  const dayTotals = totalsFrom(menuDay.totals, fallbackTotals);
-  const quantitySum = rows.reduce((sum, row) => sum + (row.plannedQuantity || 1), 0) || rows.length;
-  const allocated = rows.map((row) => {
-    const share = (row.plannedQuantity || 1) / quantitySum;
-    return {
-      ...row,
-      plannedKcal: row.nutritionKnown ? row.plannedKcal : dayTotals.kcal * share,
-      plannedP: row.nutritionKnown ? row.plannedP : dayTotals.p * share,
-      plannedF: row.nutritionKnown ? row.plannedF : dayTotals.f * share,
-      plannedC: row.nutritionKnown ? row.plannedC : dayTotals.c * share,
-    };
-  });
-  return allocated;
+  return rows.map(normalizeNutritionLogEntry);
 }
 
 export function calculateNutritionLogTotals(entries = []) {
   const totals = entries.reduce(
-    (sum, entry) => {
+    (sum, rawEntry) => {
+      const entry = normalizeNutritionLogEntry(rawEntry);
       if (!entry?.eaten) return sum;
       const isExtra = entry.source === "extra";
       const plannedQuantity = finiteNumber(entry.plannedQuantity);

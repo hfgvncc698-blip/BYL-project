@@ -1,3 +1,4 @@
+import { sortSharedNutrition } from "../utils/sharedNutritionSummary";
 import { hydrationReferenceText } from "../utils/nutritionHydration";
 import { buildRationMeals } from "../utils/rationMenu";
  
@@ -54,7 +55,7 @@ import ClientNutritionDailyJournal from "./ClientNutritionDailyJournal.jsx";
 import i18n from "../i18n/index";
 
 const r0 = (value) => Math.round(rationMenuNum(value));
-const LEGACY_BYL_LOCAL = "/logo-byl.png";
+const LEGACY_BYL_LOCAL = "/logo-byl.png?v=palm-20261027";
 
 async function toDataUrlSafe(url) {
   if (!url) return null;
@@ -670,6 +671,7 @@ function ClientNutritionPdfDoc({
   coachName,
   clientName,
   logoDataUrl,
+  footerLogoDataUrl,
   sections,
   rationTotals,
   rationMeals,
@@ -780,7 +782,7 @@ function ClientNutritionPdfDoc({
         ) : null}
 
         <View style={clientPdfStyles.footer} fixed>
-          {logoDataUrl ? <PdfImage src={logoDataUrl} style={clientPdfStyles.footerLogo} /> : null}
+          {footerLogoDataUrl ? <PdfImage src={footerLogoDataUrl} style={clientPdfStyles.footerLogo} /> : null}
           <PdfText style={clientPdfStyles.footerText}>{i18n.t("auto.ClientNutritionSharedSection.genere_avec_boostyourlife_coach", "Généré avec BoostYourLife.coach")}</PdfText>
         </View>
       </Page>
@@ -816,7 +818,8 @@ const extractFoodSurveyRows = (assessment) => {
 };
 
 export default function ClientNutritionSharedSection({
-  clientId,
+  clientId: primaryClientId,
+  clientIds,
   variant = "full",
   onOpenNutrition,
   onOpenJournal,
@@ -844,6 +847,9 @@ export default function ClientNutritionSharedSection({
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState([]);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const sourceIdsKey = JSON.stringify([...new Set(clientIds || [primaryClientId])].filter(Boolean));
   const [selectedAssessmentId, setSelectedAssessmentId] = useState("");
   const [selectedMenuDayIndex, setSelectedMenuDayIndex] = useState(0);
   const [selectedRecipeDayIndex, setSelectedRecipeDayIndex] = useState(0);
@@ -853,37 +859,46 @@ export default function ClientNutritionSharedSection({
   const [pdfLogoDataUrl, setPdfLogoDataUrl] = useState(null);
   const [unreadCoachFeedbackCount, setUnreadCoachFeedbackCount] = useState(0);
   const [unreadCoachFeedbackDateKey, setUnreadCoachFeedbackDateKey] = useState("");
-  useEffect(() => {
-    if (!clientId) {
-      setLoading(false);
-      return undefined;
-    }
+  const latest = assessments.find((row) => row.shareKey === selectedAssessmentId) || assessments[0] || null;
+  const clientId = latest?.sourceClientId || primaryClientId;
 
-    const colRef = collection(db, "clients", clientId, "nutrition_assessments");
-    const q = query(colRef, where("clientShare.enabled", "==", true));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const rows = snap.docs
-          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-          .filter((row) => {
-            const sections = row?.clientShare?.sections || {};
-            return row?.clientShare?.enabled && Object.values(sections).some(Boolean);
-          })
-          .sort((a, b) => {
-            const toMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || new Date(value || 0).getTime() || 0;
-            return toMillis(b?.clientShare?.sharedAt || b?.updatedAt || b?.createdAt) - toMillis(a?.clientShare?.sharedAt || a?.updatedAt || a?.createdAt);
-          });
-        setAssessments(rows);
-        setSelectedAssessmentId((previous) =>
-          previous && rows.some((row) => row.id === previous) ? previous : rows[0]?.id || ""
-        );
+  useEffect(() => {
+    const sourceIds = JSON.parse(sourceIdsKey);
+    setLoading(sourceIds.length > 0);
+    setLoadError(false);
+    setAssessments([]);
+    const pending = new Set(sourceIds);
+    const rowsByClient = new Map();
+    let active = true;
+    const publish = () => {
+      if (!active) return;
+      const rows = sortSharedNutrition([...rowsByClient.values()].flat());
+      setAssessments(rows);
+      if (!pending.size) {
+        setSelectedAssessmentId((previous) => rows.some((row) => row.shareKey === previous) ? previous : rows[0]?.shareKey || "");
         setLoading(false);
+      }
+    };
+    const unsubscribe = sourceIds.map((sourceClientId) => onSnapshot(
+      query(collection(db, "clients", sourceClientId, "nutrition_assessments"), where("clientShare.enabled", "==", true)),
+      (snap) => {
+        rowsByClient.set(sourceClientId, snap.docs.map((snapshot) => ({
+          ...snapshot.data(), id: snapshot.id, sourceClientId, shareKey: `${sourceClientId}/${snapshot.id}`,
+        })).filter((row) => row.clientShare?.enabled && Object.values(row.clientShare?.sections || {}).some(Boolean)));
+        pending.delete(sourceClientId);
+        publish();
       },
-      () => setLoading(false)
-    );
-    return () => unsub();
-  }, [clientId]);
+      (error) => {
+        if (!active) return;
+        console.error("[ClientNutritionSharedSection] Shared assessments unavailable", error.code);
+        rowsByClient.delete(sourceClientId);
+        pending.delete(sourceClientId);
+        setLoadError(true);
+        publish();
+      }
+    ));
+    return () => { active = false; unsubscribe.forEach((stop) => stop()); };
+  }, [sourceIdsKey, loadAttempt]);
 
   useEffect(() => {
     if (!clientId || variant !== "compact") {
@@ -908,7 +923,6 @@ export default function ClientNutritionSharedSection({
     });
   }, [clientId, variant]);
 
-  const latest = assessments.find((row) => row.id === selectedAssessmentId) || assessments[0] || null;
   const sections = latest?.clientShare?.sections || {};
   const inputs = useMemo(() => latest?.inputs || {}, [latest]);
   const needs = useMemo(
@@ -968,7 +982,9 @@ export default function ClientNutritionSharedSection({
           );
           return {
             key: line?.key || sourceLabel,
-            label: translateNutritionFoodName(sourceLabel, i18n.resolvedLanguage || i18n.language || "fr"),
+            label: String(line?.group || "").trim().toUpperCase() === "VPO"
+              ? "VPO"
+              : translateNutritionFoodName(sourceLabel, i18n.resolvedLanguage || i18n.language || "fr"),
             sourceLabel,
             group: line?.group || "",
             unit: sourceUnit === "unité" ? "g" : sourceUnit,
@@ -1220,6 +1236,8 @@ export default function ClientNutritionSharedSection({
     setExportingPdf(true);
     try {
       const { default: RationMealsPdf } = await import("./nutrition/RationMealsPdf");
+      const footerLogoDataUrl = await toDataUrlSafe(LEGACY_BYL_LOCAL);
+      if (!footerLogoDataUrl) throw new Error("Impossible de charger le logo du site. Réessayez l’export.");
       const blob = await pdf(
         <ClientNutritionPdfDoc
           RationMealsPdf={RationMealsPdf}
@@ -1228,6 +1246,7 @@ export default function ClientNutritionSharedSection({
           coachName={coachName}
           clientName={clientName}
           logoDataUrl={pdfLogoDataUrl}
+          footerLogoDataUrl={footerLogoDataUrl}
           sections={sections}
           rationTotals={rationTotals}
           rationMeals={rationMeals}
@@ -1250,6 +1269,12 @@ export default function ClientNutritionSharedSection({
   };
 
   if (loading) return <AppLoading label={i18n.t("auto.ClientNutritionSharedSection.chargement_du_suivi_nutrition", "Chargement du suivi nutrition...")} minH="180px" />;
+  if (loadError) return (
+    <Box {...panelProps} p={5} role="alert">
+      <Text>{i18n.t("clientNutrition.loadError", "Impossible de charger les bilans partagés. Réessaie dans un instant.")}</Text>
+      <Button mt={3} onClick={() => setLoadAttempt((attempt) => attempt + 1)}>{i18n.t("common.retry", "Réessayer")}</Button>
+    </Box>
+  );
   if (!latest) {
     return (
       <Box data-tour="client-nutrition-empty" {...panelProps} p={{ base: 4, md: 5 }}>
@@ -1263,6 +1288,7 @@ export default function ClientNutritionSharedSection({
     return (
       <Box p={{ base: 4, md: 5 }} position="relative" {...panelProps}>
         <ClientNutritionDailyJournal
+          key={clientId}
           clientId={clientId}
           assessmentId={latest?.id || ""}
           menuDays={journalDays}
@@ -1355,6 +1381,7 @@ export default function ClientNutritionSharedSection({
         </Stack>
 
         <ClientNutritionDailyJournal
+          key={clientId}
           clientId={clientId}
           assessmentId={latest?.id || ""}
           menuDays={journalDays}
@@ -1377,7 +1404,7 @@ export default function ClientNutritionSharedSection({
           <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={theme.subtleText} mb={2}>{i18n.t("auto.ClientNutritionSharedSection.historique_du_suivi", "HISTORIQUE DU SUIVI")}</Text>
           <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3}>
             {assessments.map((assessment, index) => {
-              const isActive = assessment.id === latest?.id;
+              const isActive = assessment.shareKey === latest?.shareKey;
               const assessmentInputs = assessment?.inputs || {};
               const objective = translateObjectiveLabel(assessmentInputs?.objectif || assessmentInputs?.objective || "") || i18n.t("auto.ClientNutritionSharedSection.bilan_nutrition", "Bilan nutrition");
               const date = formatDate(assessment?.clientShare?.sharedAt || assessment?.updatedAt);
@@ -1386,13 +1413,13 @@ export default function ClientNutritionSharedSection({
               const translatedExtraConstraints = [...extraDiet.map(translateDietLabel), ...extraPathologies.map(translatePathologyLabel)].filter(Boolean);
               return (
                 <Box
-                  key={assessment.id}
+                  key={assessment.shareKey}
                   {...tileProps}
                   p={4}
                   cursor="pointer"
                   borderColor={isActive ? "#3B82F6" : theme.borderColor}
                   bg={isActive ? "rgba(59,130,246,0.08)" : theme.surfaceBg}
-                  onClick={() => setSelectedAssessmentId(assessment.id)}
+                  onClick={() => setSelectedAssessmentId(assessment.shareKey)}
                   _hover={{ transform: "translateY(-1px)", borderColor: "#3B82F6" }}
                 >
                   <HStack justify="space-between" align="start" mb={2}>

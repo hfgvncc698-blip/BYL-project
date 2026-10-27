@@ -1,3 +1,5 @@
+import PlanInclusionBadge from "../../components/PlanInclusionBadge";
+import { canUseIntegratedMessaging } from "../../utils/proPlanAccess";
 import useMemberClubContacts from './useMemberClubContacts';
 const ClubThread = lazy(() => import('./ClubMessagingPanel').then(module => ({default:module.ClubThread})));
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -178,6 +180,7 @@ export default function DashboardMessagingBubble({notificationsOnly=false}) {
               <HStack spacing={2}>
                 <Icon as={MdOutlineChat} boxSize="20px" color="#257CFF" />
                 <Text fontWeight="900">{t("messaging.title")}</Text>
+              {user?.role !== "client" && <PlanInclusionBadge included={canUseIntegratedMessaging(user)} />}
                 {unreadCount ? <Badge bg="red.500" color="white" borderRadius="full">{unreadCount}</Badge> : null}
               </HStack>
             </Button>

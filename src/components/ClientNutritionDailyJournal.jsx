@@ -56,6 +56,7 @@ import { useNutritionTheme } from "../styles/nutritionTheme";
 import {
   buildNutritionLogEntries,
   calculateNutritionLogTotals,
+  normalizeNutritionLogEntry,
   ciqualNutritionPer100,
   menuDayIndexForDate,
   nutritionDateKey,
@@ -272,7 +273,7 @@ export default function ClientNutritionDailyJournal({
       ref,
       (snap) => {
         const data = snap.exists() ? snap.data() : null;
-        setEntries(data?.entries?.length ? data.entries : draftEntries);
+        setEntries(data?.entries?.length ? data.entries.map(normalizeNutritionLogEntry) : draftEntries);
         setReflection({
           hunger: data?.reflection?.hunger || "",
           energy: data?.reflection?.energy || "",
@@ -563,6 +564,7 @@ export default function ClientNutritionDailyJournal({
             return (
               <Button
                 key={option.key}
+                title={option.label === "VPO" ? t("clientNutritionJournal.vpoDescription", "Viande, poisson, œuf") : undefined}
                 size="sm"
                 minH="34px"
                 h="auto"
@@ -666,6 +668,7 @@ export default function ClientNutritionDailyJournal({
               <Grid
                 mt={3}
                 templateColumns={{ base: "repeat(3, minmax(0, 1fr))", md: "repeat(3, max-content)" }}
+                justifyContent="end"
                 gap={{ base: 1.5, sm: 2 }}
                 alignItems="center"
               >
@@ -1159,7 +1162,7 @@ export function CoachNutritionDailySummary({ clientId, variant = "compact", onOp
   };
 
   const latestLog = logs[0] || null;
-  const latestSummary = latestLog?.summary || {};
+  const latestSummary = latestLog?.entries?.length ? roundNutritionTotals(calculateNutritionLogTotals(latestLog.entries)) : latestLog?.summary || {};
   const latestAssessmentId = latestLog?.assessmentId || "";
 
   useEffect(() => {
@@ -1359,7 +1362,7 @@ export function CoachNutritionDailySummary({ clientId, variant = "compact", onOp
       {loading ? <Text mt={3} color={theme.mutedText}>{t("coachNutritionJournal.loading")}</Text> : logs.length ? (
         <Accordion allowMultiple defaultIndex={[0]} mt={4} display="grid" gap={3}>
           {logs.map((log) => {
-            const summary = log?.summary || {};
+            const summary = log?.entries?.length ? roundNutritionTotals(calculateNutritionLogTotals(log.entries)) : log?.summary || {};
             const targetKcal = safeNumber(log?.targetKcal);
             const energyProgress = targetKcal ? Math.min(100, Math.round((safeNumber(summary.kcal) / targetKcal) * 100)) : 0;
             const logPlannedTargets = calculatePlannedNutritionTargets(log?.entries || []);

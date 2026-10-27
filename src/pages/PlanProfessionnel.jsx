@@ -534,6 +534,11 @@ export default function PlanProfessionnel() {
             {selectedVariant.extraFeature && (
               <Feature>{selectedVariant.extraFeature}</Feature>
             )}
+            {!isClubPlan && <>
+              {selectedVariant.key !== "solo" && <Feature>{t("plans.growthMessaging")}</Feature>}
+              <Feature>{t(selectedVariant.key === "solo" ? "plans.soloCalendar" : "plans.growthCalendar")}</Feature>
+              {plan.key !== "nutrition" && <Feature>{t(selectedVariant.key === "solo" ? "plans.soloPrograms" : "plans.growthPrograms")}</Feature>}
+            </>}
           </VStack>
 
           <Stack direction="column" spacing={3} pt={2} mt="auto">

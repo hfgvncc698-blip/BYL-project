@@ -18,7 +18,8 @@ import {
 const Footer = lazy(() => import("./components/Footer").then(module => ({ default: module.Footer })));
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
-import { hasPlanModule } from "./utils/proPlanAccess.js";
+import UnavailablePlanModule from "./components/UnavailablePlanModule.jsx";
+import { hasPlanModule, canUseGuidedProgram } from "./utils/proPlanAccess.js";
 import { canSpeculativelyPreload } from "./utils/preloadPolicy.js";
 
 import { ConsentProvider, useConsent } from "./consent/ConsentContext.jsx";
@@ -545,8 +546,9 @@ function ModuleRoute({ module, children }) {
   if (isAdmin) return children;
   if (user.role !== "coach") return <Navigate to="/" replace />;
   if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
-  if (!hasPlanModule(user, module)) {
-    return <Navigate to="/plans/professionnel" replace />;
+  if (!hasPlanModule(user, module)) return <Navigate to="/coach-dashboard" replace />;
+  if (location.pathname === "/auto-program-questionnaire" && !canUseGuidedProgram(user?.proAccess || user)) {
+    return <UnavailablePlanModule module="guided" />;
   }
   return children;
 }

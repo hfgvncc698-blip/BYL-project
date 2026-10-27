@@ -1,3 +1,6 @@
+import { useAuth } from "../AuthContext";
+import PlanInclusionBadge from "../components/PlanInclusionBadge";
+import { canUseIntegratedMessaging } from "../utils/proPlanAccess";
 import useMemberClubContacts from '../components/messaging/useMemberClubContacts';
 import { clubText } from '../i18n/clubText';
 import ClubMessagingPanel, { ClubThread } from '../components/messaging/ClubMessagingPanel';
@@ -32,6 +35,7 @@ export default function MessagingPage() {
   return params.get('mode') === 'club' ? <ClubMessagingPanel /> : <ProfessionalMessagingPage />;
 }
 function ProfessionalMessagingPage() {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const packRequest = location.state?.packRequest;
@@ -53,7 +57,7 @@ function ProfessionalMessagingPage() {
     : allContacts.filter((contact) => contact.clubContact || contact.conversation || contact.id === selectedId);
   const filteredContacts = visibleContacts.filter((contact) => normalize([contact.title, contact.email].join(" ")).includes(normalize(search)));
 
-  const selectContact = (contact) => setSearchParams({ conversation: contact.id }, {state:location.state});
+  const selectContact = (contact) => { const next = new URLSearchParams(searchParams); next.set("conversation", contact.id); setSearchParams(next, {state:location.state}); };
   const removeConversation = async (contact) => {
     await hideConversation(contact);
     setSearchParams({});
@@ -74,6 +78,7 @@ function ProfessionalMessagingPage() {
             <PageBackButton fallbackTo={isClient ? "/user-dashboard" : "/coach-dashboard"} />
             <Box>
               <Heading size="lg">{t("messaging.title")}</Heading>
+              {user?.role !== "client" && <PlanInclusionBadge included={canUseIntegratedMessaging(user)} />}
               <Text mt={1} color={theme.mutedText}>
                 {isClient
                   ? t("messagingRole.clientSubtitle", "Échange simplement avec les professionnels qui t’accompagnent.")

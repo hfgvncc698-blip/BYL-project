@@ -1,3 +1,4 @@
+import PlanInclusionBadge from "./PlanInclusionBadge";
 // src/components/Navbar.jsx
  
 import React from "react";
@@ -507,6 +508,7 @@ export default function Navbar() {
 
   return (
     <>
+      {user?.planPreview && <Box position="fixed" bottom="12px" left="12px" zIndex={1500} bg="gray.900" color="white" p={3} borderRadius="12px" fontSize="sm">Simulation locale : {user.planPreview} — abonnement inchangé</Box>}
       <Flex
         data-tour="main-navigation"
         as="nav"
@@ -711,6 +713,7 @@ export default function Navbar() {
                             </Flex>
                             <Text fontWeight="800" noOfLines={2}>
                               {link.label}
+                              {showCoachUI && [ROUTES.coachNutrition, ROUTES.coachPrograms, ROUTES.exerciseBank].includes(link.to) && <PlanInclusionBadge included={isAdmin || (link.to === ROUTES.coachNutrition ? hasNutritionAccess : hasSportAccess)} />}
                             </Text>
                           </HStack>
                           <HStack spacing={2} flexShrink={0}>
@@ -1104,6 +1107,7 @@ export default function Navbar() {
                         </Flex>
                         <Text fontWeight="800" textAlign="left" whiteSpace="normal" lineHeight="1.2">
                           {link.label}
+                              {showCoachUI && [ROUTES.coachNutrition, ROUTES.coachPrograms, ROUTES.exerciseBank].includes(link.to) && <PlanInclusionBadge included={isAdmin || (link.to === ROUTES.coachNutrition ? hasNutritionAccess : hasSportAccess)} />}
                         </Text>
                       </HStack>
                       <HStack spacing={2} flexShrink={0}>
@@ -1397,8 +1401,7 @@ export default function Navbar() {
                       {nav("nav.new_appointment", "Nouveau rendez-vous")}
                     </Button>
                   )}
-                  {hasSportAccess && (
-                  <Button
+                  {hasSportAccess && (<Button isDisabled={!(hasSportAccess)}
                     w="full"
                     borderRadius="16px"
                     variant="outline"
@@ -1418,12 +1421,10 @@ export default function Navbar() {
                       navigate(withAdminCoach(ROUTES.coachBuilderNew));
                     }}
                   >
-                    {nav("nav.new_program_manual", "Nouveau programme manuel")}
-                  </Button>
-                  )}
+                    {nav("nav.new_program_manual", "Nouveau programme manuel")} <PlanInclusionBadge included={hasSportAccess} />
+                  </Button>)}
 
-                  {hasSportAccess && guidedProgramAllowed && (
-                    <Button
+                  {hasSportAccess && (<Button isDisabled={!(hasSportAccess && guidedProgramAllowed)}
                       variant="outline"
                       w="full"
                       borderRadius="16px"
@@ -1444,9 +1445,8 @@ export default function Navbar() {
                         navigate(withAdminCoach(ROUTES.autoQuestionnaire));
                       }}
                     >
-                      {nav("nav.new_program_guided", "Nouveau programme guidé")}
-                    </Button>
-                  )}
+                      {nav("nav.new_program_guided", "Nouveau programme guidé")} <PlanInclusionBadge included={guidedProgramAllowed} />
+                    </Button>)}
 
                   {hasSportAccess && (
                   <Button
@@ -1473,8 +1473,7 @@ export default function Navbar() {
                   </Button>
                   )}
 
-                  {(isAdmin || hasNutritionAccess) && (
-                    <Button
+                  {hasNutritionAccess && (<Button isDisabled={!(hasNutritionAccess)}
                       variant="outline"
                       w="full"
                       borderRadius="16px"
@@ -1494,9 +1493,8 @@ export default function Navbar() {
                         navigate(withAdminCoach(`${ROUTES.coachNutrition}?new=1`));
                       }}
                     >
-                      {nav("nav.new_nutrition_followup", "Nouveau suivi diététique")}
-                    </Button>
-                  )}
+                      {nav("nav.new_nutrition_followup", "Nouveau suivi diététique")} <PlanInclusionBadge included={hasNutritionAccess} />
+                    </Button>)}
                 </>
               )}
 

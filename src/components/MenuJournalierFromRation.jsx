@@ -92,7 +92,7 @@ const safeSetSmallLocal = (key, value) => {
 };
 
 const r0 = (value) => Math.round(rationMenuNum(value));
-const LEGACY_BYL_LOCAL = "/logo-byl.png";
+const LEGACY_BYL_LOCAL = "/logo-byl.png?v=palm-20261027";
 const formatValidationDate = (value) => {
   const date = value?.toDate?.() || (value ? new Date(value) : null);
   if (!date || Number.isNaN(date.getTime())) return "";
@@ -290,6 +290,7 @@ function MenuPdfDoc({
   title,
   subtitle,
   logoDataUrl,
+  footerLogoDataUrl,
   days,
   date,
   sections,
@@ -475,7 +476,7 @@ function MenuPdfDoc({
         ) : null}
 
         <View style={menuPdfStyles.footer} fixed>
-          {logoDataUrl ? <PdfImage src={logoDataUrl} style={menuPdfStyles.footerLogo} /> : null}
+          {footerLogoDataUrl ? <PdfImage src={footerLogoDataUrl} style={menuPdfStyles.footerLogo} /> : null}
           <PdfText style={menuPdfStyles.footerText}>{i18n.t("auto.MenuJournalierFromRation.genere_avec_boostyourlife_coach", "Généré avec BoostYourLife.coach")}</PdfText>
         </View>
       </Page>
@@ -1493,6 +1494,8 @@ export default function MenuJournalierFromRation() {
       const rationTotals = targets?.ration || {};
       const { default: RationMealsPdf } = await import("./nutrition/RationMealsPdf");
       const { buildFoodSurveyMeals } = await import("../utils/foodSurveyPresentation");
+      const footerLogoDataUrl = await toDataUrlSafe(LEGACY_BYL_LOCAL);
+      if (!footerLogoDataUrl) throw new Error("Impossible de charger le logo du site. Réessayez l’export.");
       const blob = await pdf(
         <MenuPdfDoc
           RationMealsPdf={RationMealsPdf}
@@ -1501,6 +1504,7 @@ export default function MenuJournalierFromRation() {
           title={i18n.t("auto.MenuJournalierFromRation.suivi_nutrition", "Suivi nutrition")}
           subtitle={i18n.t("auto.MenuJournalierFromRation.export_sections_cochees", "Export des éléments cochés")}
           logoDataUrl={pdfLogoDataUrl}
+          footerLogoDataUrl={footerLogoDataUrl}
           days={pdfDays}
           date={now}
           sections={selectedForPdf}

@@ -57,6 +57,10 @@
   },
   "brand": "BoostYourLife.entrenador",
   "messaging": {
+    "planReadOnly": "La mensajería integrada está disponible desde Crecimiento. El historial sigue siendo consultable, pero los nuevos mensajes están desactivados para ambas partes.",
+    "checkingPlan": "Comprobando el acceso a la mensajería…",
+    "accessError": "No se pudo comprobar el acceso. Vuelve a intentarlo en unos instantes.",
+
     "deleteConversationTitle": "¿Eliminar esta conversación?",
     "deleteConversationBody": "Solo se eliminará de tus mensajes. La otra persona conservará su historial.",
     "title": "Mensajes",
@@ -163,6 +167,7 @@
     }
   },
   "clientNutritionJournal": {
+    "vpoDescription": "Carne, pescado, huevos",
     "openNutrition": "Abrir nutrición",
     "saveError": "No se ha podido guardar el diario",
     "tryAgain": "Vuelve a intentarlo en unos instantes.",
@@ -1178,6 +1183,14 @@
     }
   },
   "plans": {
+    "soloMessaging": "Contacto por tus canales habituales; historial de mensajería en modo de solo lectura",
+    "soloCalendar": "Calendario y citas puntuales",
+    "growthMessaging": "Mensajería integrada con tus clientes, sin límite de mensajes",
+    "growthCalendar": "Citas recurrentes y sincronización con calendarios externos",
+    "soloPrograms": "Programas manuales",
+    "growthPrograms": "Programas manuales y guiados",
+    "brandingTiers": "Logotipo personalizado desde Crecimiento; nombre en la navegación en Ilimitado",
+
     "title": "Elige tu fórmula",
     "free": {
       "badge": "100% GRATIS",
@@ -1219,6 +1232,13 @@
       "phone": "06 XX XX XX XX"
     },
     "actions": {
+      "resetLogo": "Restaurar el logotipo predeterminado",
+      "defaultLogoRestored": "Logotipo predeterminado restaurado",
+      "included": "Incluido",
+      "notIncluded": "No incluido",
+      "saveLogo": "Guardar logotipo",
+      "logoSaved": "Logotipo guardado",
+      "defaultLogo": "Logotipo predeterminado",
       "save": "guardar mi información",
       "chooseFile": "Elige un archivo",
       "saved": "Cambios guardados"
@@ -2923,6 +2943,7 @@
     "refuseAll": "Rechazar todo"
   },
   "clientNutrition": {
+    "loadError": "No se pueden cargar las evaluaciones compartidas. Inténtalo de nuevo en un momento.",
     "loading": "Cargando tu seguimiento nutricional...",
     "eyebrow": "ÁREA DE CLIENTES",
     "subtitle": "Todo lo que compartió tu profesional: menú, recetas, compras y consejos.",

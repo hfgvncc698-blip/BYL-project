@@ -1,3 +1,4 @@
+import PlanInclusionBadge from "./PlanInclusionBadge";
 import { conversationIdForClient } from "../utils/messaging";
 import { nutritionCalendarHistory } from "../utils/nutritionCalendarHistory";
 import BookingCredits from './offers/BookingCredits';
@@ -102,7 +103,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { resolveStorageUrl } from "../utils/storageUrls";
-import { canUseGuidedProgram, getProPlanAccess, hasPlanModule, isActiveCoachTrial } from "../utils/proPlanAccess";
+import { canUseAdvancedCalendar, canUseGuidedProgram, getProPlanAccess, hasPlanModule, isActiveCoachTrial } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
 import {
   formatProgramActiveWeeks,
@@ -2892,6 +2893,7 @@ useState(false);
     return hasPlanModule(accessSource, "sport");
   }, [adminCoachId, coachContext, isAdmin, user]);
 
+  const advancedCalendarAllowed = canUseAdvancedCalendar(isAdmin && adminCoachId ? coachContext : user);
   const nutritionOnlyDashboard = hasNutritionCalendarAccess && !hasSportAccess;
   const openEmptySessionModal = useCallback((start) => {
     setNewSession({
@@ -2909,6 +2911,7 @@ useState(false);
     addSessionModal.onOpen();
   }, [addSessionModal.onOpen, nutritionOnlyDashboard]);
   const canSubmitNewSession = useMemo(() => {
+    if (!advancedCalendarAllowed && newSession.recurrence?.frequency && newSession.recurrence.frequency !== "none") return false;
     if (!selectedNewSessionClient || !newSession.startDateTime) return false;
     if (expandRecurringDates(newSession.startDateTime, newSession.recurrence).length === 0) return false;
     if (newSession.type === "nutrition") return hasNutritionCalendarAccess;
@@ -2919,6 +2922,7 @@ useState(false);
       selectedNewSessionSessions[sessionIndex]
     );
   }, [
+    advancedCalendarAllowed,
     hasNutritionCalendarAccess,
     newSession.sessionIndex,
     newSession.startDateTime,
@@ -4574,6 +4578,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
 	  };
 		  const handleAddSession = async () => {
       if (sessionCreateSaving) return;
+      if (!advancedCalendarAllowed && newSession.recurrence?.frequency && newSession.recurrence.frequency !== "none") return;
 	     if (!newSession.clientId) {
         notify(toast, "saveError", {
           title: t("dashboard.add_session_errors.client_required_title", "Client requis"),
@@ -5160,6 +5165,7 @@ selectedEvent.id.replace("planned__", "");
   };
 
   const handleGenerateCalendarLink = async () => {
+    if (!advancedCalendarAllowed) return;
      if (!effectiveCoachUid) {
        notify(toast, "saveError", {
          title: t("dashboard.toasts.coach_not_found_title", "Coach introuvable"),
@@ -5213,10 +5219,12 @@ selectedEvent.id.replace("planned__", "");
      }
   };
   const handleOpenCalendarLinkModal = () => {
+    if (!advancedCalendarAllowed) return;
      setCalendarSubscriptionUrl("");
      calendarLinkModal.onOpen();
   };
   const handleCopyCalendarUrl = async () => {
+    if (!advancedCalendarAllowed) return;
      if (!calendarSubscriptionUrl) return;
      try {
        await
@@ -8165,7 +8173,7 @@ position="relative" overflow="clip">
                     <ClubLogo
                       src={resolvedLogoUrl}
                       alt={t("greeting.logo_alt", { name: firstName || "BYL" })}
-                      w="100%" h="100%" border="none" borderRadius="inherit" p={2}
+                      w="100%" h="100%" border="none" borderRadius="inherit"
                       imageProps={{
                         onLoad: (event) => {
                           const img = event.currentTarget;
@@ -10142,7 +10150,7 @@ alignItems="stretch">
                   {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
               id="coach-calendar-card"
               data-tour="coach-calendar"
-              title={t("dashboard.calendar", "Calendrier")}
+              title={<HStack flexWrap="wrap"><Text>{t("dashboard.calendar", "Calendrier")}</Text><PlanInclusionBadge included /></HStack>}
               subtitle={
                 nutritionOnlyDashboard
                   ? t("dashboard.cards.nutrition_calendar_subtitle", "Vos rendez-vous patients et suivis nutrition récents.")
@@ -10150,10 +10158,12 @@ alignItems="stretch">
               }
               icon={CalendarIcon}
               action={
-                <HStack spacing={2}>
+                <HStack spacing={2} flexWrap="wrap">
+                  {!advancedCalendarAllowed && <HStack spacing={1}><Text fontSize="xs">{t("calendar.synchronization", "Synchronisation")}</Text><PlanInclusionBadge included={false} /></HStack>}
                   <Tooltip label={t("dashboard.connect_calendar", "Connecter le calendrier")}>
                     <IconButton
                       display={{ base: "inline-flex", md: "none" }}
+                      isDisabled={!advancedCalendarAllowed}
                       aria-label={t("dashboard.connect_calendar", "Connecter le calendrier")}
                       icon={<Icon as={MdOutlineLink} />}
                       size="sm"
@@ -10181,7 +10191,7 @@ alignItems="stretch">
                     {renderDashboardWidgetAction("calendar",
                       <HStack spacing={2}>
                           <Tooltip label={calendarConnectionChecked && calendarConnectedOnce ? t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien") : t("dashboard.connect_calendar", "Connecter le calendrier")}>
-                            <IconButton data-tour="coach-calendar-sync" size="sm" borderRadius="14px" variant="outline"
+                            <IconButton isDisabled={!advancedCalendarAllowed} data-tour="coach-calendar-sync" size="sm" borderRadius="14px" variant="outline"
                               aria-label={calendarConnectionChecked && calendarConnectedOnce ? t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien") : t("dashboard.connect_calendar", "Connecter le calendrier")} icon={<Icon as={MdOutlineLink} />}
                               onClick={e => { e.stopPropagation(); handleOpenCalendarLinkModal(); }} />
                           </Tooltip>
@@ -11693,7 +11703,7 @@ onClick={confirmProgramModal.onClose}>
                   navigate(withAdminCoach("/auto-program-questionnaire"));
                 }}
               >
-                {t("nav.new_program_guided", "Nouveau programme guidé")}
+                {t("nav.new_program_guided", "Nouveau programme guidé")} <PlanInclusionBadge included={guidedProgramAllowed} />
               </Button>
             </VStack>
           </ModalBody>
@@ -11737,8 +11747,7 @@ onClose={choiceModal.onClose} isCentered>
                     {t("nav.new_appointment", "Nouveau rendez-vous")}
                   </Button>
                 )}
-                {hasSportAccess && (
-                  <Button
+                {hasSportAccess && (<Button isDisabled={!(hasSportAccess)}
                     w="full"
                     borderRadius="16px"
                     variant="outline"
@@ -11757,11 +11766,9 @@ onClose={choiceModal.onClose} isCentered>
                     }}
                     leftIcon={<Icon as={MdOutlineFitnessCenter} />}
                   >
-                    {t("nav.new_program_manual", "Nouveau programme manuel")}
-                  </Button>
-                )}
-	                {hasSportAccess && guidedProgramAllowed && (
-	                  <Button
+                    {t("nav.new_program_manual", "Nouveau programme manuel")} <PlanInclusionBadge included={hasSportAccess} />
+                  </Button>)}
+	                {hasSportAccess && (<Button isDisabled={!(hasSportAccess && guidedProgramAllowed)}
 	                    w="full"
 	                    borderRadius="16px"
 	                    variant="outline"
@@ -11780,9 +11787,8 @@ onClose={choiceModal.onClose} isCentered>
 	                    }}
 	                    leftIcon={<Icon as={MdAutoAwesome} />}
 	                  >
-	                    {t("nav.new_program_guided", "Nouveau programme guidé")}
-	                  </Button>
-	                )}
+	                    {t("nav.new_program_guided", "Nouveau programme guidé")} <PlanInclusionBadge included={guidedProgramAllowed} />
+	                  </Button>)}
                 {hasSportAccess && (
                   <Button
                   w="full"
@@ -11806,8 +11812,7 @@ onClose={choiceModal.onClose} isCentered>
                   {t("nav.new_client", "Nouveau client")}
                 </Button>
                 )}
-                {hasNutritionCalendarAccess && (
-                  <Button
+                {hasNutritionCalendarAccess && (<Button isDisabled={!(hasNutritionCalendarAccess)}
                     w="full"
                     borderRadius="16px"
                     variant="outline"
@@ -11826,9 +11831,8 @@ onClose={choiceModal.onClose} isCentered>
                     }}
                     leftIcon={<Icon as={MdOutlineNoteAdd} />}
                   >
-                    {t("nav.new_nutrition_followup", "Nouveau suivi diététique")}
-                  </Button>
-                )}
+                    {t("nav.new_nutrition_followup", "Nouveau suivi diététique")} <PlanInclusionBadge included={hasNutritionCalendarAccess} />
+                  </Button>)}
              </VStack>
            </ModalBody>
          </ModalContent>
@@ -12010,6 +12014,7 @@ FormLabel>
               </FormControl>
 
               <CalendarRecurrenceFields
+                included={advancedCalendarAllowed}
                 value={newSession.recurrence}
                 onChange={(recurrence) => setNewSession((prev) => ({ ...prev, recurrence }))}
                 startDateTime={newSession.startDateTime}

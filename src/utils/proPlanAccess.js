@@ -197,6 +197,19 @@ export function canUseNavbarBranding(access) {
   return ["full", "club_full"].includes(resolved?.branding);
 }
 
+export function canUseAdvancedCalendar(user) {
+  if (user?.role === "admin") return true;
+  const access = user?.proAccess || user;
+  const tier = access?.packageTier || user?.packageTier;
+  return String(tier || "").toLowerCase() !== "solo";
+}
+
+export function canUseIntegratedMessaging(user) {
+  if (user?.role === "admin") return true;
+  const access = user?.proAccess || user;
+  return String(access?.packageTier || user?.packageTier || "").toLowerCase() !== "solo";
+}
+
 export function canUseGuidedProgram(access) {
   const resolved = resolvePlanAccess(access);
   if (!resolved) return true;

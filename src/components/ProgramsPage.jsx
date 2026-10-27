@@ -1,3 +1,4 @@
+import PlanInclusionBadge from "./PlanInclusionBadge";
 import { apiFetch } from "../utils/api";
 import { readDashboardTemplates } from "../utils/dashboardTemplates.js";
 // src/components/ProgramsPage.jsx
@@ -794,8 +795,8 @@ export default function ProgramsPage() {
               >
                 {t("nav.new_program_manual", "Nouveau programme manuel")}
               </Button>
-              {guidedProgramAllowed && (
                 <Button
+                  isDisabled={!guidedProgramAllowed}
                   variant="outline"
                   w="full"
                   borderRadius="16px"
@@ -814,9 +815,9 @@ export default function ProgramsPage() {
                     navigate(withAdminCoach("/auto-program-questionnaire"));
                   }}
                 >
-                  {t("nav.new_program_guided", "Nouveau programme guidé")}
+                  {t("nav.new_program_guided", "Nouveau programme guidé")} <PlanInclusionBadge included={guidedProgramAllowed} />
                 </Button>
-              )}
+
             </VStack>
           </ModalBody>
         </ModalContent>

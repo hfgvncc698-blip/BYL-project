@@ -1,4 +1,6 @@
 import CancellationMessage from './CancellationMessage';
+import useMessagingPlanAccess from './useMessagingPlanAccess';
+import PlanInclusionBadge from '../PlanInclusionBadge';
 import {clubText} from '../../i18n/clubText';
 import useSuggestedMessage from '../../hooks/useSuggestedMessage';
 import useSessionDraft from "../../hooks/useSessionDraft";
@@ -43,6 +45,7 @@ const COMPACT_PAGE_SIZE = 40;
 export default function MessagingThread({ contact, compact = false, onBack, suggestedDraft, onDraftApplied }) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const messageAccess = useMessagingPlanAccess(contact);
   const theme = useAppTheme();
   const [liveMessages, setLiveMessages] = useState([]);
   const [olderMessages, setOlderMessages] = useState([]);
@@ -160,7 +163,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
 
   const sendMessage = async () => {
     const text = draft.trim();
-    if (!text || !conversationId || !user?.uid || sending) return;
+    if (!messageAccess.included || !text || !conversationId || !user?.uid || sending) return;
     if (!contact?.clientUid || !contact?.coachUid) {
       setError(t("messaging.unlinkedAccount"));
       return;
@@ -194,7 +197,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
       setDraft("");
     } catch (sendError) {
       console.error("[messaging] send failed", sendError);
-      setError(t("messaging.sendError"));
+      setError(t(sendError?.message === "messaging-not-included" ? "messaging.planReadOnly" : "messaging.sendError"));
     } finally {
       setSending(false);
     }
@@ -276,10 +279,15 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
       </VStack>
 
       <Box p={3} borderTop="1px solid" borderColor={theme.borderColor}>
+        {!messageAccess.included && <Box mb={3}>
+          {!messageAccess.checking && !messageAccess.error && <PlanInclusionBadge included={false} />}
+          <Text fontSize="sm" mt={1}>{t(messageAccess.checking ? "messaging.checkingPlan" : messageAccess.error ? "messaging.accessError" : "messaging.planReadOnly")}</Text>
+        </Box>}
         {!contact?.clientUid || !contact?.coachUid ? <Text mb={2} fontSize="xs" color={theme.mutedText}>{t("messaging.unlinkedAccount")}</Text> : null}
         {error ? <Text mb={2} fontSize="xs" color="red.500">{error}</Text> : null}
         <HStack align="end" spacing={2}>
           <Textarea
+            isDisabled={!messageAccess.included}
             value={draft}
             onChange={(event) => setDraft(event.target.value.slice(0, MAX_MESSAGE_LENGTH))}
             onKeyDown={(event) => {
@@ -302,7 +310,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
             borderRadius="full"
             px={5}
             isLoading={sending}
-            isDisabled={!draft.trim() || !contact?.clientUid || !contact?.coachUid}
+            isDisabled={!messageAccess.included || !draft.trim() || !contact?.clientUid || !contact?.coachUid}
             onClick={(event) => {
               event.preventDefault();
               void sendMessage();

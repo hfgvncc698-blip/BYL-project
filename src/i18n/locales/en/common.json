@@ -57,6 +57,10 @@
   },
   "brand": "BoostYourLife.coach",
   "messaging": {
+    "planReadOnly": "Integrated messaging is available from Growth. History remains readable, but new messages are disabled for both participants.",
+    "checkingPlan": "Checking messaging access…",
+    "accessError": "Unable to check messaging access. Please try again shortly.",
+
     "deleteConversationTitle": "Remove this conversation?",
     "deleteConversationBody": "It will only be removed from your messages. The other person will keep their history.",
     "title": "Messages",
@@ -163,6 +167,7 @@
     }
   },
   "clientNutritionJournal": {
+    "vpoDescription": "Meat, fish, eggs",
     "openNutrition": "Open nutrition",
     "saveError": "The journal could not be saved",
     "tryAgain": "Please try again in a moment.",
@@ -1177,6 +1182,14 @@
     }
   },
   "plans": {
+    "soloMessaging": "Use your usual contact channels; integrated messaging history is read-only",
+    "soloCalendar": "Calendar and one-off appointments",
+    "growthMessaging": "Integrated client messaging with no message quota",
+    "growthCalendar": "Recurring appointments and external calendar sync",
+    "soloPrograms": "Manual programs",
+    "growthPrograms": "Manual and guided programs",
+    "brandingTiers": "Custom logo from Growth; navigation name on Unlimited",
+
     "title": "Choose your formula",
     "free": {
       "badge": "100% FREE",
@@ -1218,6 +1231,13 @@
       "phone": "06 XX XX XX XX"
     },
     "actions": {
+      "resetLogo": "Restore default logo",
+      "defaultLogoRestored": "Default logo restored",
+      "included": "Included",
+      "notIncluded": "Not included",
+      "saveLogo": "Save logo",
+      "logoSaved": "Logo saved",
+      "defaultLogo": "Default logo",
       "save": "Save my information",
       "chooseFile": "Choose a file",
       "saved": "Saved changes"
@@ -2928,6 +2948,7 @@
     "refuseAll": "Refuse everything"
   },
   "clientNutrition": {
+    "loadError": "Unable to load shared assessments. Please try again shortly.",
     "loading": "Loading your nutrition tracking...",
     "eyebrow": "CUSTOMER AREA",
     "subtitle": "Everything your professional shared: menu, recipes, shopping and advice.",

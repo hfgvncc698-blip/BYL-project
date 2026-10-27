@@ -57,6 +57,10 @@
   },
   "brand": "BoostYourLife.coach",
   "messaging": {
+    "planReadOnly": "Integrierte Nachrichten sind ab Wachstum verfügbar. Der Verlauf bleibt lesbar, neue Nachrichten sind für beide Seiten deaktiviert.",
+    "checkingPlan": "Nachrichtenzugriff wird geprüft…",
+    "accessError": "Nachrichtenzugriff konnte nicht geprüft werden. Bitte später erneut versuchen.",
+
     "deleteConversationTitle": "Diese Unterhaltung entfernen?",
     "deleteConversationBody": "Sie wird nur aus deinen Nachrichten entfernt. Die andere Person behält ihren Verlauf.",
     "title": "Nachrichten",
@@ -163,6 +167,7 @@
     }
   },
   "clientNutritionJournal": {
+    "vpoDescription": "Fleisch, Fisch, Eier",
     "openNutrition": "Ernährung öffnen",
     "saveError": "Das Tagebuch konnte nicht gespeichert werden",
     "tryAgain": "Versuche es gleich noch einmal.",
@@ -1177,6 +1182,14 @@
     }
   },
   "plans": {
+    "soloMessaging": "Kontakt über Ihre üblichen Kanäle; Nachrichtenverlauf nur lesbar",
+    "soloCalendar": "Kalender und Einzeltermine",
+    "growthMessaging": "Integrierte Kundennachrichten ohne Nachrichtenlimit",
+    "growthCalendar": "Wiederkehrende Termine und externe Kalendersynchronisierung",
+    "soloPrograms": "Manuelle Programme",
+    "growthPrograms": "Manuelle und geführte Programme",
+    "brandingTiers": "Eigenes Logo ab Wachstum; Navigationsname im Tarif Unbegrenzt",
+
     "title": "Wählen Sie Ihre Formel",
     "free": {
       "badge": "100 % KOSTENLOS",
@@ -1218,6 +1231,13 @@
       "phone": "06 XX XX XX XX"
     },
     "actions": {
+      "resetLogo": "Standardlogo wiederherstellen",
+      "defaultLogoRestored": "Standardlogo wiederhergestellt",
+      "included": "Enthalten",
+      "notIncluded": "Nicht enthalten",
+      "saveLogo": "Logo speichern",
+      "logoSaved": "Logo gespeichert",
+      "defaultLogo": "Standardlogo",
       "save": "Speichern Sie meine Informationen",
       "chooseFile": "Wählen Sie eine Datei",
       "saved": "Gespeicherte Änderungen"
@@ -2922,6 +2942,7 @@
     "refuseAll": "Alles ablehnen"
   },
   "clientNutrition": {
+    "loadError": "Die geteilten Auswertungen konnten nicht geladen werden. Bitte versuche es gleich erneut.",
     "loading": "Deine Ernährungsbetreuung wird geladen...",
     "eyebrow": "KUNDENBEREICH",
     "subtitle": "Alles, was dein Profi geteilt hat: Menüs, Rezepte, Einkaufsliste und Tipps.",

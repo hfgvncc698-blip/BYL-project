@@ -183,6 +183,14 @@ service cloud.firestore {
         );
     }
 
+    function messagingPlanIncluded(data) {
+      let uid = data.get("professionalUid", data.get("coachUid", ""));
+      let professional = get(/databases/$(database)/documents/users/$(uid)).data;
+      let access = professional.get("proAccess", {});
+      return professional.get("role", "") == "admin" ||
+        access.get("packageTier", professional.get("packageTier", "")) != "solo";
+    }
+
     function canReadConversation(data) {
       return data.clientId is string &&
         data.participantUids is list &&
@@ -316,6 +324,7 @@ service cloud.firestore {
         (
           !changed.hasAny(["lastMessage", "lastMessageAt", "lastMessageAtIso", "lastSenderUid"]) ||
           (
+            messagingPlanIncluded(newData) &&
             newData.lastSenderUid == request.auth.uid &&
             newData.lastMessage is string &&
             newData.lastMessage.size() <= 180 &&
@@ -667,7 +676,7 @@ service cloud.firestore {
       allow read: if canReadConversation(resource.data);
       allow create: if signedIn() &&
         canAccessConversation(request.resource.data.clientId) &&
-        validConversationCreate(conversationId, request.resource.data);
+        validConversationCreate(conversationId, request.resource.data) && messagingPlanIncluded(request.resource.data);
       allow update: if signedIn() && validConversationUpdate(resource.data, request.resource.data);
       allow delete: if isAdmin();
 
@@ -677,6 +686,7 @@ service cloud.firestore {
             get(/databases/$(database)/documents/conversations/$(conversationId)).data
           );
         allow create: if existsAfter(/databases/$(database)/documents/conversations/$(conversationId)) &&
+          messagingPlanIncluded(getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
           canReadConversation(
             getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data
           ) &&

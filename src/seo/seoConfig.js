@@ -1,5 +1,5 @@
 export const SITE_URL = "https://boostyourlife.coach";
-export const DEFAULT_OG_IMAGE = `${SITE_URL}/logo-byl.png`;
+export const DEFAULT_OG_IMAGE = `${SITE_URL}/logo-byl.png?v=palm-20261027`;
 export const SEO_LASTMOD = "2026-05-30";
 
 export function normalizeSeoPath(pathname = "/") {

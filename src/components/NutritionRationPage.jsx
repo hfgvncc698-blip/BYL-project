@@ -220,7 +220,7 @@ const cleanForFirestore = (value) => {
 };
 
 /* ========================= PDF helpers (logo as dataURL) ========================= */
-const LEGACY_BYL_LOCAL = "/logo-byl.png";
+const LEGACY_BYL_LOCAL = "/logo-byl.png?v=palm-20261027";
 
 async function toDataUrlSafe(url) {
   if (!url) return null;

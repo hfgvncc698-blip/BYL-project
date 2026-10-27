@@ -901,7 +901,7 @@ export default function ClubDashboard() {
       {(calendarCoachFilter.length > 0 || calendarCourseSearch) && <Button size="sm" variant="ghost" onClick={() => { setCalendarCoachFilter([]); setCalendarCourseSearch(""); setCalendarCoachSearch(""); }}>{t("auto.ClubDashboard.voir_tout_le_club", "Voir tout le club")}</Button>}
     </HStack>
   );
-  const planningDownload = <ClubPlanningDownload appointments={clubAppointments} coaches={calendarCoaches} clubName={summary?.club?.name} clubLogoUrl={summary?.club?.logoUrl || "/logo-byl.png"} calendarDate={calendarDate} selectedCoaches={calendarCoachFilter} />;
+  const planningDownload = <ClubPlanningDownload appointments={clubAppointments} coaches={calendarCoaches} clubName={summary?.club?.name} clubLogoUrl={summary?.club?.logoUrl || "/logo-byl.png?v=palm-20261027"} calendarDate={calendarDate} selectedCoaches={calendarCoachFilter} />;
   const calendarEvents = useMemo(
     () =>
       clubAppointments.map((appointment) => {
@@ -1952,10 +1952,9 @@ export default function ClubDashboard() {
                     <ClubLogo
                       src={summary?.club?.logoUrl}
                       alt={t("auto.ClubDashboard.logo_du_club", "Logo du club")}
-                      boxSize={{ base: "52px", md: "68px" }}
+                      adaptiveSize={{ base: 52, md: 68 }}
                       flexShrink={0}
                       borderRadius="16px"
-                      p={2}
                     />
                     <Box minW={0}>
                       <Heading size={{ base: "md", md: "lg" }}>{t("nav.dashboard", "Tableau de bord")}</Heading>
@@ -2209,7 +2208,7 @@ export default function ClubDashboard() {
                           <ClubLogo
                             src={logoPreviewUrl || identityForm.logoUrl}
                             alt={t("auto.ClubDashboard.logo_du_club", "Logo du club")}
-                            boxSize="64px" borderRadius="12px" p={2}
+                            adaptiveSize={64} borderRadius="12px"
                           />
                         <Text color={theme.mutedText} fontSize="sm">
                           {logoFile

@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { canUseAdvancedCalendar } = require("../utils/calendarPlanAccess");
 const express = require("express");
 const admin = require("../firebaseAdmin");
 const { requireFirebaseAuth, hasActiveProfessionalAccess } = require("../utils/firebaseAuth");
@@ -153,6 +154,10 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
       : "none";
     const recurrenceIndex = Math.max(0, Math.min(99, Number(req.body?.recurrenceIndex) || 0));
     const recurrenceCount = Math.max(1, Math.min(100, Number(req.body?.recurrenceCount) || 1));
+    if (!adminRequester && !canUseAdvancedCalendar(requester) &&
+        (recurrenceFrequency !== "none" || recurrenceCount > 1 || recurrenceGroupId)) {
+      return res.status(403).json({ error: "calendar-recurrence-not-included" });
+    }
     let programmeId = "";
     let sessionIndex = null;
     let title = "";

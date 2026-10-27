@@ -1,3 +1,4 @@
+import PlanInclusionBadge from "./PlanInclusionBadge";
 import React from "react";
 import {
   Box,
@@ -27,7 +28,7 @@ import {
 } from "react-icons/md";
 import { AddIcon } from "@chakra-ui/icons";
 import { useAuth } from "../AuthContext";
-import { hasPlanModule } from "../utils/proPlanAccess";
+import { hasPlanModule, canUseGuidedProgram } from "../utils/proPlanAccess";
 import { COACH_MOBILE_NAV_PREFIXES } from "./mobileNavPaths.js";
 
 export { COACH_MOBILE_NAV_PREFIXES };
@@ -166,8 +167,7 @@ export default function CoachMobileNav() {
       icon: MdOutlineCalendarMonth,
       path: "/coach-dashboard?quickAction=plan",
     },
-    ...(hasSportAccess
-      ? [
+    ...(hasSportAccess ? [
           {
             label: t("nav.new_program_manual", "Nouveau programme manuel"),
             icon: MdOutlineFitnessCenter,
@@ -178,8 +178,7 @@ export default function CoachMobileNav() {
             icon: MdAutoAwesome,
             path: "/auto-program-questionnaire",
           },
-        ]
-      : []),
+        ] : []),
     {
       label: nutritionOnly
         ? t("auto.CoachMobileNav.new_patient", "Nouveau patient")
@@ -187,15 +186,13 @@ export default function CoachMobileNav() {
       icon: MdOutlinePeopleAlt,
       path: "/coach-dashboard?quickAction=client",
     },
-    ...(hasNutritionAccess
-      ? [
+    ...(hasNutritionAccess ? [
           {
             label: t("nav.new_nutrition_followup", "Nouveau suivi diététique"),
             icon: MdOutlineNoteAdd,
             path: "/nutrition-coach?new=1",
           },
-        ]
-      : []),
+        ] : []),
   ];
 
   React.useEffect(() => {
@@ -305,9 +302,11 @@ export default function CoachMobileNav() {
                   onMouseEnter={() => preloadPath(action.path)}
                   onTouchStart={() => preloadPath(action.path)}
                   onPointerDown={() => preloadPath(action.path)}
+                  isDisabled={action.path.includes("nutrition-coach") ? !hasNutritionAccess : action.path.includes("auto-program-questionnaire") ? !hasSportAccess || !canUseGuidedProgram(user?.proAccess || user) : action.path.includes("program-builder") ? !hasSportAccess : false}
                   onClick={() => goAction(action.path)}
                 >
                   {action.label}
+                  <PlanInclusionBadge included={action.path.includes("nutrition-coach") ? hasNutritionAccess : action.path.includes("auto-program-questionnaire") ? hasSportAccess && canUseGuidedProgram(user?.proAccess || user) : action.path.includes("program-builder") ? hasSportAccess : true} />
                 </Button>
               ))}
             </SimpleGrid>

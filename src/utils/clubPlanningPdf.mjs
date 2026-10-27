@@ -107,7 +107,7 @@ export async function createClubPlanningPdf(options) {
     }
     if (!block.lines) throw new Error('Cette semaine est trop dense pour une grille horaire lisible sur une page. Choisissez le format A3 ou réduisez les coaches / types sélectionnés.');
   });
-  const [clubLogo, brandLogo] = await Promise.all([imageData(options.clubLogoUrl), imageData(options.brandLogoUrl || (typeof window !== 'undefined' ? '/logo-byl.png' : null))]);
+  const [clubLogo, brandLogo] = await Promise.all([imageData(options.clubLogoUrl), imageData(options.brandLogoUrl || (typeof window !== 'undefined' ? '/logo-byl.png?v=palm-20261027' : null))]);
   const drawLogo = (data, x, y, maxWidth, maxHeight) => {
     if (!data) return;
     const props = pdf.getImageProperties(data), ratio = Math.min(maxWidth / props.width, maxHeight / props.height);

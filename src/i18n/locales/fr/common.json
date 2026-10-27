@@ -57,6 +57,10 @@
   },
   "brand": "BoostYourLife.coach",
   "messaging": {
+    "planReadOnly": "Messagerie intégrée à partir de Croissance. L’historique reste consultable, mais les nouveaux messages sont désactivés des deux côtés.",
+    "checkingPlan": "Vérification des droits de messagerie…",
+    "accessError": "Impossible de vérifier les droits de messagerie. Réessayez dans un instant.",
+
     "deleteConversationTitle": "Supprimer cette conversation ?",
     "deleteConversationBody": "Elle sera retirée uniquement de votre messagerie. L’autre personne conservera son historique.",
     "title": "Messagerie",
@@ -163,6 +167,7 @@
     }
   },
   "clientNutritionJournal": {
+    "vpoDescription": "Viande, poisson, œuf",
     "openNutrition": "Ouvrir nutrition",
     "saveError": "Le journal n’a pas pu être enregistré",
     "tryAgain": "Réessaie dans un instant.",
@@ -1177,6 +1182,14 @@
     }
   },
   "plans": {
+    "soloMessaging": "Échanges par vos canaux habituels ; historique de la messagerie intégrée en lecture seule",
+    "soloCalendar": "Calendrier et rendez-vous ponctuels",
+    "growthMessaging": "Messagerie intégrée avec vos clients, sans quota de messages",
+    "growthCalendar": "Rendez-vous récurrents et synchronisation avec un agenda externe",
+    "soloPrograms": "Programmes manuels",
+    "growthPrograms": "Programmes manuels et guidés",
+    "brandingTiers": "Logo personnalisé à partir de Croissance ; nom dans la navigation au palier Illimité",
+
     "title": "Choisissez votre formule",
     "free": {
       "badge": "100% GRATUIT",
@@ -1218,6 +1231,13 @@
       "phone": "06 XX XX XX XX"
     },
     "actions": {
+      "resetLogo": "Remettre le logo par défaut",
+      "defaultLogoRestored": "Logo par défaut rétabli",
+      "included": "Inclus",
+      "notIncluded": "Non inclus",
+      "saveLogo": "Enregistrer le logo",
+      "logoSaved": "Logo enregistré",
+      "defaultLogo": "Logo par défaut",
       "save": "Enregistrer mes infos",
       "chooseFile": "Choisir un fichier",
       "saved": "Modifications enregistrées"
@@ -2928,6 +2948,7 @@
     "refuseAll": "Tout refuser"
   },
   "clientNutrition": {
+    "loadError": "Impossible de charger les bilans partagés. Réessaie dans un instant.",
     "loading": "Chargement de ton suivi nutrition...",
     "eyebrow": "ESPACE CLIENT",
     "subtitle": "Tout ce que ton professionnel a partagé : menu, recettes, courses et conseils.",

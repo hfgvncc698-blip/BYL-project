@@ -45,7 +45,23 @@ import i18n, { ensureLanguageLoaded } from "./i18n";
 import { getRegistrationErrorMessage } from "./utils/registrationErrors";
 
 const AuthContext = createContext();
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  const previewSearch = typeof window === "undefined" ? "" : window.location.search;
+  return useMemo(() => {
+  // Local visual QA only. No subscription or account data is written.
+  if (!import.meta.env.DEV || context?.user?.role !== "admin") return context;
+  const params = new URLSearchParams(previewSearch);
+  const pack = params.get("previewPack");
+  if (!["sport", "nutrition", "complete"].includes(pack) || params.get("previewTier") !== "solo") return context;
+  const access = getProPlanAccess(pack, "solo");
+  return {
+    ...context,
+    user: { ...context.user, ...access, role: "coach", accountType: "coach", clubId: null, clubRole: null, proAccess: access, nutritionAccess: pack !== "sport", hasNutritionAccess: pack !== "sport", sportAccess: pack !== "nutrition", hasSportAccess: pack !== "nutrition", features: {}, subscriptionStatus: "active", hasActiveSubscription: true, planPreview: `${pack} · Solo` },
+    isAdmin: false, isCoach: true, effectiveRole: "coach", viewAs: "coach", showAdminView: false, isTrialActive: false, hasCoachAccess: true,
+  };
+  }, [context, previewSearch]);
+};
 
 const TRIAL_DAYS = 14;
 const VIEW_AS_KEY = "BYL_VIEW_AS"; // persistance de la vue choisie (admin/coach)

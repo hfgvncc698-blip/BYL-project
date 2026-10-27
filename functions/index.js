@@ -1,3 +1,4 @@
+const { canUseAdvancedCalendar } = require("./calendarPlanAccess.cjs");
 const {emailSkipReason}=require('./lib/messagingEmailPolicy.cjs');
 // functions/index.js
 // =======================================================
@@ -3567,7 +3568,10 @@ exports.ensureCoachCalendarSubscription = onCall(
     if (coachId !== request.auth.uid) {
       throw new HttpsError("permission-denied", "Accès refusé.");
     }
-    await requireProfessionalCaller(request);
+    const requester = await requireProfessionalCaller(request);
+    if (!canUseAdvancedCalendar(requester)) {
+      throw new HttpsError("permission-denied", "Synchronisation non incluse dans le pack Solo.");
+    }
 
     const ref = db.collection("coachCalendarSubscriptions").doc(coachId);
     const snap = await ref.get();
@@ -3845,6 +3849,12 @@ exports.calendarFeed = onRequest(
 
         if (!coachId) {
           res.status(404).send("Invalid coach token");
+          return;
+        }
+
+        const calendarOwner = await getRequesterProfile(coachId);
+        if (calendarOwner && !canUseAdvancedCalendar(calendarOwner)) {
+          res.status(403).send("Calendar synchronization not included");
           return;
         }
 

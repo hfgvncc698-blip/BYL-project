@@ -57,6 +57,10 @@
   },
   "brand": "BoostYourLife.allenatore",
   "messaging": {
+    "planReadOnly": "La messaggistica integrata è disponibile da Crescita. La cronologia resta consultabile, ma i nuovi messaggi sono disattivati per entrambe le parti.",
+    "checkingPlan": "Verifica dell’accesso alla messaggistica…",
+    "accessError": "Impossibile verificare l’accesso. Riprova tra poco.",
+
     "deleteConversationTitle": "Rimuovere questa conversazione?",
     "deleteConversationBody": "Verrà rimossa solo dai tuoi messaggi. L’altra persona conserverà la propria cronologia.",
     "title": "Messaggi",
@@ -163,6 +167,7 @@
     }
   },
   "clientNutritionJournal": {
+    "vpoDescription": "Carne, pesce, uova",
     "openNutrition": "Apri nutrizione",
     "saveError": "Impossibile salvare il diario",
     "tryAgain": "Riprova tra qualche istante.",
@@ -1177,6 +1182,14 @@
     }
   },
   "plans": {
+    "soloMessaging": "Contatti tramite i tuoi canali abituali; cronologia dei messaggi in sola lettura",
+    "soloCalendar": "Calendario e appuntamenti singoli",
+    "growthMessaging": "Messaggistica integrata con i clienti, senza limiti di messaggi",
+    "growthCalendar": "Appuntamenti ricorrenti e sincronizzazione con calendari esterni",
+    "soloPrograms": "Programmi manuali",
+    "growthPrograms": "Programmi manuali e guidati",
+    "brandingTiers": "Logo personalizzato da Crescita; nome nella navigazione con Illimitato",
+
     "title": "Scegli la tua formula",
     "free": {
       "badge": "100% GRATUITO",
@@ -1218,6 +1231,13 @@
       "phone": "06 XX XX XX XX"
     },
     "actions": {
+      "resetLogo": "Ripristina il logo predefinito",
+      "defaultLogoRestored": "Logo predefinito ripristinato",
+      "included": "Incluso",
+      "notIncluded": "Non incluso",
+      "saveLogo": "Salva logo",
+      "logoSaved": "Logo salvato",
+      "defaultLogo": "Logo predefinito",
       "save": "Salva le mie informazioni",
       "chooseFile": "Scegli un file",
       "saved": "Modifiche salvate"
@@ -2922,6 +2942,7 @@
     "refuseAll": "Rifiuta tutto"
   },
   "clientNutrition": {
+    "loadError": "Impossibile caricare le valutazioni condivise. Riprova tra poco.",
     "loading": "Caricamento del monitoraggio nutrizionale...",
     "eyebrow": "AREA CLIENTI",
     "subtitle": "Tutto quello che il tuo professionista ha condiviso: menu, ricette, spesa e consigli.",

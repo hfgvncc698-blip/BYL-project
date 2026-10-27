@@ -1,5 +1,6 @@
 const express = require("express");
 const admin = require("../firebaseAdmin");
+const { canUseIntegratedMessaging } = require("../utils/messagingPlanAccess");
 const { getUserRole, requireFirebaseAuth } = require("../utils/firebaseAuth");
 
 const router = express.Router();
@@ -45,6 +46,23 @@ router.get("/client-records", requireFirebaseAuth, async (req, res) => {
   } catch (_error) { res.status(500).json({ error: "messaging-contacts-unavailable" }); }
 });
 
+router.get("/access", requireFirebaseAuth, async (req, res) => {
+  try {
+    const clientId = clean(req.query.clientId);
+    const professionalUid = clean(req.query.professionalUid);
+    if (!clientId || !professionalUid) return res.status(400).json({ error: "invalid-conversation" });
+    const clientSnap = await db.collection("clients").doc(clientId).get();
+    if (!clientSnap.exists) return res.status(404).json({ error: "client-not-found" });
+    const client = clientSnap.data();
+    if (!clientProfessionalUids(client).has(professionalUid) ||
+        (req.auth.uid !== professionalUid && !clientAccountUids(clientId, client).has(req.auth.uid))) {
+      return res.status(403).json({ error: "conversation-not-allowed" });
+    }
+    const professional = await db.collection("users").doc(professionalUid).get();
+    res.json({ included: professional.exists && canUseIntegratedMessaging(professional.data()) });
+  } catch (_error) { res.status(500).json({ error: "messaging-access-unavailable" }); }
+});
+
 router.post("/send", requireFirebaseAuth, async (req, res) => {
   try {
     const senderUid = req.auth.uid;
@@ -74,6 +92,11 @@ router.post("/send", requireFirebaseAuth, async (req, res) => {
     const isAdmin = ["admin", "super_admin", "superadmin"].includes(String(senderRole || "").toLowerCase());
     if (!isAdmin && senderUid !== clientUid && senderUid !== professionalUid) {
       return res.status(403).json({ error: "conversation-not-allowed" });
+    }
+
+    const professionalSnapshot = await db.collection("users").doc(professionalUid).get();
+    if (!professionalSnapshot.exists || !canUseIntegratedMessaging(professionalSnapshot.data())) {
+      return res.status(403).json({ error: "messaging-not-included" });
     }
 
     const conversationId = `${clientId}__${professionalUid}`;

@@ -1,6 +1,7 @@
+import { apiFetch } from "../utils/api";
 // src/pages/ClientNutritionPage.jsx
 import { useEffect, useState } from "react";
-import { Box, Flex, Heading, Text, useColorModeValue } from "@chakra-ui/react";
+import { Box, Button, Flex, Heading, Text, useColorModeValue } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext.jsx";
 import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { useNutritionTheme } from "../styles/nutritionTheme";
@@ -28,11 +29,16 @@ export default function ClientNutritionPage() {
     boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   };
   const [clientId, setClientId] = useState(null);
+  const [clientIds, setClientIds] = useState([]);
   const [clientData, setClientData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
+    setLoadError(false);
     (async () => {
       if (!user) {
         setLoading(false);
@@ -41,6 +47,9 @@ export default function ClientNutritionPage() {
 
       try {
         const snap = await resolveClientSnapshotForUser(user, { logPrefix: "ClientNutritionPage" });
+        const { followups = [] } = await apiFetch("/clubs/my-followups");
+        const hidden = new Set(followups.filter((row) => row.hidden).map((row) => row.id));
+        if (alive) setClientIds([...new Set([snap?.id, ...followups.map((row) => row.id)])].filter((id) => id && !hidden.has(id)));
         if (snap?.exists?.() && alive) {
           setClientId(snap.id);
           setClientData(snap.data());
@@ -49,6 +58,7 @@ export default function ClientNutritionPage() {
           setClientData(null);
         }
       } catch {
+        if (alive) setLoadError(true);
         // Le composant affichera l'état "non relié" si aucune piste ne passe les règles.
         if (alive) {
           setClientId(null);
@@ -62,9 +72,16 @@ export default function ClientNutritionPage() {
     return () => {
       alive = false;
     };
-  }, [user]);
+  }, [user, loadAttempt]);
 
   if (loading) return <AppLoading label={t("clientNutrition.loading", "Chargement de ton suivi nutrition...")} />;
+
+  if (loadError) return (
+    <Box p={5} role="alert">
+      <Text>{t("clientNutrition.loadError", "Impossible de charger les bilans partagés. Réessaie dans un instant.")}</Text>
+      <Button mt={3} onClick={() => setLoadAttempt((attempt) => attempt + 1)}>{t("common.retry", "Réessayer")}</Button>
+    </Box>
+  );
 
   return (
     <Box data-tour-page="client-nutrition" minH="100vh" bg={pageBg} color={theme.textColor} p={{ base: 3, md: 6 }} position="relative">
@@ -84,6 +101,7 @@ export default function ClientNutritionPage() {
         {clientId ? (
           <ClientNutritionSharedSection
             clientId={clientId}
+            clientIds={clientIds}
             variant="full"
             onOpenJournal={() => navigate("/nutrition/journal")}
             clientName={[clientData?.firstName || clientData?.prenom, clientData?.lastName || clientData?.nom].filter(Boolean).join(" ")}
