@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { EXERCISE_PARAMETER_KEYS, EXERCISE_PARAMETER_LABELS, orderExerciseOptions, orderExerciseMetrics } from '../src/utils/exerciseParameterOrder.js';
+const strength = ['Repos (min:sec)', 'Charge (kg)', 'Répétitions', 'Séries'];
+assert.deepEqual(orderExerciseOptions(strength), ['Séries','Répétitions','Charge (kg)','Repos (min:sec)']);
+assert.equal(strength[0], 'Repos (min:sec)');
+assert.deepEqual(orderExerciseOptions(['Vitesse','Repos (min:sec)','Distance','Durée (min:sec)']), ['Durée (min:sec)','Distance','Vitesse','Repos (min:sec)']);
+assert.deepEqual(orderExerciseOptions([]), []);
+assert.deepEqual(orderExerciseOptions(['custom','Séries']), ['Séries','custom']);
+const columns = [{key:'rest', value:90},{key:'duration',value:30},{key:'charge',value:95},{key:'reps',value:6},{key:'set',value:1}];
+const ordered = orderExerciseMetrics(columns);
+assert.deepEqual(ordered.map(x=>x.key), ['set','reps','charge','duration','rest']);
+assert.equal(ordered[2],columns[2], 'values and original column objects must remain intact');
+assert.deepEqual(orderExerciseOptions([...EXERCISE_PARAMETER_LABELS].reverse()), EXERCISE_PARAMETER_LABELS);
+assert.deepEqual(orderExerciseMetrics([...EXERCISE_PARAMETER_KEYS].reverse().map(key=>({key}))).map(x=>x.key), EXERCISE_PARAMETER_KEYS);
+console.log('PASS: common order, legacy orders, empty selection, custom fields and PDF series columns; no input mutation.');

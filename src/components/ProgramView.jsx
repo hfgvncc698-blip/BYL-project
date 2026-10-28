@@ -1,3 +1,4 @@
+import { EXERCISE_PARAMETER_KEYS } from "../utils/exerciseParameterOrder";
 import { loadProgramPdfLogos } from "../utils/programPdfLogos.js";
 import { downloadPdfFile } from "../utils/downloadPdfFile";
 // src/components/ProgramView.jsx
@@ -1458,21 +1459,7 @@ const buildInfosFromExercise = (ex, units, locale = "fr-FR", L = null) => {
     return null;
   };
 
-  return [
-    push("series"),
-    push("repetitions"),
-    push("temps"),
-    push("charge"),
-    push("repos"),
-    push("intensite"),
-    push("watts"),
-    push("resistance"),
-    push("inclinaison"),
-    push("calories"),
-    push("tempo"),
-    push("vitesse"),
-    push("distance"),
-  ].filter(Boolean);
+  return EXERCISE_PARAMETER_KEYS.map(push).filter(Boolean);
 };
 
 const SNAPSHOT_DISPLAY_METRICS = [

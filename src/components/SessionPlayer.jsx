@@ -1,3 +1,4 @@
+import { EXERCISE_PARAMETER_KEYS } from "../utils/exerciseParameterOrder";
 import { commitSessionFeedback } from "../utils/commitSessionFeedback";
 import { apiFetch } from "../utils/api";
 // src/components/SessionPlayer.jsx
@@ -3968,19 +3969,23 @@ export default function SessionPlayer() {
   };
 
   const showScheduleSuggestionOrLeave = async () => {
-    if (!isCoachContext && location.state?.clientJourney) {
-      leaveCompletedSession();
-      return;
-    }
-    const suggestion = await buildScheduleSuggestionAfterCompletion();
-    if (!suggestion) {
-      leaveCompletedSession();
-      return;
-    }
+    // Completion and calendar writes are confirmed before reaching this step.
+    // An optional scheduling read must never trap the user in the rating form.
     onClose();
     clearPlayerResumeSnapshot({ resetElapsedState: true });
     setCompletionSubmitting(false);
     completionSubmitActionRef.current = "";
+    if (!isCoachContext && location.state?.clientJourney) {
+      leaveCompletedSession();
+      return;
+    }
+    const suggestion = await withPlayerDeadline(
+      buildScheduleSuggestionAfterCompletion(), 2500
+    ).catch(() => null);
+    if (!suggestion) {
+      leaveCompletedSession();
+      return;
+    }
     setScheduleSuggestion(suggestion);
     openScheduleSuggestion();
   };
@@ -4005,7 +4010,7 @@ export default function SessionPlayer() {
         title: t("sessionPlayer.scheduleSuggestionSaved", "Prochaine séance ajoutée au calendrier"),
       });
       closeScheduleSuggestion();
-      navigate(-1);
+      leaveCompletedSession();
     } catch (error) {
       console.error("schedule suggested session error:", error);
       toast({
@@ -4021,7 +4026,7 @@ export default function SessionPlayer() {
   const dismissScheduleSuggestion = () => {
     if (scheduleSuggestionSaving) return;
     closeScheduleSuggestion();
-    navigate(-1);
+    leaveCompletedSession();
   };
 
   const leaveCompletedSession = () => {
@@ -4029,7 +4034,9 @@ export default function SessionPlayer() {
     clearPlayerResumeSnapshot({ resetElapsedState: true });
     if (!isCoachContext && location.state?.clientJourney) {
       navigate('/user-dashboard', { replace: true, state: { completedJourneyProgramId: programId } });
-    } else navigate(-1);
+    } else {
+      navigate(isCoachContext ? '/coach-dashboard' : '/user-dashboard', { replace: true });
+    }
   };
 
   const showCompletionSaveError = () => {
@@ -5714,30 +5721,9 @@ export default function SessionPlayer() {
       ? timerOnlyChain
       : phase === "effort" && (timerOnlyChain || durSecRef.current > 0);
 
-  const orderFromBuilder = Array.isArray(ex?.optionsOrder)
-    ? ex.optionsOrder
-        .map((lbl) => Object.entries(OPTION_FLAG).find(([, v]) => v === lbl)?.[0])
-        .filter(Boolean)
-    : [];
-
-  const defaultOrder = [
-    "series",
-    "repetitions",
-    "temps",
-    "charge",
-    "resistance",
-    "watts",
-    "repos",
-    "vitesse",
-    "inclinaison",
-    "distance",
-    "calories",
-    "tempo",
-    "intensite",
-  ];
-
+  const defaultOrder = EXERCISE_PARAMETER_KEYS;
   const hasBuilderOrder = Array.isArray(ex?.optionsOrder);
-  const effectiveOrder = orderFromBuilder.length ? orderFromBuilder : defaultOrder;
+  const effectiveOrder = defaultOrder;
 
   const seriesDiff = getSeriesDiffFlag(ex);
   const setsCount = Number(getFieldValue(ex, FIELD_MAP.series) ?? 1) || 1;
@@ -5783,7 +5769,7 @@ export default function SessionPlayer() {
 
   const shortInfos = (exo) => {
     if (!exo) return [];
-    const out = [];
+    const out = {};
     const canShow = (key) =>
       !Array.isArray(exo?.optionsOrder) || exo.optionsOrder.includes(OPTION_FLAG[key]);
     const series = getFieldValue(exo, FIELD_MAP.series);
@@ -5794,9 +5780,9 @@ export default function SessionPlayer() {
     const load = getFieldValue(exo, FIELD_MAP.charge);
 
     if (canShow("repetitions") && reps != null)
-      out.push(`${t("labels.repetitions", "Répétitions")} : ${reps}`);
+      out.repetitions = `${t("labels.repetitions", "Répétitions")} : ${reps}`;
     if (canShow("distance") && distance != null) {
-      out.push(
+      out.distance = (
         `${labelWithUnit(units, "Distance", t)} : ${displayFromBase({
           units,
           label: "Distance",
@@ -5805,12 +5791,12 @@ export default function SessionPlayer() {
       );
     }
     if (canShow("temps") && time != null)
-      out.push(`${t("labels.duration", "Durée")} : ${toClockMMSS(toSeconds(time))}`);
-    if (canShow("series") && series != null) out.push(`${t("labels.sets", "Séries")} : ${series}`);
+      out.temps = `${t("labels.duration", "Durée")} : ${toClockMMSS(toSeconds(time))}`;
+    if (canShow("series") && series != null) out.series = `${t("labels.sets", "Séries")} : ${series}`;
     if (canShow("repos") && rest != null)
-      out.push(`${t("labels.rest", "Repos")} : ${toClockMMSS(toSeconds(rest))}`);
+      out.repos = `${t("labels.rest", "Repos")} : ${toClockMMSS(toSeconds(rest))}`;
     if (canShow("charge") && load != null) {
-      out.push(
+      out.charge = (
         `${labelWithUnit(units, "Charge (kg)", t)} : ${displayFromBase({
           units,
           label: "Charge (kg)",
@@ -5818,7 +5804,7 @@ export default function SessionPlayer() {
         })}`
       );
     }
-    return out.slice(0, 3);
+    return EXERCISE_PARAMETER_KEYS.map(key => out[key]).filter(Boolean).slice(0, 3);
   };
 
   const tableColumns = metrics

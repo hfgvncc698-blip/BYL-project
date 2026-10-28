@@ -60,7 +60,6 @@
     "planReadOnly": "Messagerie intégrée à partir de Croissance. L’historique reste consultable, mais les nouveaux messages sont désactivés des deux côtés.",
     "checkingPlan": "Vérification des droits de messagerie…",
     "accessError": "Impossible de vérifier les droits de messagerie. Réessayez dans un instant.",
-
     "deleteConversationTitle": "Supprimer cette conversation ?",
     "deleteConversationBody": "Elle sera retirée uniquement de votre messagerie. L’autre personne conservera son historique.",
     "title": "Messagerie",
@@ -1189,7 +1188,6 @@
     "soloPrograms": "Programmes manuels",
     "growthPrograms": "Programmes manuels et guidés",
     "brandingTiers": "Logo personnalisé à partir de Croissance ; nom dans la navigation au palier Illimité",
-
     "title": "Choisissez votre formule",
     "free": {
       "badge": "100% GRATUIT",
@@ -2380,6 +2378,7 @@
       "sections": "SECTIONS"
     },
     "actions": {
+      "moveTo": "Déplacer vers…",
       "add": "+ Ajouter",
       "duplicate": "Dupliquer"
     },
@@ -2393,6 +2392,8 @@
       "cooldown": "Retour au calme"
     },
     "options": {
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
       "title": "Options",
       "activeCount": "{{count}} champs actifs",
       "order": "Ordre",
@@ -2421,11 +2422,12 @@
       "distanceMi": "Distance (miles)"
     },
     "notes": {
+      "add": "Ajouter une note",
       "title": "Notes",
       "placeholder": "Ajouter une note (consigne, rappel, etc.)"
     },
     "advancedSets": {
-      "title": "Séries différentes (avancées)",
+      "title": "Séries différentes",
       "fillFromGlobals": "Remplir depuis les valeurs globales",
       "addSet": "+ Ajouter un set",
       "removeLast": "– Retirer le dernier set"
@@ -2434,6 +2436,7 @@
       "set": "Set"
     },
     "aria": {
+      "duplicateExercise": "Dupliquer cet exercice",
       "renameSession": "Renommer la séance",
       "deleteSession": "Supprimer séance",
       "replace": "Remplacer",
@@ -2465,12 +2468,17 @@
       "label": "Exercice"
     },
     "linkNext": {
+      "unlink": "Délier de l’exercice suivant",
       "tip": "Chaîner avec l’exercice suivant",
       "label": "Lier au suivant"
     },
     "autoProgression": {
       "tip": "Si activé, le programme peut évoluer automatiquement selon les validations du client (si le coach ne gère pas manuellement).",
       "label": "Progression auto"
+    },
+    "header": {
+      "goal": "Objectif",
+      "settings": "Réglages du programme"
     }
   },
   "statsShort": {

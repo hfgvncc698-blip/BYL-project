@@ -1,3 +1,5 @@
+import { EXERCISE_PARAMETER_LABELS, orderExerciseOptions } from "../utils/exerciseParameterOrder";
+import { duplicateBuilderExercise } from "../utils/duplicateBuilderExercise";
 import useSessionDraft, { clearSessionDrafts } from "../hooks/useSessionDraft";
 import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/ProgramBuilder.jsx
@@ -45,9 +47,9 @@ import {
   Tr,
   Th,
   Td,
-  Divider,
   Textarea,
   Tooltip,
+  Menu, MenuButton, MenuList, MenuItem, Portal,
 } from "@chakra-ui/react";
 import {
   CloseIcon,
@@ -82,7 +84,7 @@ import {
   MdDelete,
   MdSyncAlt,
 } from "react-icons/md";
-import { FiMoreVertical } from "react-icons/fi";
+import { FiMoreVertical, FiLink, FiCornerUpRight } from "react-icons/fi";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import ClientCreation from "./ClientCreation";
@@ -213,21 +215,7 @@ const sectionDefs = [
   { key: "retourCalme", labelKey: "programBuilder.sections.cooldown" },
 ];
 
-const allOptions = [
-  "Séries",
-  "Répétitions",
-  "Repos (min:sec)",
-  "Durée (min:sec)",
-  "Inclinaison (%)",
-  "Résistance",
-  "Watts",
-  "Objectif Calories",
-  "Charge (kg)",
-  "Tempo",
-  "Vitesse",
-  "Distance",
-  "Intensité",
-];
+const allOptions = EXERCISE_PARAMETER_LABELS;
 
 /**
  * ✅ Defaults :
@@ -612,14 +600,15 @@ function applyValidatedPerformanceToSessions(
 ) {
   let updatedCount = 0;
   const sessions = sourceSessions.map((session, sessionIndex) => {
-    const nextSession = structuredClone(session);
-    const listKeys = nextSession.useSections
+    let nextSession = session;
+    const listKeys = session.useSections
       ? sectionDefs.map(({ key }) => key)
       : ["exercises"];
     let exerciseIndex = 0;
 
     listKeys.forEach((key) => {
-      nextSession[key] = (nextSession[key] || []).map((exercise, sectionIndex) => {
+      const originalList = session[key] || [];
+      const nextList = originalList.map((exercise, sectionIndex) => {
         const source = selectLatestExercisePerformance(completionRecords, exercise, {
           sessionIndex,
           sectionKey: key,
@@ -633,11 +622,15 @@ function applyValidatedPerformanceToSessions(
         if (nextExercise !== exercise) updatedCount += 1;
         return nextExercise;
       });
+      if (nextList.some((exercise, index) => exercise !== originalList[index])) {
+        if (nextSession === session) nextSession = { ...session };
+        nextSession[key] = nextList;
+      }
     });
     return nextSession;
   });
 
-  return { sessions, updatedCount };
+  return { sessions: updatedCount ? sessions : sourceSessions, updatedCount };
 }
 
 function getProgramSessions(programme = {}) {
@@ -739,7 +732,10 @@ async function subscribeClientCompletionHistory(clientId, baseProgramId, onRows,
 
   const rowsByProgram = new Map();
   const modificationsByProgram = new Map();
-  const publish = () => {
+  let publishTimer = null;
+  const publishNow = () => {
+    publishTimer = null;
+    if (!active) return;
     const rows = Array.from(new Set([
       ...rowsByProgram.keys(),
       ...modificationsByProgram.keys(),
@@ -754,6 +750,13 @@ async function subscribeClientCompletionHistory(clientId, baseProgramId, onRows,
       .filter(isValidatedCompletionRecord)
       .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
     onRows?.(rows);
+  };
+
+  // Initial history reads often finish together on a fresh computer. Merge
+  // that burst once instead of recalculating every exercise for every response.
+  const publish = () => {
+    if (!active || publishTimer !== null) return;
+    publishTimer = setTimeout(publishNow, 50);
   };
 
   const unsubscribers = programmeIds.map((pid) => {
@@ -791,6 +794,7 @@ async function subscribeClientCompletionHistory(clientId, baseProgramId, onRows,
 
   return () => {
     active = false;
+    clearTimeout(publishTimer);
     unsubscribers.forEach((unsubscribe) => unsubscribe());
   };
 }
@@ -1442,6 +1446,7 @@ function pruneUncheckedOptionsForSave(ex) {
 
 function serializeExerciseForSave(ex) {
   const out = structuredClone(ex || {});
+  if (Array.isArray(out.optionsOrder)) out.optionsOrder = orderExerciseOptions(out.optionsOrder);
 
   if (out.useAdvancedSets) {
     const safe = ensureSetsLengthPure(out);
@@ -1618,10 +1623,7 @@ function normalizeExercise(ex) {
     ...structuredClone(base),
     id: stableId,
     tempsParRep: Number(base.tempsParRep) > 1.25 ? Number(base.tempsParRep) : 3,
-    optionsOrder:
-      Array.isArray(base.optionsOrder) && base.optionsOrder.length
-        ? base.optionsOrder
-        : opts,
+    optionsOrder: orderExerciseOptions(Array.isArray(base.optionsOrder) ? base.optionsOrder : opts),
     notesEnabled: Boolean(base.notesEnabled) || false,
     notes: typeof base.notes === "string" ? base.notes : "",
     useAdvancedSets: Boolean(base.useAdvancedSets) || false,
@@ -1673,7 +1675,7 @@ function ensureSessionShape(session, objectif) {
   const hasSections = ["echauffement", "corps", "bonus", "retourCalme"].some((k) =>
     Array.isArray(session?.[k])
   );
-  if (hasSections) {
+  if (hasSections && session?.useSections !== false) {
     const clone = structuredClone(session);
     ["echauffement", "corps", "bonus", "retourCalme"].forEach((k) => {
       clone[k] = (clone[k] || []).map((e) => normalizeExercise(migrateAliases(e), objectif));
@@ -1694,8 +1696,11 @@ function ensureSessionShape(session, objectif) {
     : flattenFromSections(session);
   return {
     name: session.name || session.nom || session.title || "",
-    useSections: false,
-    exercises: (list || []).map((e) => normalizeExercise(migrateAliases(e), objectif)),
+    useSections: true,
+    echauffement: [],
+    corps: (list || []).map((e) => normalizeExercise(migrateAliases(e), objectif)),
+    bonus: [],
+    retourCalme: [],
   };
 }
 
@@ -2005,7 +2010,7 @@ function BuilderExerciseHistoryPanel({ items = [], loading = false, textMute, t,
         />
       </HStack>
 
-      <Collapse in={open} animateOpacity>
+      <Collapse in={open} animateOpacity unmountOnExit>
         {loading ? (
           <Text mt={3} fontSize="sm" color={textMute}>
             {t("common.loading", "Chargement...")}
@@ -2170,18 +2175,16 @@ const ExerciseCardRow = memo(
     border,
     subBg,
     textMute,
-    hoverRow,
     strongShadow,
     onMoveTo,
     onReplaceToggle,
     replaceIndex,
     onDelete,
+    onDuplicate,
     onToggleExpand,
     expanded,
     onOptionsToggle,
-    onOptionsReorder,
     onGlobalChange,
-    onToggleNotes,
     onChangeNotes,
     onToggleAdvanced,
     onFillFromGlobals,
@@ -2216,14 +2219,15 @@ const ExerciseCardRow = memo(
         ? Number(ex["Distance"]) || 0
         : mToMi(ex["Distance"]);
 
+    const [noteOpen, setNoteOpen] = useState(false);
+    const notesVisible = noteOpen || Boolean(ex.notesEnabled && ex.notes);
     const safeEx = useMemo(() => ensureSetsLengthPure(ex), [ex]);
-    const activeOptions = ex.optionsOrder || [];
+    const activeOptions = orderExerciseOptions(ex.optionsOrder || []);
     const activeOptionCount = activeOptions.length;
     const optionChipBg = useColorModeValue("whiteAlpha.900", "whiteAlpha.100");
     const optionChipActiveBg = useColorModeValue("blue.50", "blue.900");
     const optionChipActiveBorder = useColorModeValue("blue.300", "blue.500");
     const optionChipHoverBg = useColorModeValue("gray.50", "whiteAlpha.200");
-    const optionGroupBg = useColorModeValue("whiteAlpha.700", "whiteAlpha.50");
     const dragChipBg = useColorModeValue("white", "whiteAlpha.100");
     const dragChipActiveBg = useColorModeValue("green.50", "green.900");
     const dragChipActiveBorder = useColorModeValue("green.200", "green.600");
@@ -2243,12 +2247,12 @@ const ExerciseCardRow = memo(
       >
         <Flex
           w="100%"
-          align={{ base: "flex-start", md: "center" }}
+          align="center"
           justify="space-between"
           gap={3}
-          flexWrap={{ base: "wrap", md: "nowrap" }}
+          flexWrap="wrap"
         >
-          <Flex flex="1 1 auto" minW={0} align="center" gap={2}>
+          <Flex flex="1 1 210px" minW={0} align="center" gap={2}>
             <Box
               {...dragHandleProps}
               cursor="grab"
@@ -2273,101 +2277,57 @@ const ExerciseCardRow = memo(
               >
                 {t("programBuilder.exercise.label", "Exercice")} {displayLabel}
               </Text>
-              <Text fontSize="lg" fontWeight="bold" isTruncated>
+              <Text fontSize="lg" fontWeight="bold" overflowWrap="anywhere" lineHeight="short">
                 {ex.nom}
               </Text>
               {ex.cycleVariation?.proposed && <Badge colorScheme="blue">{({ fr: 'Nouvel exercice', en: 'New exercise', es: 'Nuevo ejercicio', it: 'Nuovo esercizio', de: 'Neue Übung', ru: 'Новое упражнение', ar: 'تمرين جديد' })[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || 'New exercise'}</Badge>}
             </VStack>
           </Flex>
 
-          <Flex
-            flex="0 0 auto"
-            w={{ base: "100%", md: "auto" }}
-            justify={{ base: "flex-end", md: "flex-end" }}
-            align="center"
-            gap={2}
-            flexWrap="wrap"
-          >
-            {isCoach && (
-              <Tooltip label={t("programBuilder.linkNext.tip", "Chaîner avec l’exercice suivant")}>
-                <HStack spacing={2} flexShrink={0}>
-                  <Text fontSize="sm" color={textMute}>
-                    {t("programBuilder.linkNext.label", "Lier au suivant")}
-                  </Text>
-                  <Switch
-                    size="sm"
-                    flexShrink={0}
-                    isDisabled={!hasNext}
-                    isChecked={!!ex.linkNext}
-                    onChange={(e) => onToggleLinkNext(index, e.target.checked)}
-                  />
-                </HStack>
+          <Flex maxW="100%" marginInlineStart="auto" align="center" gap={1} flexWrap="wrap" justify="flex-end">
+            {isCoach && <>
+              <Tooltip label={t(ex.linkNext ? "programBuilder.linkNext.unlink" : "programBuilder.linkNext.tip")} hasArrow>
+                <IconButton icon={<FiLink />} size="sm" minW="44px" minH="44px"
+                  variant={ex.linkNext ? "solid" : "ghost"} colorScheme={ex.linkNext ? "blue" : "gray"}
+                  aria-label={t(ex.linkNext ? "programBuilder.linkNext.unlink" : "programBuilder.linkNext.tip")}
+                  aria-pressed={!!ex.linkNext} isDisabled={!hasNext}
+                  onClick={() => onToggleLinkNext(index, !ex.linkNext)} />
               </Tooltip>
-            )}
-
-            {sectionEnabled && (
-              <Flex gap={1} flexWrap="wrap" justify="flex-end">
-                {sectionDefs
-                  .filter(({ key }) => key !== currentSection)
-                  .map(({ key, labelKey }) => (
-                    <Button
-                      key={key}
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => onMoveTo(currentSection, key, index)}
-                      flexShrink={0}
-                      borderRadius="md"
-                      _hover={{ bg: hoverRow }}
-                    >
-                      → {t(labelKey)}
-                    </Button>
+              {sectionEnabled && <Menu isLazy>
+                <Tooltip label={t("programBuilder.actions.moveTo")} hasArrow>
+                  <MenuButton as={IconButton} icon={<FiCornerUpRight />} size="sm" minW="44px" minH="44px"
+                    variant="ghost" aria-label={t("programBuilder.actions.moveTo")} />
+                </Tooltip>
+                <Portal><MenuList>
+                  {sectionDefs.filter(({ key }) => key !== currentSection).map(({ key, labelKey }) => (
+                    <MenuItem key={key} minH="44px" onClick={() => onMoveTo(currentSection, key, index)}>{t(labelKey)}</MenuItem>
                   ))}
-              </Flex>
-            )}
-
-            {isCoach && (
-              <IconButton
-                icon={<MdSyncAlt />}
-                variant={replaceIndex === index ? "outline" : "ghost"}
-                size="sm"
-                minW="36px"
-                flexShrink={0}
-                colorScheme="gray"
-                aria-label={t("programBuilder.aria.replace", "Remplacer")}
-                title={t("programBuilder.aria.replaceThis", "Remplacer cet exercice")}
-                onClick={() => onReplaceToggle(index)}
-                borderRadius="md"
-              />
-            )}
-
-            <IconButton
-              icon={<FiMoreVertical />}
-              variant="ghost"
-              size="sm"
-              minW="36px"
-              flexShrink={0}
-              onClick={() => onToggleExpand(index)}
-              aria-label={t("programBuilder.aria.options", "Options")}
-              borderRadius="md"
-              _hover={{ bg: hoverRow }}
-            />
-
-            {isCoach && (
-              <IconButton
-                icon={<MdDelete />}
-                size="sm"
-                minW="36px"
-                flexShrink={0}
-                colorScheme="red"
-                onClick={() => onDelete(index)}
-                aria-label={t("programBuilder.aria.deleteExercise", "Supprimer exercice")}
-                borderRadius="md"
-              />
-            )}
+                </MenuList></Portal>
+              </Menu>}
+              <Tooltip label={t("programBuilder.aria.replaceThis")} hasArrow>
+                <IconButton icon={<MdSyncAlt />} size="sm" minW="44px" minH="44px"
+                  variant={replaceIndex === index ? "outline" : "ghost"}
+                  aria-label={t("programBuilder.aria.replaceThis")} onClick={() => onReplaceToggle(index)} />
+              </Tooltip>
+              <Tooltip label={t("programBuilder.aria.duplicateExercise")} hasArrow>
+                <IconButton icon={<MdContentCopy />} size="sm" minW="44px" minH="44px" variant="ghost"
+                  aria-label={t("programBuilder.aria.duplicateExercise")} onClick={() => onDuplicate(index)} />
+              </Tooltip>
+            </>}
+            <Tooltip label={t("programBuilder.aria.options")} hasArrow>
+              <IconButton icon={<FiMoreVertical />} size="sm" minW="44px" minH="44px"
+                variant={expanded ? "solid" : "ghost"} colorScheme={expanded ? "blue" : "gray"}
+                aria-label={t("programBuilder.aria.options")} aria-expanded={expanded}
+                onClick={() => onToggleExpand(index)} />
+            </Tooltip>
+            {isCoach && <Tooltip label={t("programBuilder.aria.deleteExercise")} hasArrow>
+              <IconButton icon={<MdDelete />} size="sm" minW="44px" minH="44px" variant="ghost" colorScheme="red"
+                aria-label={t("programBuilder.aria.deleteExercise")} onClick={() => onDelete(index)} />
+            </Tooltip>}
           </Flex>
         </Flex>
 
-        <Collapse in={expanded} animateOpacity>
+        <Collapse in={expanded} animateOpacity unmountOnExit>
           <Box
             mt={4}
             bg={subBg}
@@ -2418,18 +2378,19 @@ const ExerciseCardRow = memo(
               </Badge>
             </Flex>
 
-            <Flex wrap="wrap" gap={1} mb={2.5}>
+            <Box display="grid" gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 120px), 1fr))" gap={2} mb={4}>
               {allOptions.map((opt) => {
                 const checked = activeOptions.includes(opt);
                 return (
                   <Checkbox
                     key={opt}
                     isChecked={checked}
+                    isDisabled={!isCoach}
                     onChange={() => onOptionsToggle(index, opt)}
                     px={2}
                     py={1}
-                    minH="28px"
-                    borderRadius="999px"
+                    minH="44px"
+                    borderRadius="10px"
                     bg={checked ? optionChipActiveBg : optionChipBg}
                     border="1px solid"
                     borderColor={checked ? optionChipActiveBorder : border}
@@ -2447,89 +2408,13 @@ const ExerciseCardRow = memo(
                       },
                     }}
                   >
-                    <Text fontSize="xs" fontWeight={checked ? "800" : "600"} whiteSpace="nowrap">
+                    <Text fontSize="sm" fontWeight={checked ? "700" : "500"} overflowWrap="anywhere">
                       {opt}
                     </Text>
                   </Checkbox>
                 );
               })}
-            </Flex>
-
-            <DragDropContext onDragEnd={(res) => onOptionsReorder(res, index)}>
-              <Droppable droppableId={`options-${index}`} direction="horizontal">
-                {(providedOpt) => (
-                  <Box
-                    ref={providedOpt.innerRef}
-                    {...providedOpt.droppableProps}
-                    bg={optionGroupBg}
-                    border="1px solid"
-                    borderColor={border}
-                    borderRadius="12px"
-                    px={2}
-                    py={1.5}
-                  >
-                    <HStack justify="space-between" mb={1} wrap="wrap" spacing={2}>
-                      <Text
-                        fontSize="xs"
-                        color={textMute}
-                        fontWeight="900"
-                        textTransform="uppercase"
-                        letterSpacing="0.08em"
-                      >
-                        {t("programBuilder.options.order", "Ordre")}
-                      </Text>
-                      <Badge borderRadius="full" px={2.5} py="3px" bg={dragChipActiveBg} color="green.700">
-                        {activeOptionCount}
-                      </Badge>
-                    </HStack>
-
-                    <Flex wrap="wrap" gap={1}>
-                      {activeOptions.map((opt, oIdx) => (
-                        <Draggable
-                          key={`${opt}-${oIdx}-${ex.id}`}
-                          draggableId={`${opt}-${oIdx}-${ex.id}`}
-                          index={oIdx}
-                        >
-                          {(providedDr, snapshot) => (
-                            <Box
-                              ref={providedDr.innerRef}
-                              {...providedDr.draggableProps}
-                              display="flex"
-                              alignItems="center"
-                              bg={snapshot.isDragging ? dragChipActiveBg : dragChipBg}
-                              borderRadius="999px"
-                              px={2}
-                              py={1}
-                              boxShadow={snapshot.isDragging ? "lg" : "none"}
-                              minW="auto"
-                              maxW="180px"
-                              gap={1.5}
-                              border="1px solid"
-                              borderColor={snapshot.isDragging ? dragChipActiveBorder : border}
-                              transition="box-shadow .15s ease, border-color .15s ease"
-                            >
-                              <Box
-                                {...providedDr.dragHandleProps}
-                                cursor="grab"
-                                color={textMute}
-                                display="flex"
-                                alignItems="center"
-                              >
-                                <RxDragHandleDots2 size={15} />
-                              </Box>
-                              <Text fontSize="xs" fontWeight="900" isTruncated>
-                                {opt}
-                              </Text>
-                            </Box>
-                          )}
-                        </Draggable>
-                      ))}
-                      {providedOpt.placeholder}
-                    </Flex>
-                  </Box>
-                )}
-              </Droppable>
-            </DragDropContext>
+            </Box>
 
             {showClientHistory && (
               <BuilderExerciseHistoryPanel
@@ -2544,7 +2429,7 @@ const ExerciseCardRow = memo(
         </Collapse>
 
         <Flex wrap="wrap" gap={6} mt={4} w="100%" minW={0}>
-          {(ex.optionsOrder || []).map((opt, oIdx) => {
+          {orderExerciseOptions(ex.optionsOrder || []).map((opt, oIdx) => {
             const isRestOrDur = ["Repos (min:sec)", "Durée (min:sec)"].includes(opt);
             const isWeight = opt === "Charge (kg)";
             const isSpeed = opt === "Vitesse";
@@ -2661,51 +2546,32 @@ const ExerciseCardRow = memo(
           })}
         </Flex>
 
-        <Box
-          mt={6}
-          p={4}
-          bg={subBg}
-          borderRadius="22px"
-          border="1px solid"
-          borderColor={border}
-          backdropFilter="blur(16px)"
-        >
-          <Box mb={4}>
-            <HStack justify="space-between" mb={2}>
-              <Text fontWeight="bold">{t("programBuilder.notes.title", "Notes")}</Text>
-              <Switch
-                isChecked={!!ex.notesEnabled}
-                onChange={(e) => onToggleNotes(index, e.target.checked)}
-              />
-            </HStack>
-            <Collapse in={!!ex.notesEnabled}>
-              <Textarea
-                placeholder={t(
-                  "programBuilder.notes.placeholder",
-                  "Ajouter une note (consigne, rappel, etc.)"
-                )}
-                value={ex.notes || ""}
-                onChange={(e) => onChangeNotes(index, e.target.value)}
-                bg={cardBg}
-                borderColor={border}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-              />
-            </Collapse>
-          </Box>
-
-          <Box>
-            <HStack justify="space-between" mb={3} wrap="wrap">
-              <Text fontWeight="bold">
-                {t("programBuilder.advancedSets.title", "Séries différentes (avancées)")}
+        <Box mt={4}>
+          <Flex align="center" justify="space-between" gap={2} wrap="wrap" mb={3}>
+            <Button variant="ghost" size="sm" minH="44px" leftIcon={<EditIcon />}
+              isDisabled={!isCoach} aria-expanded={notesVisible}
+              onClick={() => setNoteOpen(open => !open)}>
+              {notesVisible ? t("programBuilder.notes.title", "Notes") : t("programBuilder.notes.add")}
+            </Button>
+            <HStack minH="44px" spacing={3}>
+              <Text as="label" htmlFor={`different-sets-${ex.id}`} fontSize="sm" fontWeight="semibold">
+                {t("programBuilder.advancedSets.title", "Séries différentes")}
               </Text>
-              <Switch
+              <Switch id={`different-sets-${ex.id}`} isDisabled={!isCoach}
                 isChecked={!!ex.useAdvancedSets}
-                onChange={(e) => onToggleAdvanced(index, e.target.checked)}
-              />
+                onChange={(e) => onToggleAdvanced(index, e.target.checked)} />
             </HStack>
-
-            <Collapse in={!!ex.useAdvancedSets}>
+          </Flex>
+          <Collapse in={notesVisible} unmountOnExit>
+            <Textarea mb={4} minH="96px" autoFocus={noteOpen} isReadOnly={!isCoach}
+              aria-label={t("programBuilder.notes.title", "Notes")}
+              placeholder={t("programBuilder.notes.placeholder")}
+              value={ex.notes || ""} onChange={(e) => onChangeNotes(index, e.target.value)}
+              bg={cardBg} borderColor={border}
+              onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} />
+          </Collapse>
+          <Box>
+            <Collapse in={!!ex.useAdvancedSets} unmountOnExit>
               <HStack mb={3} spacing={3} wrap="wrap">
                 <Button size="sm" onClick={() => onFillFromGlobals(index)}>
                   {t(
@@ -2728,7 +2594,7 @@ const ExerciseCardRow = memo(
                   <Thead>
                     <Tr>
                       <Th>{t("programBuilder.sets.set", "Set")}</Th>
-                      {(ex.optionsOrder || [])
+                      {orderExerciseOptions(ex.optionsOrder || [])
                         .filter((o) => advancedSetOptions.some(({ label }) => label === o))
                         .map((opt, idx) => (
                           <Th key={`head-${opt}-${idx}`}>
@@ -2768,7 +2634,7 @@ const ExerciseCardRow = memo(
                         <Tr key={s._id}>
                           <Td>#{i + 1}</Td>
 
-                          {(ex.optionsOrder || [])
+                          {orderExerciseOptions(ex.optionsOrder || [])
                             .filter((o) => advancedSetOptions.some(({ label }) => label === o))
                             .map((opt, cIdx) => {
                               if (opt === "Répétitions") {
@@ -2947,6 +2813,7 @@ const ExerciseCardRow = memo(
   (prev, next) => {
     return (
       prev.ex === next.ex &&
+      prev.onDuplicate === next.onDuplicate &&
       prev.cardBg === next.cardBg &&
       prev.border === next.border &&
       prev.subBg === next.subBg &&
@@ -2989,8 +2856,6 @@ export default function ProgramBuilder({
   const textMute = theme.mutedText;
   const hoverRow = useColorModeValue("rgba(15,23,42,0.05)", "rgba(255,255,255,0.07)");
 
-  const panelBg = theme.surfaceBgStrong;
-  const pageAccentBg = theme.surfaceGlow;
   const softShadow = useColorModeValue(
     "0 18px 45px rgba(15, 23, 42, 0.08)",
     "0 22px 55px rgba(2, 6, 23, 0.38)"
@@ -3058,6 +2923,7 @@ export default function ProgramBuilder({
 
   const draftScope = `program-builder:${user?.uid || 'anonymous'}:${adminCoachId || ''}:new:`;
   const draftKey = field => isNewRoute && !programId ? draftScope + field : null;
+  const [programSettingsOpen, setProgramSettingsOpen] = useState(false);
   const [programName, setProgramName] = useSessionDraft(draftKey('name'), "");
   const [preparedClientId, setPreparedClientId] = useState(null);
   const [validatingCycle, setValidatingCycle] = useState(false);
@@ -3087,6 +2953,13 @@ export default function ProgramBuilder({
       retourCalme: [],
     },
   ]);
+
+  useEffect(() => {
+    if (!sessions.some(session => session.useSections !== true)) return;
+    setSessions(previous => previous.map(session =>
+      session.useSections === true ? session : ensureSessionShape(session, programmeGoal)
+    ));
+  }, [sessions, setSessions, programmeGoal]);
 
   const [activeTab, setActiveTab] = useSessionDraft(draftKey("activeTab"), 0);
   const [currentSection, setCurrentSection] = useState("corps");
@@ -4171,25 +4044,6 @@ export default function ProgramBuilder({
     [t, markDirty]
   );
 
-  const onDragEndOptions = useCallback(
-    (result, sIdx, eIdx, secKey = null) => {
-      if (!result.destination) return;
-      updateSession(setSessions, sIdx, (sess) => {
-        const key = sess.useSections ? secKey : "exercises";
-        const list = sess[key] || [];
-        const ex = { ...list[eIdx] };
-        const arr = [...(ex.optionsOrder || [])];
-        const [removed] = arr.splice(result.source.index, 1);
-        arr.splice(result.destination.index, 0, removed);
-        ex.optionsOrder = arr;
-        list[eIdx] = ex;
-        sess[key] = [...list];
-      });
-      markDirty();
-    },
-    [markDirty]
-  );
-
   const onDragEndExercises = useCallback(
     (result, sIdx, secKey = null) => {
       if (!result.destination) return;
@@ -4270,6 +4124,16 @@ export default function ProgramBuilder({
     [setReplaceIndex]
   );
 
+  const onDuplicateExercise = useCallback((eIdx) => {
+    updateSession(setSessions, activeTab, (session) => {
+      const key = session.useSections ? currentSection : "exercises";
+      session[key] = duplicateBuilderExercise(session[key] || [], eIdx, uid);
+    });
+    setExpandedIndex(index => index !== null && index > eIdx ? index + 1 : index);
+    setReplaceIndex?.(index => index !== null && index > eIdx ? index + 1 : index);
+    markDirty();
+  }, [activeTab, currentSection, markDirty, setReplaceIndex]);
+
   const onDeleteExercise = useCallback(
     (eIdx) => {
       updateSession(setSessions, activeTab, (sess) => {
@@ -4297,7 +4161,7 @@ export default function ProgramBuilder({
         const list = [...(sess[key] || [])];
         const ex = { ...list[eIdx] };
         const arr = ex.optionsOrder ? [...ex.optionsOrder] : [];
-        ex.optionsOrder = arr.includes(opt) ? arr.filter((o) => o !== opt) : [...arr, opt];
+        ex.optionsOrder = orderExerciseOptions(arr.includes(opt) ? arr.filter((o) => o !== opt) : [...arr, opt]);
         list[eIdx] = ex;
         sess[key] = list;
       });
@@ -4306,23 +4170,12 @@ export default function ProgramBuilder({
     [activeTab, currentSection, markDirty]
   );
 
-  const onToggleNotes = useCallback(
-    (eIdx, checked) => {
-      const key = sessions[activeTab]?.useSections ? currentSection : "exercises";
-      updateExerciseAt(setSessions, activeTab, key, eIdx, (ex) => {
-        ex.notesEnabled = checked;
-        if (!checked) ex.notes = "";
-      });
-      markDirty();
-    },
-    [sessions, activeTab, currentSection, markDirty]
-  );
-
   const onChangeNotes = useCallback(
     (eIdx, val) => {
       const key = sessions[activeTab]?.useSections ? currentSection : "exercises";
       updateExerciseAt(setSessions, activeTab, key, eIdx, (ex) => {
         ex.notes = val;
+        ex.notesEnabled = Boolean(val.trim());
       });
       markDirty();
     },
@@ -4553,16 +4406,23 @@ export default function ProgramBuilder({
   }, [visibleList]);
 
   const historyLanguage = i18n.language || i18n.resolvedLanguage || "fr";
+  // Retain unchanged exercises' history between keystrokes. A new history
+  // snapshot or language invalidates the cache; WeakMap releases old exercises.
+  const exerciseHistoryCache = useMemo(() => new WeakMap(), [completionHistory, historyLanguage, t]);
   const exerciseHistoryByKey = useMemo(() => {
     const map = new Map();
     if (!historyClientId) return map;
 
     visibleList.forEach((ex, index) => {
+      if (!ex || typeof ex !== "object") return;
       const key = ex?.id || `${index}`;
-      map.set(key, buildExerciseHistoryItemsFromCompletions(completionHistory, ex, t));
+      if (!exerciseHistoryCache.has(ex)) {
+        exerciseHistoryCache.set(ex, buildExerciseHistoryItemsFromCompletions(completionHistory, ex, t));
+      }
+      map.set(key, exerciseHistoryCache.get(ex));
     });
     return map;
-  }, [completionHistory, historyClientId, t, visibleList]);
+  }, [completionHistory, exerciseHistoryCache, historyClientId, t, visibleList]);
 
   const totalTime = useMemo(() => getTotalTime(sessions[activeTab] || {}), [sessions, activeTab]);
 
@@ -4611,21 +4471,13 @@ export default function ProgramBuilder({
             onReplaceToggle={onReplaceToggle}
             replaceIndex={replaceIndex}
             onDelete={onDeleteExercise}
+            onDuplicate={onDuplicateExercise}
             onToggleExpand={onToggleExpand}
             expanded={expandedIndex === eIdx}
             onOptionsToggle={onOptionsToggle}
-            onOptionsReorder={(res, localEIdx) =>
-              onDragEndOptions(
-                res,
-                activeTab,
-                localEIdx,
-                sessions[activeTab].useSections ? currentSection : null
-              )
-            }
             onGlobalChange={(localEIdx, opt, isW, isS, val) =>
               applyGlobalChangeRaf(localEIdx, opt, isW, isS, val)
             }
-            onToggleNotes={onToggleNotes}
             onChangeNotes={onChangeNotes}
             onToggleAdvanced={onToggleAdvanced}
             onFillFromGlobals={onFillFromGlobals}
@@ -4664,8 +4516,8 @@ export default function ProgramBuilder({
       onAddSet,
       onChangeNotes,
       onDeleteExercise,
+      onDuplicateExercise,
       onDeleteSet,
-      onDragEndOptions,
       onFillFromGlobals,
       onOptionsToggle,
       onRemoveLastSet,
@@ -4755,7 +4607,6 @@ export default function ProgramBuilder({
   return (
     <Box
       bg={pageBg}
-      backgroundImage={pageAccentBg}
       sx={{
         "@media (max-width: 768px)": {
           position: "relative",
@@ -4783,18 +4634,20 @@ export default function ProgramBuilder({
           pt={{ base: 3, md: 5 }}
         >
           <Box
-            mb={{ base: 4, md: 6 }}
-            bg={panelBg}
-            border="1px solid"
+            mb={4}
+            bg={cardBg}
+            borderRadius="16px"
+            borderBottom="1px solid"
             borderColor={border}
-            borderRadius={{ base: "24px", md: "30px" }}
-            boxShadow={softShadow}
-            backdropFilter="blur(18px)"
-            p={{ base: 4, md: 5 }}
+            p={{ base: 3, md: 4 }}
           >
-            <Flex data-tour="builder-identity" gap={3} wrap="wrap" align="center" mb={4}>
+            <Flex data-tour="builder-identity" gap={3} wrap="wrap" align="flex-end" mb={4}>
               <PageBackButton fallbackTo={HOME_PATH} />
-              <Input
+              <Box flex="1 1 180px" minW={0}>
+                <Text as="label" htmlFor="builder-program-name" display="block" fontSize="sm" fontWeight="semibold" color={textMute} mb={1}>
+                  {t("programBuilder.placeholders.name")}
+                </Text>
+              <Input id="builder-program-name"
                 placeholder={t("programBuilder.placeholders.name", "Nom du programme")}
                 value={programName}
                 onChange={(e) => {
@@ -4805,14 +4658,34 @@ export default function ProgramBuilder({
                 bg={cardBg}
                 borderRadius="full"
                 borderColor={border}
-                flex={{ base: "1 1 260px", md: "1 1 320px" }}
-                minW={{ base: "240px", md: "280px" }}
-                w={{ base: "100%", md: "auto" }}
+                minW={0}
+                w="100%"
                 isDisabled={!isCoach}
                 boxShadow="sm"
               />
 
-              <Input
+              </Box>
+              <HStack spacing={2} align="center" flex="0 0 auto" minH="40px" marginInlineStart="auto" role="status" aria-live="polite">
+                <Box
+                  boxSize={2.5}
+                  bg={isSaved && !activeWeeksDirty ? "green.400" : "orange.400"}
+                  borderRadius="full"
+                />
+                <Text fontSize="sm" color={textMute} whiteSpace="nowrap" fontWeight="medium">
+                  {isSaved && !activeWeeksDirty
+                    ? t("programBuilder.status.saved", "Sauvegardé")
+                    : saving || activeWeeksSaving
+                    ? t("programBuilder.status.saving", "Sauvegarde...")
+                    : t("programBuilder.status.unsaved", "Non sauvé")}
+                </Text>
+              </HStack>
+            </Flex>
+            <Flex gap={3} wrap="wrap" align="flex-end" mb={3}>
+              <Box flex="2 1 230px" minW={0}>
+                <Text as="label" htmlFor="builder-program-goal" display="block" fontSize="sm" fontWeight="semibold" color={textMute} mb={1}>
+                  {t("programBuilder.header.goal")}
+                </Text>
+              <Input id="builder-program-goal"
                 placeholder={t(
                   "programBuilder.placeholders.goal",
                   "Objectif (ex: Prise de masse)"
@@ -4825,18 +4698,19 @@ export default function ProgramBuilder({
                 bg={cardBg}
                 borderRadius="full"
                 borderColor={border}
-                flex={{ base: "1 1 260px", md: "2 1 520px" }}
-                minW={{ base: "240px", md: "320px" }}
-                w={{ base: "100%", md: "auto" }}
+                minW={0}
+                w="100%"
                 isDisabled={!isCoach}
                 boxShadow="sm"
               />
 
-              <Box flex={{ base: "1 1 180px", md: "0 0 210px" }} minW={{ base: "180px", md: "190px" }}>
-                <Text fontSize="xs" fontWeight="800" color={textMute} mb={1} pl={2}>
+              </Box>
+              <Box flex="1 1 170px" minW={0}>
+                <Text as="label" htmlFor="builder-active-weeks" display="block" fontSize="sm" fontWeight="semibold" color={textMute} mb={1}>
                   {t("programBuilder.activeWeeks", "Durée active (semaines)")}
                 </Text>
                 <Input
+                  id="builder-active-weeks"
                   type="number"
                   min={1}
                   max={52}
@@ -4872,103 +4746,58 @@ export default function ProgramBuilder({
               </Box>
             </Flex>
 
-            <Flex align="center" justify="space-between" gap={3} wrap="wrap">
-              <HStack spacing={3} align="center" flex="0 0 auto">
-                <Box
-                  boxSize={2.5}
-                  bg={isSaved && !activeWeeksDirty ? "green.400" : "orange.400"}
-                  borderRadius="full"
-                />
-                <Text fontSize="sm" color={textMute} whiteSpace="nowrap" fontWeight="medium">
-                  {isSaved && !activeWeeksDirty
-                    ? t("programBuilder.status.saved", "Sauvegardé")
-                    : saving || activeWeeksSaving
-                    ? t("programBuilder.status.saving", "Sauvegarde...")
-                    : t("programBuilder.status.unsaved", "Non sauvé")}
-                </Text>
-              </HStack>
-
-              <HStack
-                spacing={4}
-                align="center"
-                flex="1 1 auto"
-                wrap="wrap"
-              >
-                <HStack spacing={1}>
-                  <Text fontSize="sm" color={textMute}>
-                    {t("programBuilder.units.weight", "Poids")}
-                  </Text>
-                  <Button
-                    size="sm"
-                    variant={weightUnit === "kg" ? "outline" : "ghost"}
-                    colorScheme="gray"
-                    onClick={() => setWU("kg")}
-                  >{t("units.kg", "kg")}</Button>
-                  <Button
-                    size="sm"
-                    variant={weightUnit === "lbs" ? "outline" : "ghost"}
-                    colorScheme="gray"
-                    onClick={() => setWU("lbs")}
-                  >{t("units.lbs", "lbs")}</Button>
-                </HStack>
-
-                <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
-
-                <HStack spacing={1}>
-                  <Text fontSize="sm" color={textMute}>
-                    {t("programBuilder.units.speed", "Vitesse")}
-                  </Text>
-                  <Button
-                    size="sm"
-                    variant={speedUnit === "kmh" ? "outline" : "ghost"}
-                    colorScheme="gray"
-                    onClick={() => setSU("kmh")}
-                  >
-                    {t("units.kmh", "km/h")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={speedUnit === "mph" ? "outline" : "ghost"}
-                    colorScheme="gray"
-                    onClick={() => setSU("mph")}
-                  >
-                    {t("units.mph", "mph")}
-                  </Button>
-                </HStack>
-
-                <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
-
-                <HStack spacing={1}>
-                  <Text fontSize="sm" color={textMute}>
-                    {t("programBuilder.units.distance", "Distance")}
-                  </Text>
-                  <Button
-                    size="sm"
-                    variant={distanceUnit === "m" ? "outline" : "ghost"}
-                    colorScheme="gray"
-                    onClick={() => setDU("m")}
-                  >{t("time.minutes_short", "m")}</Button>
-                  <Button
-                    size="sm"
-                    variant={distanceUnit === "mi" ? "outline" : "ghost"}
-                    colorScheme="gray"
-                    onClick={() => setDU("mi")}
-                  >{t("auto.ProgramBuilder.miles", "miles")}</Button>
-                </HStack>
-
-                <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
-
+            <Box display="grid" gridTemplateColumns="44px minmax(0, 1fr)" alignItems="center" columnGap={2}>
+            <Tooltip label={t("programBuilder.header.settings")} hasArrow>
+              <IconButton
+                icon={<MdSettings />}
+                aria-label={t("programBuilder.header.settings")}
+                aria-expanded={programSettingsOpen}
+                aria-controls="builder-program-settings"
+                variant={programSettingsOpen ? "solid" : "ghost"}
+                colorScheme={programSettingsOpen ? "blue" : "gray"}
+                boxSize="44px"
+                borderRadius="full"
+                onClick={() => setProgramSettingsOpen(open => !open)}
+              />
+            </Tooltip>
+            <Collapse in={programSettingsOpen} style={{ gridColumn: "1 / -1", gridRow: 2 }}>
+              <Box id="builder-program-settings" borderTop="1px solid" borderColor={border} mb={3}>
+              <Box py={3}>
+                <Box display="grid" gridTemplateColumns="repeat(auto-fit, minmax(min(100%, 180px), 1fr))" gap={2} mb={2}>
+                  {[
+                    { key: "weight", label: t("programBuilder.units.weight"), value: weightUnit, set: setWU, options: [["kg", t("units.kg")], ["lbs", t("units.lbs")]] },
+                    { key: "speed", label: t("programBuilder.units.speed"), value: speedUnit, set: setSU, options: [["kmh", t("units.kmh")], ["mph", t("units.mph")]] },
+                    { key: "distance", label: t("programBuilder.units.distance"), value: distanceUnit, set: setDU, options: [["m", "m"], ["mi", t("auto.ProgramBuilder.miles")]] },
+                  ].map(group => (
+                    <Flex key={group.key} minW={0} align="center" justify="space-between" gap={2}>
+                      <Text id={`builder-unit-${group.key}`} fontSize="sm" fontWeight="semibold" color={textMute}>{group.label}</Text>
+                      <Flex role="group" aria-labelledby={`builder-unit-${group.key}`} gap={0} p={0.5} bg={subBg} border="1px solid" borderColor={border} borderRadius="full">
+                        {group.options.map(([value, label]) => (
+                          <Button key={value} flex={1} minW="44px" minH="44px" px={3} size="sm" borderRadius="full"
+                            variant={group.value === value ? "solid" : "ghost"}
+                            colorScheme={group.value === value ? "blue" : "gray"}
+                            aria-pressed={group.value === value}
+                            onClick={() => group.set(value)}>
+                            {label}
+                          </Button>
+                        ))}
+                      </Flex>
+                    </Flex>
+                  ))}
+                </Box>
+                <Flex align="center" gap={2} wrap="wrap" borderTop="1px solid" borderColor={border} pt={2}>
                 <Tooltip
                   label={t(
                     "programBuilder.autoProgression.tip",
                     "Si activé, le programme peut évoluer automatiquement selon les validations du client (si le coach ne gère pas manuellement)."
                   )}
                 >
-                  <HStack spacing={2}>
-                    <Text fontSize="sm" color={textMute}>
+                  <HStack spacing={2} minH="44px" flexShrink={0}>
+                    <Text fontSize="sm" fontWeight="semibold" color={textMute}>
                       {t("programBuilder.autoProgression.label", "Progression auto")}
                     </Text>
                     <Switch
+                      aria-label={t("programBuilder.autoProgression.label")}
                       isChecked={!!autoProgressionEnabled}
                       onChange={(e) => {
                         setAutoProgressionEnabled(e.target.checked);
@@ -4981,15 +4810,14 @@ export default function ProgramBuilder({
 
                 {autoProgressionEnabled && (
                   <>
-                    <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
-                    <HStack spacing={1} wrap="wrap">
-                      <Text fontSize="sm" color={textMute}>
-                        {t("programBuilder.progression.mode", "Mode")}
-                      </Text>
+
+                    <HStack spacing={1} wrap="wrap" marginInlineStart="auto">
+
                       {progressionStrategyOptions.map((option) => (
                         <Tooltip key={option.key} label={option.detail}>
                           <Button
-                            size="sm"
+                            size="sm" minH="44px" px={3}
+                            aria-pressed={progressionStrategy === option.key}
                             variant={progressionStrategy === option.key ? "solid" : "outline"}
                             colorScheme={progressionStrategy === option.key ? "blue" : "gray"}
                             borderRadius="full"
@@ -5012,8 +4840,8 @@ export default function ProgramBuilder({
                         <IconButton
                           aria-label={t("programBuilder.progression.viewImpact", "Voir l'impact")}
                           icon={<InfoOutlineIcon />}
-                          size="sm"
-                          variant="outline"
+                          size="sm" boxSize="44px"
+                          variant="ghost"
                           borderRadius="full"
                           onClick={autoProgressionImpactModal.onOpen}
                         />
@@ -5021,8 +4849,15 @@ export default function ProgramBuilder({
                     </HStack>
                   </>
                 )}
-              </HStack>
+                </Flex>
+              </Box>
 
+              </Box>
+            </Collapse>
+            <Flex gridColumn={programSettingsOpen ? "1 / -1" : "2"} gridRow={programSettingsOpen ? 3 : 1} align="center" justify="flex-end" gap={3} wrap="wrap">
+
+
+              <Flex gap={2} wrap="wrap" marginInlineStart="auto" maxW="100%">
               {isCoach && preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram && <Button colorScheme="blue" onClick={validateForPreparedClient} isLoading={validatingCycle} isDisabled={saving || assignmentBusyRef.current} size={ctaSize} borderRadius="full" whiteSpace="normal">{validationText[0]}</Button>}
               {isCoach && (
                 <Button
@@ -5033,27 +4868,35 @@ export default function ProgramBuilder({
                   isLoading={saving}
                   size={ctaSize}
                   px={ctaPx}
-                  borderRadius="lg"
-                  whiteSpace="nowrap"
-                  flex="0 0 auto"
+                  borderRadius="full"
+                  whiteSpace="normal"
+                  height="auto"
+                  minH="44px"
+                  py={2}
+                  maxW="100%"
                   boxShadow="none"
                 >
                   {preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram ? validationText[1] : ctaLabel}
                 </Button>
               )}
+              </Flex>
             </Flex>
+            </Box>
           </Box>
 
-          <Box data-tour="builder-sessions">
+          <Box data-tour="builder-sessions" borderBottom="1px solid" borderColor={border} pb={2} minW={0}>
           <DragDropContext onDragEnd={onDragEndSessions}>
             <Droppable droppableId="sessions" direction="horizontal">
               {(provided) => (
                 <HStack
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  spacing={3}
-                  wrap="wrap"
-                  p={{ base: 2, md: 3 }}
+                  spacing={2}
+                  wrap={{ base: "nowrap", md: "wrap" }}
+                  overflowX={{ base: "auto", md: "visible" }}
+                  sx={{ scrollbarWidth: "thin" }}
+                  px={1}
+                  py={2}
                   align="stretch"
                 >
                   {sessions.map((s, i) => (
@@ -5066,22 +4909,24 @@ export default function ProgramBuilder({
                           size="sm"
                           variant="subtle"
                           colorScheme="gray"
+                          flexShrink={0}
                           cursor="pointer"
                           onClick={() => setActiveTab(i)}
-                          bg={i === activeTab ? subBg : "transparent"}
+                          bg={i === activeTab ? subBg : cardBg}
+                          color="inherit"
                           overflow="visible"
                           maxW="100%"
-                          minH="42px"
+                          minH="44px"
                           px={3}
-                          borderRadius="lg"
+                          borderRadius="full"
                           border="1px solid"
-                          borderColor={i === activeTab ? border : "transparent"}
+                          borderColor={i === activeTab ? "blue.400" : border}
                           boxShadow="none"
                           _hover={{
                             bg: i === activeTab ? subBg : hoverRow,
                           }}
                         >
-                          <HStack spacing={2} maxW="100%">
+                          <HStack spacing={1} maxW="100%" minW={0}>
                             {editIndex === i ? (
                               <Input
                                 size="sm"
@@ -5106,8 +4951,8 @@ export default function ProgramBuilder({
                                 borderColor={sessionEditBorder}
                                 focusBorderColor={sessionEditBorder}
                                 w={{ base: "220px", md: "260px" }}
-                                minW={{ base: "200px", md: "240px" }}
-                                maxW="80vw"
+                                minW={0}
+                                maxW="40vw"
                                 h={{ base: "44px", md: "32px" }}
                                 fontSize={{ base: "16px", md: "sm" }}
                                 borderRadius="md"
@@ -5115,7 +4960,8 @@ export default function ProgramBuilder({
                             ) : (
                               <Text
                                 onDoubleClick={() => isCoach && setEditIndex(i)}
-                                maxW={{ base: "70vw", md: "360px" }}
+                                minW={0}
+                                maxW={{ base: "40vw", md: "240px" }}
                                 isTruncated
                                 fontWeight="semibold"
                               >
@@ -5125,18 +4971,15 @@ export default function ProgramBuilder({
                                   })}
                               </Text>
                             )}
-                            {s.useSections && editIndex !== i && (
-                              <Badge colorScheme="gray" borderRadius="md" px={2.5} py={1}>
-                                {t("programBuilder.badge.sections", "SECTIONS")}
-                              </Badge>
-                            )}
                             {isCoach && i === activeTab && editIndex !== i && (
                               <IconButton
                                 size="sm"
-                                minW={{ base: "44px", md: "32px" }}
-                                minH={{ base: "44px", md: "32px" }}
+                                boxSize="44px"
+                                borderRadius="full"
                                 icon={<EditIcon />}
                                 variant="ghost"
+                                color="inherit"
+                                _hover={{ bg: hoverRow }}
                                 aria-label={t(
                                   "programBuilder.aria.renameSession",
                                   "Renommer la séance"
@@ -5152,8 +4995,12 @@ export default function ProgramBuilder({
                             {isCoach && (
                               <IconButton
                                 size="xs"
+                                boxSize="44px"
+                                borderRadius="full"
                                 icon={<CloseIcon />}
                                 variant="ghost"
+                                color="inherit"
+                                _hover={{ bg: hoverRow }}
                                 aria-label={t(
                                   "programBuilder.aria.deleteSession",
                                   "Supprimer séance"
@@ -5180,6 +5027,8 @@ export default function ProgramBuilder({
                   {isCoach && (
                     <Button
                       size="sm"
+                      minH="44px"
+                      flexShrink={0}
                       onClick={() => {
                         setSessions((prev) =>
                           applyAutoSessionNumbering(
@@ -5201,7 +5050,7 @@ export default function ProgramBuilder({
                       }}
                       variant="ghost"
                       colorScheme="gray"
-                      borderRadius="lg"
+                      borderRadius="full"
                     >
                       {t("programBuilder.actions.add", "+ Ajouter")}
                     </Button>
@@ -5213,54 +5062,11 @@ export default function ProgramBuilder({
           </Box>
 
           {sessions[activeTab] && (
-            <Box
-              mt={6}
-              bg={panelBg}
-              border="1px solid"
-              borderColor={border}
-              borderRadius="28px"
-              boxShadow={softShadow}
-              backdropFilter="blur(18px)"
-              p={{ base: 4, md: 5 }}
-            >
-              <HStack data-tour="builder-sections" justify="space-between" mb={4} wrap="wrap" gap={4}>
+            <Box mt={3} minW={0}>
+              <HStack data-tour="builder-sections" justify="space-between" mb={2} wrap="wrap" gap={2}>
                 <Text fontWeight="semibold" color={textMute}>
                   {t("programBuilder.totalTime", "Temps total")} : {totalTime}
                 </Text>
-
-                <HStack>
-                  <Switch
-                    isChecked={!!sessions[activeTab].useSections}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setSessions((prev) => {
-                        const next = [...prev];
-                        const s = { ...next[activeTab] };
-                        if (checked) {
-                          const flat = Array.isArray(s.exercises)
-                            ? s.exercises
-                            : flattenFromSections(s);
-                          sectionDefs.forEach(({ key }) => (s[key] = []));
-                          s.corps = flat || [];
-                          delete s.exercises;
-                        } else {
-                          const flat = flattenFromSections(s);
-                          delete s.echauffement;
-                          delete s.corps;
-                          delete s.bonus;
-                          delete s.retourCalme;
-                          s.exercises = flat;
-                        }
-                        s.useSections = checked;
-                        next[activeTab] = s;
-                        return applyAutoSessionNumbering(next, t);
-                      });
-                      setCurrentSection("corps");
-                      markDirty();
-                    }}
-                  />
-                  <Text>{t("programBuilder.enableSections", "Activer les sections")}</Text>
-                </HStack>
 
                 {isCoach && (
                   <Button
@@ -5282,7 +5088,7 @@ export default function ProgramBuilder({
                     }}
                     variant="ghost"
                     colorScheme="gray"
-                    borderRadius="lg"
+                    borderRadius="full"
                   >
                     {t("programBuilder.actions.duplicate", "Dupliquer")}
                   </Button>
@@ -5295,10 +5101,13 @@ export default function ProgramBuilder({
                     <Button
                       key={key}
                       size="sm"
+                      minH="44px"
                       onClick={() => setCurrentSection(key)}
                       variant={currentSection === key ? "outline" : "ghost"}
                       colorScheme="gray"
-                      borderRadius="lg"
+                      aria-pressed={currentSection === key}
+                      bg={currentSection === key ? subBg : "transparent"}
+                      borderRadius="full"
                       px={4}
                       _hover={{ bg: hoverRow }}
                     >

@@ -60,7 +60,6 @@
     "planReadOnly": "Integrated messaging is available from Growth. History remains readable, but new messages are disabled for both participants.",
     "checkingPlan": "Checking messaging access…",
     "accessError": "Unable to check messaging access. Please try again shortly.",
-
     "deleteConversationTitle": "Remove this conversation?",
     "deleteConversationBody": "It will only be removed from your messages. The other person will keep their history.",
     "title": "Messages",
@@ -1189,7 +1188,6 @@
     "soloPrograms": "Manual programs",
     "growthPrograms": "Manual and guided programs",
     "brandingTiers": "Custom logo from Growth; navigation name on Unlimited",
-
     "title": "Choose your formula",
     "free": {
       "badge": "100% FREE",
@@ -2381,6 +2379,7 @@
       "sections": "SECTIONS"
     },
     "actions": {
+      "moveTo": "Move to…",
       "add": "+ Add",
       "duplicate": "Duplicate"
     },
@@ -2394,6 +2393,8 @@
       "cooldown": "Return to calm"
     },
     "options": {
+      "moveUp": "Move up",
+      "moveDown": "Move down",
       "title": "Options",
       "activeCount": "{{count}} active fields",
       "order": "Order",
@@ -2422,11 +2423,12 @@
       "distanceMi": "Distance (miles)"
     },
     "notes": {
+      "add": "Add a note",
       "title": "Notes",
       "placeholder": "Add a note (instruction, reminder, etc.)"
     },
     "advancedSets": {
-      "title": "Different series (advanced)",
+      "title": "Different series",
       "fillFromGlobals": "Fill from global values",
       "addSet": "+ Add a set",
       "removeLast": "– Remove the last set"
@@ -2435,6 +2437,7 @@
       "set": "Set"
     },
     "aria": {
+      "duplicateExercise": "Duplicate this exercise",
       "renameSession": "Rename session",
       "deleteSession": "Delete session",
       "replace": "Replace",
@@ -2466,12 +2469,17 @@
       "label": "Exercise"
     },
     "linkNext": {
+      "unlink": "Unlink from the next exercise",
       "tip": "Continue with the next exercise",
       "label": "Link to next"
     },
     "autoProgression": {
       "tip": "If activated, the program can evolve automatically according to the client's validations (if the coach does not manage it manually).",
       "label": "Auto progress"
+    },
+    "header": {
+      "goal": "Goal",
+      "settings": "Program settings"
     }
   },
   "statsShort": {

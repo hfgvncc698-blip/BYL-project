@@ -16,6 +16,7 @@ import {
   VStack,
   Text,
   IconButton,
+  Tooltip,
   SimpleGrid,
   HStack,
   useColorModeValue,
@@ -1871,15 +1872,16 @@ export default function ExerciseBank({
       display="flex"
       flexDirection="column"
       bg={panelBg}
-      borderRadius={{ base: "0", md: "2xl" }}
-      border="1px solid"
+      borderRadius={isBuilder ? 0 : { base: "0", md: "2xl" }}
+      border={isBuilder ? "none" : "1px solid"}
       borderColor={border}
-      boxShadow={{ base: "none", md: "sm" }}
+      boxShadow={isBuilder ? "none" : { base: "none", md: "sm" }}
       backdropFilter="blur(14px)"
       p={4}
       w="100%"
       h="100%"
-      minW={{ base: "auto", md: "360px" }}
+      minW={0}
+      overflow="hidden"
       maxH="none"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
@@ -1917,7 +1919,8 @@ export default function ExerciseBank({
               </InputRightElement>
             )}
             </InputGroup>
-
+          </HStack>
+          <HStack spacing={2}>
             <IconButton
               aria-label={TXT.toggleFilters}
               icon={<FaFilter />}
@@ -1934,7 +1937,8 @@ export default function ExerciseBank({
             <Button
               leftIcon={<FaPlus />}
               onClick={onAddOpen}
-              minW="170px"
+              minW={0}
+              flex={isBuilder ? 1 : undefined}
               maxW="100%"
               whiteSpace="normal"
               fontWeight="semibold"
@@ -1948,19 +1952,18 @@ export default function ExerciseBank({
             >
               {TXT.addExercise}
             </Button>
-          </HStack>
-
-          <HStack spacing={2} wrap="wrap">
-            <Button
-              leftIcon={<FaRedo />}
+            <Tooltip label={TXT.reset} hasArrow>
+            <IconButton
+              aria-label={TXT.reset}
+              icon={<FaRedo />}
+              flexShrink={0}
               variant="ghost"
               colorScheme="gray"
               color={mutedText}
               onClick={resetAll}
               type="button"
-            >
-              {TXT.reset}
-            </Button>
+            />
+            </Tooltip>
           </HStack>
         </VStack>
 
@@ -2045,7 +2048,7 @@ export default function ExerciseBank({
           mt={2}
           flex="1 1 auto"
           minH={0}
-          h={{ base: "auto", md: "calc(100vh - 260px)" }}
+          h={isBuilder ? "auto" : { base: "auto", md: "calc(100vh - 260px)" }}
           overflowY="auto"
           overflowX="hidden"
           pr={1}
@@ -2058,7 +2061,7 @@ export default function ExerciseBank({
         >
           {renderedExercises.length > 0 ? (
             <>
-              <SimpleGrid minChildWidth="260px" spacing={4}>
+              <SimpleGrid minChildWidth={isBuilder ? undefined : "260px"} columns={isBuilder ? 1 : undefined} spacing={4}>
                 {renderedExercises.map((ex) => (
                   <ExerciseCard
                     key={uidFor(ex)}

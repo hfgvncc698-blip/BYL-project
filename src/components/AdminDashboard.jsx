@@ -2825,45 +2825,6 @@ export default function AdminDashboard() {
         </Box>)}
       </SimpleGrid>
 
-        <Card id="admin-attention" scrollMarginTop="100px">
-          <CardHeader>
-            <HStack justify="space-between" align="center" gap={3}>
-              <HStack>
-                <Icon as={MdWarning} boxSize={5} />
-                <Heading size="md">{i18n.t("adminLayout.attention")}</Heading>
-              </HStack>
-              <Badge colorScheme={attentionTotal ? "orange" : "green"}>{i18n.t("adminLayout.categories", { count: attentionItems.filter(item => item.count > 0).length })}</Badge>
-            </HStack>
-          </CardHeader>
-          <CardBody>
-            <Text color={mutedText} fontSize="sm" mb={4}>{i18n.t("adminLayout.attentionHint")}</Text>
-            <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3}>
-              {!attentionTotal && <Text color={mutedText}>{i18n.t("adminSupport.clear")}</Text>}
-              {attentionItems.filter(item => item.count > 0).map((item) => (
-                <Box
-                  key={item.key}
-                  as="button"
-                  type="button"
-                  textAlign="left"
-                  p={3}
-                  borderWidth="1px"
-                  borderRadius="lg"
-                  borderColor={theme.borderColor}
-                  bg={theme.surfaceSoft}
-                  onClick={() => setSelectedAttention(item)}
-                >
-                  <HStack justify="space-between" gap={3} align="start">
-                    <Box minW={0}>
-                      <Text fontWeight="800" noOfLines={1}>{item.label}</Text>
-                      <Text fontSize="sm" color={mutedText} noOfLines={2}>{item.detail}</Text>
-                    </Box>
-                    <Badge colorScheme={item.color}>{item.count}</Badge>
-                  </HStack>
-                </Box>
-              ))}
-            </SimpleGrid>
-          </CardBody>
-        </Card>
       <Card>
         <CardBody>
           <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
@@ -2909,6 +2870,46 @@ export default function AdminDashboard() {
           </HStack>
         </CardBody>
       </Card>
+
+        <Card id="admin-attention" scrollMarginTop="100px">
+          <CardHeader>
+            <HStack justify="space-between" align="center" gap={3}>
+              <HStack>
+                <Icon as={MdWarning} boxSize={5} />
+                <Heading size="md">{i18n.t("adminLayout.attention")}</Heading>
+              </HStack>
+              <Badge colorScheme={attentionTotal ? "orange" : "green"}>{i18n.t("adminLayout.categories", { count: attentionItems.filter(item => item.count > 0).length })}</Badge>
+            </HStack>
+          </CardHeader>
+          <CardBody>
+            <Text color={mutedText} fontSize="sm" mb={4}>{i18n.t("adminLayout.attentionHint")}</Text>
+            <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3}>
+              {!attentionTotal && <Text color={mutedText}>{i18n.t("adminSupport.clear")}</Text>}
+              {attentionItems.filter(item => item.count > 0).map((item) => (
+                <Box
+                  key={item.key}
+                  as="button"
+                  type="button"
+                  textAlign="left"
+                  p={3}
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  borderColor={theme.borderColor}
+                  bg={theme.surfaceSoft}
+                  onClick={() => setSelectedAttention(item)}
+                >
+                  <HStack justify="space-between" gap={3} align="start">
+                    <Box minW={0}>
+                      <Text fontWeight="800" noOfLines={1}>{item.label}</Text>
+                      <Text fontSize="sm" color={mutedText} noOfLines={2}>{item.detail}</Text>
+                    </Box>
+                    <Badge colorScheme={item.color}>{item.count}</Badge>
+                  </HStack>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </CardBody>
+        </Card>
 
       <Card as="details" scrollMarginTop="100px" id="admin-new-registrations" data-testid="admin-new-registrations">
         <CardHeader as="summary" cursor="pointer" position="relative" pe={12} listStyleType="none" _after={{ content: '"⌄"', position: "absolute", insetEnd: 5, top: 5, fontSize: "xl" }}>

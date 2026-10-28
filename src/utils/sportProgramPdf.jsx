@@ -1,3 +1,4 @@
+import { orderExerciseMetrics } from "./exerciseParameterOrder";
 import React from "react";
 import { Buffer } from "buffer";
 import {
@@ -278,10 +279,10 @@ function cleanText(value) {
 
 function ExerciseCard({ exercise, index, notesLabel }) {
   const images = Array.isArray(exercise.images) ? exercise.images.filter(Boolean).slice(0, 4) : [];
-  const infos = Array.isArray(exercise.infos) ? exercise.infos.filter(Boolean).slice(0, 8) : [];
+  const infos = Array.isArray(exercise.infos) ? orderExerciseMetrics(exercise.infos.filter(Boolean)) : [];
   const notes = Array.isArray(exercise.notes) ? exercise.notes.filter(Boolean).slice(0, 6) : [];
   const advancedSets = exercise?.advancedSets;
-  const advancedColumns = Array.isArray(advancedSets?.columns) ? advancedSets.columns : [];
+  const advancedColumns = Array.isArray(advancedSets?.columns) ? orderExerciseMetrics(advancedSets.columns) : [];
   const advancedRows = Array.isArray(advancedSets?.rows) ? advancedSets.rows : [];
 
   return (

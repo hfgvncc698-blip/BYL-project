@@ -54,7 +54,7 @@ export default function ProgramBuilderPage() {
         borderRight={{ base: 'none', lg: '1px solid' }}
         borderColor={divider}
       >
-        <Box h="100%" overflowY="auto" px={3} pt={3}>
+        <Box h="100%" minH={0} overflow="hidden">
           <ExerciseBank
             onAdd={(ex) => setSelectedExercises((prev) => [...prev, ex])}
             onReplace={(ex) => setSelectedExercises([ex])}

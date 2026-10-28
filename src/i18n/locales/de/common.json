@@ -60,7 +60,6 @@
     "planReadOnly": "Integrierte Nachrichten sind ab Wachstum verfügbar. Der Verlauf bleibt lesbar, neue Nachrichten sind für beide Seiten deaktiviert.",
     "checkingPlan": "Nachrichtenzugriff wird geprüft…",
     "accessError": "Nachrichtenzugriff konnte nicht geprüft werden. Bitte später erneut versuchen.",
-
     "deleteConversationTitle": "Diese Unterhaltung entfernen?",
     "deleteConversationBody": "Sie wird nur aus deinen Nachrichten entfernt. Die andere Person behält ihren Verlauf.",
     "title": "Nachrichten",
@@ -1189,7 +1188,6 @@
     "soloPrograms": "Manuelle Programme",
     "growthPrograms": "Manuelle und geführte Programme",
     "brandingTiers": "Eigenes Logo ab Wachstum; Navigationsname im Tarif Unbegrenzt",
-
     "title": "Wählen Sie Ihre Formel",
     "free": {
       "badge": "100 % KOSTENLOS",
@@ -2375,6 +2373,7 @@
       "sections": "ABSCHNITTE"
     },
     "actions": {
+      "moveTo": "Verschieben nach…",
       "add": "+ Hinzufügen",
       "duplicate": "Duplizieren"
     },
@@ -2388,6 +2387,8 @@
       "cooldown": "Kehren Sie zur Ruhe zurück"
     },
     "options": {
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
       "title": "Optionen",
       "activeCount": "{{count}} aktive Felder",
       "order": "Reihenfolge",
@@ -2416,11 +2417,12 @@
       "distanceMi": "Entfernung (Meilen)"
     },
     "notes": {
+      "add": "Notiz hinzufügen",
       "title": "Notizen",
       "placeholder": "Fügen Sie eine Notiz hinzu (Anweisung, Erinnerung usw.)"
     },
     "advancedSets": {
-      "title": "Verschiedene Serien (Fortgeschrittene)",
+      "title": "Verschiedene Serien",
       "fillFromGlobals": "Aus globalen Werten füllen",
       "addSet": "+ Einen Satz hinzufügen",
       "removeLast": "– Entfernen Sie den letzten Satz"
@@ -2429,6 +2431,7 @@
       "set": "Set"
     },
     "aria": {
+      "duplicateExercise": "Diese Übung duplizieren",
       "renameSession": "Sitzung umbenennen",
       "deleteSession": "Sitzung löschen",
       "replace": "Ersetzen",
@@ -2460,12 +2463,17 @@
       "label": "Übung"
     },
     "linkNext": {
+      "unlink": "Verknüpfung zur nächsten Übung lösen",
       "tip": "Fahren Sie mit der nächsten Übung fort",
       "label": "Link zum nächsten"
     },
     "autoProgression": {
       "tip": "Wenn aktiviert, kann sich das Programm automatisch entsprechend den Validierungen des Kunden weiterentwickeln (sofern der Coach dies nicht manuell verwaltet).",
       "label": "Automatischer Fortschritt"
+    },
+    "header": {
+      "goal": "Ziel",
+      "settings": "Programmeinstellungen"
     }
   },
   "statsShort": {
