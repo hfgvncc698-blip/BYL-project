@@ -63,3 +63,44 @@ assert.match(player,/\[countdownTarget, isPaused, soundEnabled, activeLanguage\]
 assert.match(player,/setInterval\(tick, 100\)/);
 assert.ok(!player.includes('speakCountdown('));
 console.log('Countdown: seven locales, audio samples, exact 3/2/1 scheduling, cancellation, stale loading and late-start checks passed.');
+
+// Safari callback decoding and a first resume refused before a user gesture.
+pendingFetch = null;
+let retry;
+let ready = false;
+const listeners = new Set();
+const safariContext = {
+  ...context,
+  state: 'running',
+  decodeAudioData(data, success) { success(data); },
+  addEventListener(_event, listener) { listeners.add(listener); },
+  removeEventListener(_event, listener) { listeners.delete(listener); },
+};
+const safariScope = {
+  ...scope,
+  getAudioContext: () => safariContext,
+  primeFeedbackAudio: async () => ready,
+  setTimeout(callback, delay) { if (delay === 250) retry = callback; return callback; },
+  clearTimeout(timer) { if (retry === timer) retry = null; },
+};
+vm.createContext(safariScope); vm.runInContext(source, safariScope);
+starts.length = 0;
+assert.equal(await safariScope.scheduleCountdownVoice(20000, 'fr'), false);
+assert.equal(typeof retry, 'function');
+ready = true;
+retry();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(starts.length, 3, 'Late audio unlock retries all remaining numbers');
+safariContext.state = 'interrupted';
+for (const listener of [...listeners]) listener();
+safariContext.state = 'running';
+for (const listener of [...listeners]) listener();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(starts.length, 6, 'Resuming audio rebuilds scheduling against original deadline');
+safariScope.stopCountdownVoice();
+assert.equal(listeners.size, 0, 'Stopping removes recovery listener');
+ready = false;
+await safariScope.scheduleCountdownVoice(20000, 'fr');
+safariScope.stopCountdownVoice();
+assert.equal(retry, null, 'Pause cancels audio-unlock retries');
+console.log('Safari: callback decoding, delayed unlock, interruption recovery and retry cancellation passed.');

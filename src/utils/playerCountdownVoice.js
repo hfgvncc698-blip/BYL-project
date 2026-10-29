@@ -4,6 +4,8 @@ const languages = new Set(['fr', 'en', 'de', 'es', 'it', 'ru', 'ar']);
 const clips = new Map();
 let generation = 0;
 let sources = [];
+let retryTimer;
+let removeStateListener;
 const languageKey = language => {
   const key = String(language).toLowerCase().split(/[-_]/)[0];
   return languages.has(key) ? key : 'fr';
@@ -22,7 +24,12 @@ export function preloadCountdownVoice(language = 'fr') {
         return await Promise.all([3, 2, 1].map(async number => {
           const response = await fetch(`/audio/countdown/${lang}-${number}.wav`, { signal: controller.signal });
           if (!response.ok) throw new Error('countdown-audio-unavailable');
-          return context.decodeAudioData(await response.arrayBuffer());
+          const data = await response.arrayBuffer();
+          // Older Safari versions expose the callback API rather than a Promise.
+          return new Promise((resolve, reject) => {
+            const decoded = context.decodeAudioData(data, resolve, reject);
+            if (decoded?.then) decoded.then(resolve, reject);
+          });
         }));
       } finally { clearTimeout(timeout); }
     })().catch(() => { clips.delete(lang); return null; });
@@ -33,6 +40,9 @@ export function preloadCountdownVoice(language = 'fr') {
 
 export function stopCountdownVoice() {
   generation++;
+  clearTimeout(retryTimer);
+  removeStateListener?.();
+  removeStateListener = undefined;
   sources.forEach(source => {
     try { source.stop(); source.disconnect(); } catch { /* Already ended. */ }
   });
@@ -45,8 +55,27 @@ export async function scheduleCountdownVoice(targetAt, language = 'fr') {
   stopCountdownVoice();
   const current = generation;
   const [buffers, ready] = await Promise.all([preloadCountdownVoice(language), primeFeedbackAudio()]);
-  if (current !== generation || !ready) return false;
+  if (current !== generation) return false;
+  if (!ready) {
+    // A gesture may unlock audio after this effect first runs. Retry against the
+    // original deadline, never play a delayed queue of spoken numbers.
+    if (targetAt - Date.now() > 850) {
+      retryTimer = setTimeout(() => {
+        if (current === generation) void scheduleCountdownVoice(targetAt, language);
+      }, 250);
+    }
+    return false;
+  }
   const context = getAudioContext();
+  if (context.addEventListener) {
+    const onStateChange = () => {
+      if (current === generation && context.state === 'running') {
+        void scheduleCountdownVoice(targetAt, language);
+      }
+    };
+    context.addEventListener('statechange', onStateChange);
+    removeStateListener = () => context.removeEventListener('statechange', onStateChange);
+  }
   const wallNow = Date.now();
   const audioNow = context.currentTime;
   [3, 2, 1].forEach((number, index) => {

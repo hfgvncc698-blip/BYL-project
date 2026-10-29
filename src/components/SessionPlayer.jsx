@@ -2807,12 +2807,12 @@ export default function SessionPlayer() {
     if (!soundEnabled) return undefined;
     void loadCountdownVoice().then(voice => voice?.preloadCountdownVoice(activeLanguage));
     const unlockAudio = () => {
-      void primeFeedbackAudio();
+      void primeFeedbackAudio({ userGesture: true });
     };
     const recoverVisibleAudio = () => {
-      if (document.visibilityState === "visible") unlockAudio();
+      if (document.visibilityState === "visible") void primeFeedbackAudio();
     };
-    const gestures = ["pointerdown", "pointerup", "touchend", "keydown"];
+    const gestures = ["pointerdown", "pointerup", "touchend", "keydown", "click"];
     gestures.forEach(event => window.addEventListener(event, unlockAudio, { passive: true }));
     window.addEventListener("pageshow", recoverVisibleAudio);
     document.addEventListener("visibilitychange", recoverVisibleAudio);
