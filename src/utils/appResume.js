@@ -5,7 +5,11 @@ export function canAutoReloadOnResume({ pathname, dirty, dialogOpen }) {
   // Only known consultation screens may reload automatically. Editors, offer
   // management and session players retain their local work.
   return /^\/(coach-dashboard|user-dashboard|club-dashboard|admin)\/?$/.test(pathname) ||
-    /^\/clients\/[^/]+\/?$/.test(pathname);
+    /^\/(clients|programmes|mes-programmes|nutrition|statistiques|statistics-coach|plans\/professionnel)\/?$/.test(pathname) ||
+    /^\/clients\/[^/]+\/?$/.test(pathname) ||
+    /^\/programmes\/[^/]+\/?$/.test(pathname) ||
+    /^\/clients\/[^/]+\/(programmes|programmes-auto)\/[^/]+\/?$/.test(pathname) ||
+    /^\/auto-program-preview\/[^/]+(?:\/[^/]+)?\/?$/.test(pathname);
 }
 
 export function createResumeDetector(now = Date.now) {
@@ -24,6 +28,22 @@ export function createResumeDetector(now = Date.now) {
     awaySince = null;
     if (!pending) return false;
     pending = false;
+    return true;
+  };
+}
+
+// Retain a refresh request while the user is editing or a session is running.
+// It is consumed only on a safe, visible, connected page, once per mount.
+export function createResumeRefresh(now = Date.now) {
+  const detect = createResumeDetector(now);
+  let pending = false;
+  let reloading = false;
+  return state => {
+    if (reloading) return false;
+    if (detect(state)) pending = true;
+    if (!pending || !state.visible || !state.online || state.away ||
+        !canAutoReloadOnResume(state)) return false;
+    reloading = true;
     return true;
   };
 }

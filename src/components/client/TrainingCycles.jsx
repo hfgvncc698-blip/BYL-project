@@ -61,7 +61,7 @@ export default function TrainingCycles({ clientId, client, programmes, programme
   const busyRef = useRef(false);
   const [error, setError] = useState('');
   const plan = syncCycleDurations(draft || saved, programmes);
-  const timeline = cycleTimeline(plan);
+  const timeline = cycleTimeline(plan, programmes);
   const history = coachCycleHistory(client, programmes, plan);
   const displayNumbers = cycleDisplayNumbers(history, timeline);
   const cycleNumber = cycle => String(displayNumbers.get(cycle.id)).padStart(2, '0');

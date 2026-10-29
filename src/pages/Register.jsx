@@ -62,6 +62,7 @@ const Register = () => {
   const [lastName, setLastName] = useState("");
   const [clubName, setClubName] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [birthDateFocused, setBirthDateFocused] = useState(false);
   const [email, setEmail] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -270,18 +271,48 @@ const Register = () => {
               _placeholder={{ color: inputPlaceholderColor }}
             />
           )}
-          <Input
-            placeholder={t("auth.register.birthDate")}
-            type="date"
-            value={birthDate}
-            onChange={(e) => {
-              setBirthDate(e.target.value);
-              clearError();
-            }}
-            bg={inputBg}
-            color={textColor}
-            _placeholder={{ color: inputPlaceholderColor }}
-          />
+          <Box position="relative" w="full">
+            <Input
+              id="register-birth-date"
+              aria-label={t("auth.register.birthDate")}
+              autoComplete="bday"
+              type="date"
+              value={birthDate}
+              onFocus={() => setBirthDateFocused(true)}
+              onBlur={() => setBirthDateFocused(false)}
+              onChange={(e) => {
+                setBirthDate(e.target.value);
+                clearError();
+              }}
+              bg={inputBg}
+              color={textColor}
+              textAlign="left"
+              sx={{
+                "&::-webkit-datetime-edit": {
+                  opacity: !birthDate && !birthDateFocused ? 0 : 1,
+                },
+              }}
+              _placeholder={{ color: inputPlaceholderColor }}
+            />
+            {!birthDate && !birthDateFocused && (
+              <Text
+                as="label"
+                htmlFor="register-birth-date"
+                position="absolute"
+                left="1rem"
+                right="40px"
+                top="50%"
+                transform="translateY(-50%)"
+                bg={inputBg}
+                fontSize="md"
+                color={inputPlaceholderColor}
+                pointerEvents="none"
+                noOfLines={1}
+              >
+                {t("auth.register.birthDate")}
+              </Text>
+            )}
+          </Box>
           {!isAdult && birthDate && (
             <Text fontSize="sm" color="red.400">
               {t("auth.register.ageWarning", { age })}

@@ -56,7 +56,7 @@ assert.equal(linkedResult.cycles.length,linkedPlan.cycles.length,'no duplicate c
 assert.deepEqual(linkedPlan,linkedOriginal,'saved plan is not mutated');
 assert.deepEqual(reconcileStartedCycle(linkedResult,assignedPrograms),linkedResult);
 assert.equal(reconcileStartedCycle(linkedPlan,[assignedPrograms[0],{...assignedPrograms[1],sessionsEffectuees:[]}]),linkedPlan,'a future linked assignment alone does not advance');
-assert.equal(reconcileStartedCycle(linkedPlan,[{...assignedPrograms[0],sessionsEffectuees:[{completedAt:'2026-09-15'}]},assignedPrograms[1]]),linkedPlan,'unfinished current cycle remains current');
+assert.equal(reconcileStartedCycle(linkedPlan,[{...assignedPrograms[0],sessionsEffectuees:[{completedAt:'2026-09-15'}]},assignedPrograms[1]]).cycles.find(c => !c.closedAt).programId,'new','started linked cycle takes over even with missing validations in previous cycle');
 assert.equal(reconcileStartedCycle(linkedPlan,[assignedPrograms[0],{...assignedPrograms[1],sessionsEffectuees:[{completedAt:'2026-08-01'}]}]),linkedPlan,'older activity does not advance');
 assert.equal(clientCycleTimeline({trainingPlan:linkedPlan},assignedPrograms).find(c=>c.state==='current').program.id,'new');
 console.log('Already-linked next cycle: actual progression, preserved coach plan, idempotency and future/older activity guards OK');

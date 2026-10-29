@@ -88,7 +88,7 @@ export function triggerFeedbackVibration(pattern) {
   }
 }
 
-function getAudioContext() {
+export function getAudioContext() {
   if (typeof window === "undefined") return null;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return null;
@@ -107,12 +107,32 @@ function stopActiveCue() {
   activeOscillators = [];
 }
 
+// Browsers may suspend or interrupt audio again after calls, screen locking or
+// backgrounding. Resume in the current user gesture, with a bounded wait so old
+// timer cues cannot play much later when the browser finally allows audio.
+async function resumeFeedbackContext(context) {
+  if (context.state === "running") return true;
+  let timer;
+  try {
+    await Promise.race([
+      context.resume(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("audio-resume-timeout")), 800);
+      }),
+    ]);
+    return context.state === "running";
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function primeFeedbackAudio() {
   try {
     const context = getAudioContext();
     if (!context) return false;
-    if (context.state === "suspended") await context.resume();
-    return context.state === "running";
+    return await resumeFeedbackContext(context);
   } catch {
     return false;
   }
@@ -131,14 +151,13 @@ export async function playFeedback(
   try {
     const context = getAudioContext();
     if (!context) return false;
-    if (context.state === "suspended") await context.resume();
-    if (context.state !== "running") return false;
+    if (!(await resumeFeedbackContext(context))) return false;
 
     stopActiveCue();
 
     const now = context.currentTime + 0.012;
     const master = context.createGain();
-    master.gain.setValueAtTime(Math.max(0, Math.min(Number(volume) || 0, 1)) * 0.22, now);
+    master.gain.setValueAtTime(Math.max(0, Math.min(Number(volume) || 0, 1)) * 0.55, now);
     master.connect(context.destination);
 
     const oscillators = cue.notes.map((note) => {

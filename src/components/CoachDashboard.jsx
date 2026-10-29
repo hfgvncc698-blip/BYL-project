@@ -7826,7 +7826,13 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
             spacing={2}
             flex="1"
             minH={0}
+            maxH="280px"
             overflowY="auto"
+            tabIndex={0}
+            role="region"
+            aria-label={nutritionOnlyDashboard
+              ? t("dashboard.cards.upcoming_appointments_title", "Rendez-vous à venir")
+              : t("dashboard.cards.upcoming_title", "Séances à venir")}
             overscrollBehavior={{ base: "auto", md: "contain" }}
             pr={allUpcomingSessions.length > 3 ? 1 : 0}
             sx={{

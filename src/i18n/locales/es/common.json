@@ -2542,6 +2542,8 @@
     "speedKmh": "Velocidad (km/h)"
   },
   "sessionPlayer": {
+    "showAllHistory": "Ver todo el historial",
+    "showLessHistory": "Ver menos",
     "exerciseCounter": "Ejercicio {{i}} / {{n}}",
     "program": "Programa",
     "sessionN": "Sesión {{n}}",

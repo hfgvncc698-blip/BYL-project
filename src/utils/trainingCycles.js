@@ -94,13 +94,27 @@ export function displayedCyclePlan(stored, suggestion, programmes = null) {
   return { ...suggestion, start: stored?.start || suggestion.start, revision: stored?.revision || 0 };
 }
 
-export function cycleTimeline(plan) {
+export function cycleTimeline(plan, programmes = []) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(plan?.start || '')) return [];
   let cursor = new Date(`${plan.start}T12:00:00Z`);
   if (!Number.isFinite(cursor.getTime())) return [];
   return (plan.cycles || []).map(cycle => {
+    const program = programmes.find(item => item.id === cycle.programId);
+    const dates = (program?._progressSessionsEffectuees || program?.sessionsEffectuees || [])
+      .filter(isSessionValidatedRecord)
+      .map(record => {
+        const value = record.startedAt || record.dateEffectuee || record.completedAt || record.validatedAt || record.finishedAt || record.playedAt;
+        return typeof value === 'number' ? value : value?.toMillis?.() || (value?.seconds ? value.seconds * 1000 : Date.parse(value));
+      }).filter(value => Number.isFinite(value) && value > 0);
+    // Actual activity anchors each started cycle; assignments are not starts.
+    if (dates.length) cursor = new Date(new Date(Math.min(...dates)).toISOString().slice(0, 10) + 'T12:00:00Z');
     const start = cursor.toISOString().slice(0, 10);
     cursor = new Date(cursor.getTime() + Math.max(1, Math.min(52, Number(cycle.weeks) || 1)) * 7 * 86400000);
+    const closed = cycle.closedAt && new Date(cycle.closedAt);
+    if (closed && Number.isFinite(closed.getTime()) && closed.toISOString().slice(0, 10) >= start) {
+      cursor = new Date(closed.toISOString().slice(0, 10) + 'T12:00:00Z');
+      cursor = new Date(cursor.getTime() + 86400000);
+    }
     return { ...cycle, start, end: new Date(cursor.getTime() - 86400000).toISOString().slice(0, 10) };
   });
 }

@@ -17,7 +17,7 @@ export function cyclesToPrepare(clients, now = new Date()) {
     let current, end, finished=false, cycle;
     if (client.trainingPlan?.cycles?.length) {
       const plan=reconcileStartedCycle(syncCycleDurations(client.trainingPlan,programs),programs);
-      const timeline=cycleTimeline(plan);
+      const timeline=cycleTimeline(plan, programs);
       const cycles=plan.cycles;
       let index=cycles.findIndex(c=>!c.closedAt);
       // A closed cycle whose successor is still empty/draft needs preparation.

@@ -2543,6 +2543,8 @@
     "speedKmh": "Скорость (km/ч)"
   },
   "sessionPlayer": {
+    "showAllHistory": "Показать всю историю",
+    "showLessHistory": "Показать меньше",
     "exerciseCounter": "Упражнение {{i}} / {{n}}",
     "program": "Программа",
     "sessionN": "Сессия {{n}}",

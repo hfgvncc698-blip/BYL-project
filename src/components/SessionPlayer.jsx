@@ -321,7 +321,7 @@ function useTimer(onComplete) {
     targetAtRef.current = Date.now() + Math.max(0, Number(secondsRef.current) || 0) * 1000;
     tick();
     if (!targetAtRef.current || completingRef.current) return;
-    intervalRef.current = setInterval(tick, 1000);
+    intervalRef.current = setInterval(tick, 100);
   };
 
   const reset = (sec) => {
@@ -2172,6 +2172,8 @@ function ExerciseHistoryPanel({
   const [expandedId, setExpandedId] = useState("");
   const [activeView, setActiveView] = useState("history");
   const [trackingOpen, setTrackingOpen] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const historyListId = React.useId();
   const currentColumns = getHistoryColumns([{ sets: currentSessionSets }], t);
   const prItem = historyItems.find((item) => item.rank === 1) || null;
   const prSnapshot = prItem?.snapshot || null;
@@ -2416,7 +2418,18 @@ function ExerciseHistoryPanel({
               )}
             </Box>
           )}
-          {historyItems.slice(0, 6).map((item) => {
+          <VStack
+            id={historyListId}
+            align="stretch"
+            spacing={2}
+            maxH={showAllHistory ? "360px" : undefined}
+            overflowY={showAllHistory ? "auto" : undefined}
+            tabIndex={showAllHistory ? 0 : undefined}
+            role="region"
+            aria-label={t("sessionPlayer.history", "Historique")}
+            sx={{ "& > *": { flexShrink: 0 }, scrollbarWidth: "thin" }}
+          >
+          {(showAllHistory ? historyItems : historyItems.slice(0, 6)).map((item) => {
             const open = expandedId === item.id;
             const snapshot = item.snapshot || {};
             const sets = Array.isArray(snapshot.sets) ? snapshot.sets : [];
@@ -2532,6 +2545,26 @@ function ExerciseHistoryPanel({
               </Box>
             );
           })}
+          </VStack>
+          {historyItems.length > 6 && (
+            <Button
+              size="sm"
+              variant="outline"
+              w="full"
+              minH="36px"
+              h="auto"
+              py={2}
+              whiteSpace="normal"
+              borderRadius="full"
+              aria-expanded={showAllHistory}
+              aria-controls={historyListId}
+              onClick={() => setShowAllHistory((value) => !value)}
+            >
+              {showAllHistory
+                ? t("sessionPlayer.showLessHistory", "Voir moins")
+                : t("sessionPlayer.showAllHistory", "Voir tout l’historique")}
+            </Button>
+          )}
         </VStack>
       )}
         </>
@@ -2541,6 +2574,13 @@ function ExerciseHistoryPanel({
 }
 
 /* ---------------------- Component ---------------------- */
+
+let countdownVoice;
+let countdownVoiceLoading;
+const loadCountdownVoice = () => countdownVoiceLoading ||= import("../utils/playerCountdownVoice")
+  .then(module => (countdownVoice = module))
+  .catch(() => { countdownVoiceLoading = null; return null; });
+const stopCountdownVoice = () => countdownVoice?.stopCountdownVoice();
 
 export default function SessionPlayer() {
   const { t, i18n } = useTranslation("common");
@@ -2765,12 +2805,23 @@ export default function SessionPlayer() {
 
   useEffect(() => {
     if (!soundEnabled) return undefined;
+    void loadCountdownVoice().then(voice => voice?.preloadCountdownVoice(activeLanguage));
     const unlockAudio = () => {
-      primeFeedbackAudio();
+      void primeFeedbackAudio();
     };
-    window.addEventListener("pointerdown", unlockAudio, { once: true });
-    return () => window.removeEventListener("pointerdown", unlockAudio);
-  }, [soundEnabled]);
+    const recoverVisibleAudio = () => {
+      if (document.visibilityState === "visible") unlockAudio();
+    };
+    const gestures = ["pointerdown", "pointerup", "touchend", "keydown"];
+    gestures.forEach(event => window.addEventListener(event, unlockAudio, { passive: true }));
+    window.addEventListener("pageshow", recoverVisibleAudio);
+    document.addEventListener("visibilitychange", recoverVisibleAudio);
+    return () => {
+      gestures.forEach(event => window.removeEventListener(event, unlockAudio));
+      window.removeEventListener("pageshow", recoverVisibleAudio);
+      document.removeEventListener("visibilitychange", recoverVisibleAudio);
+    };
+  }, [soundEnabled, activeLanguage]);
 
   const emitPlayerFeedback = (cueName) =>
     playFeedback(cueName, {
@@ -4245,6 +4296,7 @@ export default function SessionPlayer() {
   const effortTimer = useTimer(completeEffort);
 
   const restTimer = useTimer(() => {
+    emitPlayerFeedback("setComplete");
     finalizeCurrentSetRestPerformance();
     const info = buildChainInfo(sessionObj, flat, exIndex);
     if (info.inChain) {
@@ -4274,6 +4326,19 @@ export default function SessionPlayer() {
     restEndingFeedbackPlayedRef.current = true;
     emitPlayerFeedback("restEnding");
   }, [phase, isPaused, restTimer.seconds]);
+
+  const countdownTarget = (phase === "rest" ? restTimer : phase === "effort" ? effortTimer : null)?.getSnapshot().targetAt || 0;
+  useEffect(() => {
+    stopCountdownVoice();
+    if (!soundEnabled || isPaused || !countdownTarget) return;
+    let cancelled = false;
+    void loadCountdownVoice().then(voice => {
+      if (!cancelled) void voice?.scheduleCountdownVoice(countdownTarget, activeLanguage);
+    });
+    return () => { cancelled = true; stopCountdownVoice(); };
+  }, [countdownTarget, isPaused, soundEnabled, activeLanguage]);
+
+  useEffect(() => () => stopCountdownVoice(), []);
 
   const sessionElapsedTimer = useElapsedTimer(sessionTimerStorageKey);
 
@@ -6519,6 +6584,7 @@ export default function SessionPlayer() {
                     )}
 
                     <ExerciseHistoryPanel
+                      key={`${clientId || "self"}-${exIndex}`}
                       historyItems={exerciseHistoryItems}
                       currentSessionSets={currentExerciseSessionSets}
                       loading={historyLoading}

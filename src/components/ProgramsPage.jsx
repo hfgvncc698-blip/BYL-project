@@ -14,6 +14,12 @@ import {
   Button,
   Icon,
   SimpleGrid,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  MenuDivider,
+  Portal,
   useColorModeValue,
   Stack,
   IconButton,
@@ -40,7 +46,7 @@ import {
   Flex,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, CopyIcon, SearchIcon, CloseIcon } from "@chakra-ui/icons";
-import { MdAutoAwesome, MdOutlineFitnessCenter } from "react-icons/md";
+import { MdAutoAwesome, MdMoreVert, MdOutlineFitnessCenter } from "react-icons/md";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import AppLoading from "./ui/AppLoading";
 import {
@@ -1234,53 +1240,59 @@ export default function ProgramsPage() {
                       </Badge>
                     </HStack>
 
-                    <HStack spacing={2} mt={4} align="center" w="full">
-                      <IconButton
-                        aria-label={t("common.delete", "Supprimer")}
-                        icon={<DeleteIcon />}
-                        size="sm"
-                        colorScheme="red"
-                        borderRadius="full"
-                        onClick={() => {
-                          setToDeleteId(p.id);
-                          confirmModal.onOpen();
-                        }}
-                      />
-
-                      {isClientProgram(p) && <Button size="sm" variant="outline" borderRadius="full" isLoading={duplicatingProgramId === p.id} onClick={() => handleDuplicate(p.id, true)}>{libraryText[3]}</Button>}
-                      <IconButton
-                        aria-label={t("common.duplicate", "Dupliquer")}
-                        icon={<CopyIcon />}
-                        isLoading={duplicatingProgramId === p.id}
-                        isDisabled={Boolean(duplicatingProgramId) && duplicatingProgramId !== p.id}
-                        size="sm"
-                        variant="outline"
-                        borderRadius="full"
-                        borderColor={borderColor}
-                        onClick={() => handleDuplicate(p.id)}
-                      />
-
+                    <Flex gap={2} mt={4} align="stretch" w="full">
                       <Button
-                        size="sm"
                         variant="outline"
                         borderRadius="full"
                         onClick={() => openBaseProgram(p)}
-                        flex="1"
-                        minW={0}
+                        flex="1" minW={0} minH="44px" h="auto" py={2}
+                        whiteSpace="normal" overflowWrap="anywhere"
                       >
                         {t("common.view", "Voir")}
                       </Button>
-
                       <Button
-                        size="sm"
                         borderRadius="full"
                         onClick={() => openAssignClientModal(p)}
-                        flex="1"
-                        minW={0}
+                        flex="1" minW={0} minH="44px" h="auto" py={2}
+                        whiteSpace="normal" overflowWrap="anywhere"
                       >
                         {t("common.assign", "Assigner")}
                       </Button>
-                    </HStack>
+                      <Menu placement="bottom-end" isLazy>
+                        <MenuButton
+                          as={IconButton}
+                          aria-label={t("dashboard.col_action", "Action")}
+                          icon={<Icon as={MdMoreVert} boxSize={5} />}
+                          variant="outline" borderRadius="full"
+                          minW="44px" minH="44px" flexShrink={0}
+                          isLoading={duplicatingProgramId === p.id}
+                        />
+                        <Portal>
+                          <MenuList maxW="calc(100vw - 32px)" minW="220px" borderRadius="xl" p={1}>
+                            {isClientProgram(p) && (
+                              <MenuItem minH="44px" whiteSpace="normal" borderRadius="lg"
+                                isDisabled={Boolean(duplicatingProgramId)}
+                                onClick={() => handleDuplicate(p.id, true)}>
+                                {libraryText[3]}
+                              </MenuItem>
+                            )}
+                            <MenuItem icon={<CopyIcon />} minH="44px" borderRadius="lg"
+                              isDisabled={Boolean(duplicatingProgramId)}
+                              onClick={() => handleDuplicate(p.id)}>
+                              {t("common.duplicate", "Dupliquer")}
+                            </MenuItem>
+                            <MenuDivider />
+                            <MenuItem icon={<DeleteIcon />} minH="44px" borderRadius="lg" color="red.500"
+                              onClick={() => {
+                                setToDeleteId(p.id);
+                                confirmModal.onOpen();
+                              }}>
+                              {t("common.delete", "Supprimer")}
+                            </MenuItem>
+                          </MenuList>
+                        </Portal>
+                      </Menu>
+                    </Flex>
                   </Box>
                 );
               })

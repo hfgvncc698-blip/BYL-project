@@ -2541,6 +2541,8 @@
     "speedKmh": "السرعة (km/ساعة)"
   },
   "sessionPlayer": {
+    "showAllHistory": "عرض السجل بالكامل",
+    "showLessHistory": "عرض أقل",
     "exerciseCounter": "تمرين {{i}} / {{n}}",
     "program": "البرنامج",
     "sessionN": "الجلسة {{n}}",
