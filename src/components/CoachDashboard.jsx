@@ -8421,8 +8421,18 @@ noOfLines={2}>
               </VStack>
             ) : (
               <VStack align="stretch" spacing={2}>
-                {nextUpcomingSessions.length > 0 ? (
-                  nextUpcomingSessions.map((event) => (
+                {allUpcomingSessions.length > 0 ? (
+                  <VStack
+                    align="stretch"
+                    spacing={2}
+                    maxH="224px"
+                    overflowY="auto"
+                    tabIndex={0}
+                    role="region"
+                    aria-label={t("dashboard.cards.upcoming_title", "Séances à venir")}
+                    sx={{ "& > *": { flexShrink: 0 }, scrollbarWidth: "thin" }}
+                  >
+                  {allUpcomingSessions.map((event) => (
                     <Box
                       key={event.id || event._sourceId}
                       as="button"
@@ -8459,7 +8469,8 @@ noOfLines={2}>
                         <Icon as={ChevronRightIcon} color={activeBlue} boxSize="16px" />
                       </HStack>
                     </Box>
-                  ))
+                  ))}
+                  </VStack>
                 ) : recurringCoachHabit ? (
                   <Box
                     as="button"

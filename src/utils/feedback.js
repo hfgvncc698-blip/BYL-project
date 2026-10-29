@@ -133,17 +133,23 @@ export async function primeFeedbackAudio({ userGesture = false } = {}) {
   try {
     const context = getAudioContext();
     if (!context) return false;
-    // Start a silent buffer synchronously within the touch/click gesture.
-    // This also primes buffer playback on WebKit, not only oscillator cues.
+    // Resume first, synchronously in the gesture, even if buffer priming fails.
+    const ready = resumeFeedbackContext(context);
     if (userGesture && !primedBufferContexts.has(context) && context.createBuffer) {
-      const source = context.createBufferSource();
-      source.buffer = context.createBuffer(1, 1, context.sampleRate);
-      source.connect(context.destination);
-      source.onended = () => source.disconnect();
-      source.start(0);
-      primedBufferContexts.add(context);
+      let source;
+      try {
+        source = context.createBufferSource();
+        source.buffer = context.createBuffer(1, 1, context.sampleRate || 44100);
+        source.connect(context.destination);
+        source.onended = () => source.disconnect();
+        source.start(0);
+        primedBufferContexts.add(context);
+      } catch {
+        // Optional Safari workaround must never prevent ordinary sound cues.
+        try { source?.disconnect(); } catch { /* Already disconnected. */ }
+      }
     }
-    return await resumeFeedbackContext(context);
+    return await ready;
   } catch {
     return false;
   }

@@ -39,3 +39,11 @@ await unlock;
 await primeFeedbackAudio({ userGesture: true });
 assert.equal(bufferStarts, 1, 'Buffer is primed only once per context');
 console.log('Gesture buffer unlock passed.');
+
+current.state = 'closed';
+FakeAudioContext.prototype.createBuffer = () => { throw new Error('buffer unsupported'); };
+assert.equal(await primeFeedbackAudio({ userGesture: true }), true,
+  'Optional silent buffer failure must not block audio resume');
+assert.equal(await playFeedback('setComplete', { hapticsEnabled: false }), true,
+  'Original cues still work when buffer priming fails');
+console.log('Buffer priming failure isolation passed.');
