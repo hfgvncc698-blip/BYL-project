@@ -2361,6 +2361,7 @@ exports.sendPasswordSetupEmail = onCall(
         error: safeTrim(err?.message || err).slice(0, 500),
       });
       if (createdNewUser && uid) {
+        await db.doc(`messagingRevocations/${uid}`).set({blocked:true,deleted:true,revokedAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
         await Promise.all([
           auth.deleteUser(uid).catch(() => {}),
           db.doc(`users/${uid}`).delete().catch(() => {}),

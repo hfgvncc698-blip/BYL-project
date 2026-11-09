@@ -1,7 +1,7 @@
 const express = require("express");
 const admin = require("../firebaseAdmin");
 const { canUseIntegratedMessaging } = require("../utils/messagingPlanAccess");
-const { watchInbox, replyInbox } = require('../utils/clubInboxWatch');
+const { watchInbox, replyInbox, renewInbox } = require('../utils/clubInboxWatch');
 const { requireUnrevokedFirebaseAuth: requireFirebaseAuth } = require("../utils/firebaseAuth");
 
 const router = express.Router();
@@ -88,6 +88,7 @@ function visibleTo(row, client, uid, profile, token, preview) {
 }
 router.get('/inbox', requireFirebaseAuth, async (req,res) => {
   const controller = new AbortController();
+  const admittedAt=req.auth.admittedAt;
   res.once('close',()=>controller.abort());
   try {
     const uid=req.auth.uid, target=req.query.coach || uid, preview=uid!==target;
@@ -104,27 +105,36 @@ router.get('/inbox', requireFirebaseAuth, async (req,res) => {
         if(typeof row.clientId==='string' && !row.clientId.includes('/') && focused===row.clientId+'__'+row.professionalUid){
           const [dossier,actor]=await Promise.all([db.collection('clients').doc(row.clientId).get(),profileRef.get()]);
           if(visibleTo(row,dossier.data(),uid,actor.data(),req.auth.token,preview) && (!preview || row.professionalUid===target))
-            paths.push('users/'+uid,'clients/'+row.clientId);
+            paths.push('users/'+uid,'clients/'+row.clientId,'messagingRevocations/'+uid);
         }
       }
     }
-    const snapshot=await watchInbox(db,'participantUids',target,req.query.since,controller.signal,'conversations','array-contains',paths);
+    const snapshot=await watchInbox(db,'participantUids',target,req.query.since,controller.signal,'conversations','array-contains',paths,{subject:['professional',uid,req.auth.token.auth_time,target,focused],known:req.query.known});
     if(controller.signal.aborted) return;
     if(req.query.since){await requireFirebaseAuth(req,res,()=>true);if(res.headersSent) return;}
-    const profile=(await profileRef.get()).data();
+    const actorSnapshot=await profileRef.get();
+    snapshot.trace?.document(actorSnapshot);
+    const profile=actorSnapshot.data();
     if (preview && (profile?.role!=='admin' || !req.auth.token.email_verified)) return res.sendStatus(403);
+    const receiptScope=[uid,target,req.auth.token.auth_time,req.auth.token.email_verified,preview,focused || '',
+      profile || null,coachAccess(profile,req.auth.token)];
+    if(renewInbox(res,req.query.known,snapshot,receiptScope)) return;
+    await snapshot.verifyRoots(admittedAt);
     const dossiers=new Map(), professionals=new Map(), contacts=[], hiddenAtByConversation={};
     const ids=[...new Set(snapshot.docs.map(d=>d.data().clientId).filter(id=>typeof id==='string' && id && !id.includes('/')))];
     if(ids.length>=8) for(let i=0;i<ids.length;i+=100){
       const docs=await db.getAll(...ids.slice(i,i+100).map(id=>db.collection('clients').doc(id)));
-      for(const doc of docs) dossiers.set(doc.id,doc.data());
+      for(const doc of docs){snapshot.trace?.document(doc);dossiers.set(doc.id,doc.data());}
     }
     for(const doc of snapshot.docs){
       const row=doc.data();
       row.professionalUid ||= row.coachUid;
       if(doc.id!==row.clientId+'__'+row.professionalUid) continue;
       if(typeof row.clientId!=='string'||!row.clientId||row.clientId.includes('/') || (preview && row.professionalUid!==target)) continue;
-      if(!dossiers.has(row.clientId)) dossiers.set(row.clientId,(await db.collection('clients').doc(row.clientId).get()).data());
+      if(!dossiers.has(row.clientId)){
+        const doc=await db.collection('clients').doc(row.clientId).get();
+        snapshot.trace?.document(doc);dossiers.set(row.clientId,doc.data());
+      }
       const client=dossiers.get(row.clientId);
       if(!visibleTo(row,client,uid,profile,req.auth.token,preview)) continue;
       const stamps=Object.entries(row.lastByUid || {}).filter(([sender])=>sender!==uid).map(([,time])=>time);
@@ -137,7 +147,9 @@ router.get('/inbox', requireFirebaseAuth, async (req,res) => {
       let professionalName=row.professionalName || client.coachName || '';
       if(!professionalName && row.clientUid===uid){
         if(!professionals.has(row.professionalUid)){
-          const data=(await db.collection('users').doc(row.professionalUid).get()).data() || {};
+          const doc=await db.collection('users').doc(row.professionalUid).get();
+          snapshot.trace?.document(doc);
+          const data=doc.data() || {};
           professionals.set(row.professionalUid,data.displayName || [data.firstName,data.lastName].filter(Boolean).join(' '));
         }
         professionalName=professionals.get(row.professionalUid);
@@ -149,7 +161,7 @@ router.get('/inbox', requireFirebaseAuth, async (req,res) => {
         conversation:{id:doc.id,readStamps:Object.fromEntries(Object.entries(row.readAtBy||{}).map(([key,t])=>[key,[t.seconds,t.nanoseconds].join(':')])),readAtBy:Object.fromEntries(Object.entries(row.readAtBy||{}).map(([key,t])=>[key,t.toMillis?.()||0]))}});
     }
     const deniedThread=focused && !contacts.some(c=>c.id===focused) ? JSON.stringify(['','professional',focused]) : '';
-    if(!controller.signal.aborted) replyInbox(res,req.query.known,snapshot.version,{contacts,hiddenAtByConversation,deniedThread});
+    if(!controller.signal.aborted) replyInbox(res,req.query.known,snapshot.version,{contacts,hiddenAtByConversation,deniedThread},{snapshot,scope:receiptScope});
   } catch(error) { if(!controller.signal.aborted) res.status(503).json({error:'messaging-inbox-unavailable'}); }
 });
 
@@ -159,6 +171,7 @@ router.post('/read', requireFirebaseAuth, async(req,res)=>{
     if (![conversationId,messageId].every(id=>typeof id==='string' && id && !id.includes('/') && id.length<=400)) return res.sendStatus(400);
     const uid=req.auth.uid, ref=db.collection('conversations').doc(conversationId);
     await db.runTransaction(async tx=>{
+      await req.auth.assertMessagingSession(tx);
       const row=(await tx.get(ref)).data();
       if(row) row.professionalUid ||= row.coachUid;
       if(!row?.participantUids?.includes(uid) || conversationId!==row.clientId+'__'+row.professionalUid) throw Object.assign(new Error(),{status:403});
@@ -194,6 +207,7 @@ router.post("/send", requireFirebaseAuth, async (req, res) => {
     const messageRef=requestId ? ref.collection('messages').doc(require('node:crypto').createHash('sha256').update(senderUid+':'+requestId).digest('hex')) : ref.collection('messages').doc();
     const nowIso=new Date().toISOString();
     const confirmed=await db.runTransaction(async tx=>{
+      await req.auth.assertMessagingSession(tx);
       const [client,user,professional,parent,existing]=await Promise.all([
         tx.get(db.collection('clients').doc(clientId)),tx.get(db.collection('users').doc(senderUid)),
         tx.get(db.collection('users').doc(professionalUid)),tx.get(ref),tx.get(messageRef)]);
@@ -236,6 +250,23 @@ router.post("/send", requireFirebaseAuth, async (req, res) => {
     console.error("[messaging] send failed:", error?.code);
     return res.status(500).json({ error: "message-send-failed" });
   }
+});
+
+// Prepare the two signup rollback paths. No target UID is accepted from the caller.
+router.post('/registration-rollback', requireFirebaseAuth, async(req,res)=>{
+  try{
+    const uid=req.auth.uid, account=await admin.auth().getUser(uid);
+    const created=Date.parse(account.metadata.creationTime);
+    if(!Number.isFinite(created) || Date.now()-created>15*60000) return res.sendStatus(403);
+    const {block}=require('../utils/messagingRevocation');
+    const result=await db.runTransaction(async tx=>{
+      await req.auth.assertMessagingSession(tx);
+      if((await tx.get(db.collection('users').doc(uid))).exists) return false;
+      block(tx,db,uid,true);
+      return true;
+    });
+    res.sendStatus(result ? 204 : 409);
+  }catch(error){res.sendStatus(error.status===401 ? 401 : 503);}
 });
 
 module.exports = router;

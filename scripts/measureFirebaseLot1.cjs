@@ -118,7 +118,7 @@ async function replay(label, folder, directory, revision) {
       'let cycleWorkerBusy=false,nextCyclePoll=0;\n' + source.slice(start, end) + '\nrunSubscriptionCycles',
       { db, console });
     await metrics.measureJob('cycles', runCycles);
-    const expected = { cycles: [1, 0], 'club-contacts': revision ? [19, 16] : [9, 17], expiry: [2, 13], offers: [5, 37] };
+    const expected = { cycles: [1, 0], 'club-contacts': revision ? [19, 16] : [10, 17], expiry: [2, 13], offers: [5, 37] };
     assert.equal(results.length, offers ? 5 : 4);
     for (const row of results) {
       const counts = expected[row.activity];

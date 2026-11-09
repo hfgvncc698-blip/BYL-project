@@ -1,7 +1,8 @@
 const assert = require('node:assert/strict');
 const { previewAccountDeletion, executeAccountDeletion } = require('../backend/utils/adminAccountDeletion');
 
-function fixture({ authFailure = false, firestoreFailure = false } = {}) {
+function fixture(options = {}) {
+  const {authFailure=false,firestoreFailure=false}=options;
   const records = new Map(Object.entries({
     'users/target': { email: 'target@example.test', linkedClientId: 'crm' },
     'clients/crm': { accountUid: 'target' },
@@ -16,7 +17,7 @@ function fixture({ authFailure = false, firestoreFailure = false } = {}) {
   function ref(path) {
     return { path, id: path.split('/').at(-1),
       get: async () => ({ exists: records.has(path), data: () => records.get(path) }),
-      set: async value => { mutations++; records.set(path, structuredClone(value)); },
+      set: async value => { if(options.markerFailure && path==='messagingRevocations/target')throw Error('marker-unavailable'); mutations++; records.set(path, structuredClone(value)); },
       listCollections: async () => [...new Set([...records.keys()].filter(p => p.startsWith(path + '/')).map(p => p.slice(path.length + 1).split('/')[0]))].map(name => collection(path + '/' + name)),
     };
   }
@@ -52,6 +53,7 @@ function fixture({ authFailure = false, firestoreFailure = false } = {}) {
   const report = await executeAccountDeletion({...f, uid:'target', actorUid:'admin', confirmation:fresh.confirmation});
   assert.equal(report.status, 'completed');
   assert.equal(f.authPresent(), false);
+  assert.equal(f.records.get('messagingRevocations/target').deleted,true);
   assert.ok(!f.records.has('clients/crm/programmes/p1/sessions/s1'));
   for (const path of ['users/crm','clients/target','clients/unrelated']) assert.ok(f.records.has(path), `must preserve ${path}`);
   assert.equal(f.records.get('adminDeletionReports/report-1').status, 'completed');
@@ -64,5 +66,10 @@ function fixture({ authFailure = false, firestoreFailure = false } = {}) {
     assert.ok(broken.records.has('clients/crm/programmes/p1'));
     assert.equal(broken.records.get('adminDeletionReports/report-1').status, 'incomplete');
   }
+  const unavailable=fixture({markerFailure:true});
+  const plan2=await previewAccountDeletion({...unavailable,uid:'target'});
+  const interrupted=await executeAccountDeletion({...unavailable,uid:'target',actorUid:'admin',confirmation:plan2.confirmation});
+  assert.equal(interrupted.status,'incomplete');assert.equal(unavailable.authPresent(),true);
+  assert.ok(unavailable.records.has('users/target'));
   console.log('PASS: read-only preview, explicit confirmation, changed scope, account protection, nested deletion, preserved unrelated accounts, Auth/Firestore failure reports.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

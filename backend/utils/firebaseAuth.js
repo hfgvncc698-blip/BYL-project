@@ -52,17 +52,40 @@ function requireFirebaseAuth(req, res, next) {
 function requireUnrevokedFirebaseAuth(req, res, next) {
   return authenticate(req, res, next, true);
 }
+async function verifyToken(token,checkRevoked) {
+  try {return await admin.auth().verifyIdToken(token,checkRevoked);}
+  catch(error){
+    // Admin SDK emits these account-state errors *after* JWT verification.
+    // Re-read Auth by UID as the source of truth; the JWT supplies no marker values.
+    if(checkRevoked && ['auth/user-disabled','auth/id-token-revoked','auth/user-not-found'].includes(error.code)){
+      try {
+        const {sub}=JSON.parse(Buffer.from(token.split('.')[1],'base64url').toString('utf8'));
+        if(typeof sub==='string' && sub.length>0 && sub.length<=128 && !sub.includes('/')){
+          await require('./messagingRevocation').reconcile(admin.firestore(),admin.auth(),sub);
+        }
+      }catch { /* Always deny. The operator command can retry reconciliation. */ }
+    }
+    throw error;
+  }
+}
 async function authenticate(req, res, next, checkRevoked) {
+  const token = getBearerToken(req);
   try {
-    const token = getBearerToken(req);
     if (!token) return res.status(401).json({ error: "auth-required" });
 
-    const decoded = await admin.auth().verifyIdToken(token, checkRevoked);
-    req.auth = {
-      uid: decoded.uid,
-      email: decoded.email || null,
-      token: decoded,
-    };
+    const decoded = await verifyToken(token, checkRevoked);
+    req.auth = {uid:decoded.uid,email:decoded.email || null,token:decoded};
+    if(checkRevoked){
+      const {marker,permits}=require('./messagingRevocation');
+      const ref=marker(admin.firestore(),decoded.uid);
+      const snapshot=await ref.get();
+      if(!permits(snapshot.data(),decoded.auth_time)) return res.status(401).json({error:'revoked-messaging-session'});
+      req.auth.admittedAt=snapshot.readTime;
+      req.auth.assertMessagingSession=async tx=>{
+        if(!permits((await tx.get(ref)).data(),decoded.auth_time))
+          throw Object.assign(new Error('revoked-messaging-session'),{status:401});
+      };
+    }
     return next();
   } catch (error) {
     console.warn("[auth] invalid Firebase token:", checkRevoked ? error?.code || "unknown" : error?.message || error);

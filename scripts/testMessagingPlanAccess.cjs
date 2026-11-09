@@ -23,11 +23,11 @@ const policy=require('../backend/utils/messagingPlanAccess');
    const context={require(name){if(name==='express')return {Router:()=>router};if(name==='../firebaseAdmin')return admin;if(name.includes('firebaseAuth'))return {requireUnrevokedFirebaseAuth(){}};if(name.includes('messagingPlanAccess'))return policy;if(name==='./clubMessaging'||name.includes('clubInboxWatch'))return {};throw Error(name)},module:{exports:{}},console};
    vm.runInNewContext(fs.readFileSync('backend/routes/messaging.js','utf8'),context);
    let status=200,payload;const res={status(code){status=code;return this},json(value){payload=value;return this}};
-   await routes['POST /send']({auth:{uid:sender},body:{text:'test',clientId:'record',clientUid:'client',professionalUid:'coach'}},res);
+   await routes['POST /send']({auth:{uid:sender,assertMessagingSession:async()=>{}},body:{text:'test',clientId:'record',clientUid:'client',professionalUid:'coach'}},res);
    assert.equal(status,tier==='solo'?403:201,`${pack}/${tier}/${sender}`);
    assert.equal(writes,tier==='solo'?0:2);
    if(tier==='solo')assert.equal(payload.error,'messaging-not-included');
-   await routes['GET /access']({auth:{uid:sender},query:{clientId:'record',professionalUid:'coach'}},res);
+   await routes['GET /access']({auth:{uid:sender,assertMessagingSession:async()=>{}},query:{clientId:'record',professionalUid:'coach'}},res);
    assert.equal(payload.included,tier!=='solo');
   }
  }

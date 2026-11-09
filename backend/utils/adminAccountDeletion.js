@@ -64,6 +64,7 @@ async function executeAccountDeletion({ db, auth, uid, confirmation, actorUid })
   // Persist scope before irreversible operations. A report failure stops deletion.
   await audit.set(report);
   try {
+    await require('./messagingRevocation').blockBeforeDeletion(db,uid);
     if (plan.authExists) {
       await auth.deleteUser(uid);
       report.auth = 'deleted';

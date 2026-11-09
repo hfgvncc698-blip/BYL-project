@@ -92,6 +92,30 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
       await assertFails(patch(patient,'clients/security',{professionalIds:['coach-a','coach-b']}));
       await setFixture('users/patient',{disabledByClub:false});await assertSucceeds(read(patient,history));
     });
+    await test('revocation record is server-owned and old authentication time cannot survive release', async()=>{
+      const key='messagingRevocations/patient', history='conversations/security__coach-a/messages/first';
+      const old=dbFor('patient',{auth_time:100}), fresh=dbFor('patient',{auth_time:102});
+      await assertFails(setDoc(doc(old,key),{blocked:false,revokedAt:Timestamp.fromMillis(0)}));
+      await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),key),{blocked:true,revokedAt:Timestamp.fromMillis(101100)}));
+      await assertFails(deleteDoc(doc(old,key)));await assertFails(read(old,key));await assertFails(read(old,history));
+      await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),key),{blocked:false}));
+      await assertFails(read(old,history));await assertSucceeds(read(fresh,history));
+      await env.withSecurityRulesDisabled(ctx=>deleteDoc(doc(ctx.firestore(),key)));
+    });
+    await test('revoked admin cannot delete a conversation or clear the protected marker', async()=>{
+      const key='messagingRevocations/admin', target='conversations/admin-delete-test';
+      const old=dbFor('admin',{auth_time:100}), fresh=dbFor('admin',{auth_time:102});
+      await env.withSecurityRulesDisabled(async ctx=>{
+        await setDoc(doc(ctx.firestore(),key),{blocked:true,revokedAt:Timestamp.fromMillis(101100)});
+        await setDoc(doc(ctx.firestore(),target),{fixture:true});
+      });
+      await assertFails(deleteDoc(doc(old,target)));
+      await assertFails(deleteDoc(doc(old,key)));
+      await env.withSecurityRulesDisabled(ctx=>updateDoc(doc(ctx.firestore(),key),{blocked:false}));
+      await assertFails(deleteDoc(doc(old,target)));
+      await assertSucceeds(deleteDoc(doc(fresh,target)));
+      await env.withSecurityRulesDisabled(ctx=>deleteDoc(doc(ctx.firestore(),key)));
+    });
     await test('nullable links do not expose unrelated sessions', () => assertFails(read(dbFor('assigned-reader'), 'sessions/unlinked-null')));
     await test('client can consult professional appointments', () => assertSucceeds(read(dbFor('patient'), 'sessions/pro-planned')));
     await test('client cannot move professional appointments', () => assertFails(patch(dbFor('patient'), 'sessions/pro-planned', {start:3, end:4})));

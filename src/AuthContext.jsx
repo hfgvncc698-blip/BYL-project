@@ -44,6 +44,13 @@ import { getProPlanAccess, isActiveCoachTrial, hasProfessionalWorkspaceAccess } 
 import i18n, { ensureLanguageLoaded } from "./i18n";
 import { getRegistrationErrorMessage } from "./utils/registrationErrors";
 
+async function prepareSignupRollback(user) {
+  const response=await fetch(getApiBase()+'/messaging/registration-rollback',{
+    method:'POST',headers:{Authorization:'Bearer '+await user.getIdToken()}
+  });
+  if(!response.ok) throw new Error('registration-rollback-unavailable');
+}
+
 const AuthContext = createContext();
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -984,9 +991,12 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error(err);
       if (newGoogleUser && !profileCommitted) {
-        await deleteUser(newGoogleUser).catch((cleanupError) => {
-          console.warn("[register] Google orphan auth cleanup skipped:", cleanupError?.message || cleanupError);
-        });
+        try {
+          await prepareSignupRollback(newGoogleUser);
+          await deleteUser(newGoogleUser);
+        } catch {
+          console.warn("[register] orphan cleanup pending");
+        }
       }
       setError(err?.message === "registration-details-required"
         ? i18n.t("auth.register.googleRegistrationRequired", "Pour créer un nouveau compte Google, utilise « Inscription » afin de choisir ton espace et d’accepter les conditions.")
@@ -1091,9 +1101,12 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error(err);
       if (createdUser) {
-        await deleteUser(createdUser).catch((cleanupError) => {
-          console.warn("[register] orphan auth cleanup skipped:", cleanupError?.message || cleanupError);
-        });
+        try {
+          await prepareSignupRollback(createdUser);
+          await deleteUser(createdUser);
+        } catch {
+          console.warn("[register] orphan cleanup pending");
+        }
       }
       setError(getRegistrationErrorMessage(err, i18n.t.bind(i18n)));
       throw err;

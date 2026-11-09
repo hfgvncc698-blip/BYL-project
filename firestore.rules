@@ -193,7 +193,12 @@ service cloud.firestore {
 
     function messagingActorEnabled() {
       let profile = currentUser();
-      return !(profile.get("status", "") in ["deleted","removed","disabled","inactive","club_deleted"]) &&
+      let path = /databases/$(database)/documents/messagingRevocations/$(request.auth.uid);
+      return (!exists(path) || (
+          get(path).data.get("blocked", true) == false &&
+          get(path).data.get("deleted", false) == false &&
+          timestamp.value(request.auth.token.auth_time * 1000) > get(path).data.revokedAt
+        )) && !(profile.get("status", "") in ["deleted","removed","disabled","inactive","club_deleted"]) &&
         !(profile.get("subscriptionStatus", "") in ["club_disabled","club_deleted"]) &&
         profile.get("disabled", false) != true &&
         profile.get("deletedFromClub", false) != true &&
@@ -694,13 +699,15 @@ service cloud.firestore {
       }
     }
 
+    match /messagingRevocations/{uid} { allow read, write: if false; }
+
     match /conversations/{conversationId} {
       allow read: if canReadConversation(resource.data);
       allow create: if signedIn() &&
         canReadConversation(request.resource.data) &&
         validConversationCreate(conversationId, request.resource.data) && messagingPlanIncluded(request.resource.data);
       allow update: if signedIn() && validConversationUpdate(resource.data, request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && messagingActorEnabled();
 
       match /messages/{messageId} {
         allow read: if exists(/databases/$(database)/documents/conversations/$(conversationId)) &&

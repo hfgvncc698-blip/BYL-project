@@ -15,6 +15,7 @@ async function child(folder){
   const app=express();
   app.use(metrics.httpMetrics,express.json());
   app.use('/api/messaging',require(path.join(folder,'routes/messaging')));
+  if(process.env.BYL_MEASURE_RESOURCES==='1') require('./fixtures/messagingProcessMetrics.cjs')(db);
   if(process.env.BYL_SKIP_VOLUME==='1') app.use('/api/clubs',require(path.join(folder,'routes/clubs')));
   console.info=(label,data)=>{if(label==='[byl-metrics]') process.send({row:JSON.parse(data)});};
   const server=app.listen(0,'127.0.0.1');
@@ -24,8 +25,8 @@ async function child(folder){
 async function launch(folder){
   const proc=fork(__filename,['child',folder],{stdio:['ignore','inherit','inherit','ipc']});
   const [ready]=await Promise.race([once(proc,'message'),once(proc,'exit').then(()=>{throw Error('API startup failed');})]);
-  const api={proc,rows:[],url:'http://127.0.0.1:'+ready.port+'/api/messaging/'};
-  proc.on('message',m=>{if(m.row)api.rows.push(m.row);});
+  const api={proc,rows:[],writes:0,url:'http://127.0.0.1:'+ready.port+'/api/messaging/'};
+  proc.on('message',m=>{if(m.row)api.rows.push(m.row);if(m.writeCount)api.writes+=m.writeCount;});
   return api;
 }
 async function stop(api){if(api.proc.exitCode!==null || api.proc.signalCode) return;const closed=once(api.proc,'exit');api.proc.kill();await closed;}
@@ -299,4 +300,5 @@ async function main(){
     if(process.env.BYL_VOLUME_ONLY!=='1')await securityAndRestart();
   }finally{fs.rmSync(temporary,{recursive:true,force:true});await db.terminate();}
 }
-(process.argv[2]==='child' ? child(process.argv[3]) : main()).catch(e=>{console.error(e);process.exitCode=1;});
+module.exports={seed,launch,stop,users,call,totals,tokens,post,wait};
+if(require.main===module)(process.argv[2]==='child' ? child(process.argv[3]) : main()).catch(e=>{console.error(e);process.exitCode=1;});

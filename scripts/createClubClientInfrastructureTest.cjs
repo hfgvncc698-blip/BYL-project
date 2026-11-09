@@ -35,10 +35,11 @@ async function readDoc(collectionName, id, label) {
 async function createOrReuseAuthUser(email, payload) {
   try {
     const existing = await admin.auth().getUserByEmail(email);
+    if(existing.disabled) throw Error('explicit-reactivation-required');
+    await require('../backend/utils/messagingRevocation').advanceCutoff(admin.firestore(),existing.uid,{requireEnabled:true});
     await admin.auth().updateUser(existing.uid, {
       password: PASSWORD,
       emailVerified: true,
-      disabled: false,
       displayName: payload.displayName,
     });
     return { user: existing, created: false };

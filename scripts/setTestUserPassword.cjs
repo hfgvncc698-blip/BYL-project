@@ -17,7 +17,9 @@ async function main() {
     throw new Error("Usage: node scripts/setTestUserPassword.cjs <email> <password>");
   }
   const user = await admin.auth().getUserByEmail(email);
-  await admin.auth().updateUser(user.uid, { password, emailVerified: true, disabled: false });
+  if(user.disabled) throw Error('explicit-reactivation-required');
+  await require('../backend/utils/messagingRevocation').advanceCutoff(admin.firestore(),user.uid,{requireEnabled:true});
+  await admin.auth().updateUser(user.uid, { password, emailVerified: true });
   await admin.firestore().collection("users").doc(user.uid).set(
     {
       testAccount: true,

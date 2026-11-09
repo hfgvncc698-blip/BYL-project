@@ -5,7 +5,7 @@ const {
 } = require('../utils/firebaseAuth');
 const {
   watchInbox,
-  replyInbox
+  replyInbox, renewInbox
 } = require('../utils/clubInboxWatch');
 const {
   createClubMessaging
@@ -100,6 +100,7 @@ function checkedClub(req) {
 }
 router.get('/inbox', async (req, res) => {
   const controller = new AbortController();
+  const admittedAt=req.auth.admittedAt;
   res.once('close', () => controller.abort());
   try {
     const requested = checkedClub(req);
@@ -112,23 +113,27 @@ router.get('/inbox', async (req, res) => {
         return res.status(400).json({error:'invalid-focus'});
       try {
         const info=await admission.authorize(club,kind,target,first.preview);
-        paths.push('users/'+req.auth.uid,'clubs/'+club,(kind==='coach'?'users/':'clients/')+target,
+        paths.push('messagingRevocations/'+req.auth.uid,'users/'+req.auth.uid,'clubs/'+club,(kind==='coach'?'users/':'clients/')+target,
           'users/'+info.contact.peerUid,'clubs/'+club+'/members/'+info.contact.peerUid);
       } catch(error){if(error.status!==403) throw error;}
     }
     const snapshot=await watchInbox(db,first.ownerView?'clubId':'peerUid',first.clubId||req.auth.uid,
-      req.query.since,controller.signal,'clubConversations','==',paths);
+      req.query.since,controller.signal,'clubConversations','==',paths,{subject:['club',req.auth.uid,req.auth.token.auth_time,first,req.query.focusClub,req.query.focusKind,req.query.focusTarget],known:req.query.known});
     if (controller.signal.aborted) return;
     if (req.query.since) {
       await requireFirebaseAuth(req,res,()=>true);
       if (res.headersSent) return;
     }
     // Never use the listener or the authorization from before the wait as a grant.
-    const access = service.access(req.auth.uid, req.auth.token);
+    const access = service.access(req.auth.uid, req.auth.token,null,snapshot.trace);
     const scope = await access.scope(requested);
     if (scope.clubId !== first.clubId || scope.ownerView !== first.ownerView) throw Object.assign(new Error('scope-changed'), {
       status: 403
     });
+    const receiptScope=[req.auth.uid,req.auth.token.auth_time,req.auth.token.email_verified,scope,
+      req.query.focusClub || '',req.query.focusKind || '',req.query.focusTarget || ''];
+    if(renewInbox(res,req.query.known,snapshot,receiptScope)) return;
+    await snapshot.verifyRoots(admittedAt);
     const contacts = [];
     const candidates=snapshot.docs.filter(doc=>{
       const row=doc.data();
@@ -163,7 +168,7 @@ router.get('/inbox', async (req, res) => {
         ...scope, deniedThread:deniedThread || '',
         contacts,
         unreadCount: contacts.filter(c => c.unread).length
-      });
+      },{snapshot,scope:receiptScope});
     }
   } catch (error) {
     if (!controller.signal.aborted) fail(res, error);
@@ -215,6 +220,7 @@ router.get('/contacts', async (req, res) => {
   }
 });
 async function authorize(req, tx) {
+  if(tx) await req.auth.assertMessagingSession(tx);
   const input = req.method === 'GET' ? req.query : req.body;
   if (!valid(input.clubId) || !valid(input.targetId) || !['coach', 'client'].includes(input.kind)) throw Object.assign(new Error('invalid-conversation'), {
     status: 400

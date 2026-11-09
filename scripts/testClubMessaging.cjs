@@ -56,7 +56,7 @@ const db = { collection: path => ref(path), runTransaction: async callback => ca
   const context = { require: name => name === 'node:crypto' ? require(name) : name === 'express' ? { Router: () => router } : name === '../firebaseAdmin' ? { firestore } : name === '../utils/firebaseAuth' ? { requireUnrevokedFirebaseAuth: (req, res, next) => next(), getUserRole: async uid => uid === 'admin' ? 'admin' : 'coach' } : require('../backend/utils/clubMessaging'), module: { exports: {} }, console, setTimeout };
   vm.runInNewContext(fs.readFileSync('backend/routes/clubMessaging.js', 'utf8'), context);
   async function request(uid, method, path, input) {
-    const req = { method, auth: { uid, token: { email_verified: true } }, body: method === 'POST' ? input : {}, query: method === 'GET' ? input : {} };
+    const req = { method, auth: { uid, assertMessagingSession:async()=>{}, token: { email_verified: true } }, body: method === 'POST' ? input : {}, query: method === 'GET' ? input : {} };
     const res = { code: 200, status(code) { this.code = code; return this; }, json(data) { this.data = data; this.done = true; return this; } };
     for (const entry of handlers) {
       if (res.done) break;

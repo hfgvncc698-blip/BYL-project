@@ -31,7 +31,7 @@ function createClubMessaging(db) {
     return { clubId, clubName: club.name || club.nom || 'Club', owners, contacts };
   }
   // Memoization lasts exactly one authorization pass (or one transaction attempt).
-  function access(uid, token = {}, tx) {
+  function access(uid, token = {}, tx, trace) {
     const memo = new Map();
     function once(key, load) {
       if (!memo.has(key)) memo.set(key, load());
@@ -40,6 +40,7 @@ function createClubMessaging(db) {
     const read = ref => tx ? tx.get(ref) : ref.get();
     const item = (table, id) => once(table + '/' + id, async () => {
       const doc = await read(db.collection(table).doc(id));
+      trace?.document(doc);
       return doc.exists ? { ...doc.data(), id: doc.id } : null;
     });
     const actor = () => item('users', uid);
@@ -56,8 +57,11 @@ function createClubMessaging(db) {
       return {ownerView:true, preview:!isOwner, clubId, clubName:club.name || club.nom || 'Club'};
     }
     const ownersExist = clubId => once('owners/'+clubId, async () => {
-      const snaps = await Promise.all([['accountType','club_owner'],['clubRole','owner'],['role','club']].map(([k,v]) =>
-        read(db.collection('users').where('clubId','==',clubId).where(k,'==',v))));
+      const snaps = await Promise.all([['accountType','club_owner'],['clubRole','owner'],['role','club']].map(async ([k,v]) => {
+        const snap=await read(db.collection('users').where('clubId','==',clubId).where(k,'==',v));
+        trace?.ownerQuery(clubId,k,v,snap);
+        return snap;
+      }));
       return snaps.some(s => s.docs.some(d => owner(d.data())));
     });
     async function authorize(clubId, kind, targetId, allowPreview) {
@@ -83,6 +87,7 @@ function createClubMessaging(db) {
         const unique=[...new Set(paths)].filter(path=>!memo.has(path));
         for(let i=0;i<unique.length;i+=100){
           const docs=await db.getAll(...unique.slice(i,i+100).map(path=>db.doc(path)));
+          if(trace) for(const doc of docs) trace.document(doc);
           for(const doc of docs) memo.set(doc.ref.path,Promise.resolve(doc.exists ? {...doc.data(),id:doc.id} : null));
         }
       }
@@ -104,6 +109,10 @@ function createClubMessaging(db) {
         for(let i=0;i<ids.length;i+=30){
           const chunk=ids.slice(i,i+30);
           const snap=await collection.where(firestore.FieldPath.documentId(),'in',chunk).get();
+          if(trace){
+            for(const id of chunk) trace.record(collection.doc(id),null);
+            for(const doc of snap.docs) trace.document(doc);
+          }
           for(const id of chunk) memo.set(collection.doc(id).path,Promise.resolve(null));
           for(const doc of snap.docs) memo.set(doc.ref.path,Promise.resolve({...doc.data(),id:doc.id}));
         }

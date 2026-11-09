@@ -15,6 +15,8 @@ const { active: activeMessagingProfile } = require("../utils/clubMessaging");
 const { recordEmailEvent } = require("../utils/emailEvents");
 const { brandedEmailHtml } = require("../utils/brandedEmail");
 
+const revocation = require('../utils/messagingRevocation');
+
 const router = express.Router();
 const db = admin.firestore();
 
@@ -1643,6 +1645,7 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
     try {
       await batch.commit();
     } catch (writeError) {
+      await revocation.blockBeforeDeletion(db,uid);
       await admin.auth().deleteUser(uid).catch((rollbackError) => {
         console.error("[clubs] client auth rollback failed:", rollbackError?.message || rollbackError);
       });
@@ -1713,7 +1716,9 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
     });
   } catch (error) {
     if (createdAuthUid) {
-      await admin.auth().deleteUser(createdAuthUid).catch(() => {});
+      await revocation.blockBeforeDeletion(db,createdAuthUid)
+        .then(()=>admin.auth().deleteUser(createdAuthUid))
+        .catch(error=>console.warn('[clubs] orphan rollback pending',error.code));
     }
     console.error("[clubs] create client failed:", error);
     if (res.headersSent) return;
@@ -2140,6 +2145,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
           return res.status(409).json({ error: "linked-account-is-not-client" });
         }
         if (currentAuthEmail !== email) {
+          await revocation.advanceCutoff(db,authUser.uid);
           authUser = await admin.auth().updateUser(authUser.uid, {
             email,
             emailVerified: false,
@@ -2203,6 +2209,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
       await Promise.all(writes);
     } catch (writeError) {
       if (createdAuth && linkedAuthUid) {
+        await revocation.blockBeforeDeletion(db,linkedAuthUid);
         await admin.auth().deleteUser(linkedAuthUid).catch((rollbackError) => {
           console.error("[clubs] update client auth rollback failed:", rollbackError?.message || rollbackError);
         });
@@ -2367,14 +2374,19 @@ router.patch("/coaches/:uid", requireUnrevokedFirebaseAuth, assertClubOwner, asy
       userPayload.clubRole = clubRole;
     }
 
+    const previous = status==="active" ? await revocation.marker(db,uid).get() : null;
+    if(previous?.data()?.deleted) return res.status(409).json({error:"deleted-messaging-identity"});
+    const needsActivation = previous && (member.status !== "active" || previous.data()?.blocked ||
+      (await admin.auth().getUser(uid)).disabled);
+    const preparedAt = needsActivation ? await revocation.prepareReactivation(previous) : null;
     const batch = db.batch();
+    if(status==="disabled") revocation.block(batch,db,uid);
     batch.set(db.collection("clubs").doc(req.clubId).collection("members").doc(uid), payload, {merge:true});
     batch.set(db.collection("users").doc(uid), userPayload, {merge:true});
     await batch.commit();
     // Existing ID tokens must already be denied by rules when Auth is disabled.
-    if (status) await admin.auth().updateUser(uid, { disabled: status === "disabled" }).catch(error => {
-      console.warn("[clubs] auth disabled update failed:", error.code);
-    });
+    if(needsActivation) await revocation.reactivate(db,admin.auth(),uid,previous,preparedAt);
+    if(status==="disabled") await admin.auth().updateUser(uid,{disabled:true});
 
     return res.json({ ok: true, coach: { uid, status: status || member.status || "active" } });
   } catch (error) {
@@ -2528,9 +2540,9 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
     });
   } catch (error) {
     if (createdAuthUid) {
-      await admin.auth().deleteUser(createdAuthUid).catch((rollbackError) => {
-        console.error("[clubs] professional auth rollback failed:", rollbackError?.message || rollbackError);
-      });
+      await revocation.blockBeforeDeletion(db,createdAuthUid)
+        .then(()=>admin.auth().deleteUser(createdAuthUid))
+        .catch(error=>console.warn('[clubs] professional rollback pending',error.code));
     }
     console.error("[clubs] create coach failed:", error);
     return res.status(500).json({ error: error?.message || "club-create-coach-failed" });
@@ -3294,6 +3306,7 @@ router.delete("/coaches/:uid", requireUnrevokedFirebaseAuth, assertClubOwner, as
     if (!member) return res.status(404).json({ error: "club-member-not-found" });
 
     const batch = db.batch();
+    revocation.block(batch,db,uid);
     const now = admin.firestore.FieldValue.serverTimestamp();
     batch.set(db.collection("clubs").doc(req.clubId).collection("members").doc(uid), {
       status:"deleted", deletedAt:now, updatedAt:now
@@ -3302,9 +3315,14 @@ router.delete("/coaches/:uid", requireUnrevokedFirebaseAuth, assertClubOwner, as
       subscriptionStatus:"club_deleted", disabledByClub:true, deletedFromClub:true, updatedAt:now
     }, {merge:true});
     await batch.commit();
-    await admin.auth().updateUser(uid,{disabled:true}).catch(error=>{
-      console.warn("[clubs] auth delete disable failed:",error.code);
-    });
+    try {
+      await admin.auth().updateUser(uid,{disabled:true});
+    } catch (error) {
+      if (error.code !== 'auth/user-not-found') {
+        console.warn("[clubs] auth delete disable pending:", error.code);
+        return res.status(503).json({error:"club-member-removed-auth-disable-pending"});
+      }
+    }
 
     return res.json({ ok: true });
   } catch (error) {

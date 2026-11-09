@@ -7,7 +7,7 @@ const router = express.Router();
 const Stripe = require("stripe");
 const admin = require('../firebaseAdmin');
 const {
-  requireFirebaseAuth,
+  requireFirebaseAuth, requireUnrevokedFirebaseAuth,
   requireSelfOrAdmin,
 } = require("../utils/firebaseAuth");
 const { recordEmailEvent } = require("../utils/emailEvents");
@@ -945,7 +945,15 @@ async function findLatestSubscriptionId(customerId) {
    body: { uid }
 ============================================================ */
 const { previewAccountDeletion, executeAccountDeletion } = require('../utils/adminAccountDeletion');
-router.post("/admin/delete-user/preview", requireAdminKey, async (req, res) => {
+async function requireDeletionAdmin(req,res,next) {
+  try {
+    const profile=(await admin.firestore().collection('users').doc(req.auth.uid).get()).data();
+    if(req.auth.token.email_verified!==true || profile?.role!=='admin' ||
+       !require('../utils/clubMessaging').active(profile)) return res.status(403).json({error:'admin-auth-required'});
+    return next();
+  } catch { return res.status(503).json({error:'admin-unavailable'}); }
+}
+router.post("/admin/delete-user/preview", requireUnrevokedFirebaseAuth, requireDeletionAdmin, async (req, res) => {
   try {
     const plan = await previewAccountDeletion({ db: admin.firestore(), auth: admin.auth(), uid: req.body?.uid });
     res.json(plan);
@@ -954,7 +962,7 @@ router.post("/admin/delete-user/preview", requireAdminKey, async (req, res) => {
   }
 });
 
-router.post("/admin/delete-user", requireAdminKey, async (req, res) => {
+router.post("/admin/delete-user", requireUnrevokedFirebaseAuth, requireDeletionAdmin, async (req, res) => {
   try {
     const report = await executeAccountDeletion({
       db: admin.firestore(), auth: admin.auth(), uid: req.body?.uid,
