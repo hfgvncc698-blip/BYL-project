@@ -140,7 +140,9 @@ async function replay(label, folder, directory, revision) {
   }
 }
 
-(async () => {
+module.exports = { fixture, prepareAuth, historicalBackend, db, metrics, projectId, accounts };
+
+if (require.main === module) (async () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'byl-lot1-'));
   try {
     process.env.ADMIN_SEARCH_KEY = require('node:crypto').randomUUID();

@@ -1,3 +1,4 @@
+const { Filter } = require('firebase-admin/firestore');
 const {hasActiveProfessionalAccess}=require('./firebaseAuth');
 const {calculateCoachCredits}=require('./coachOfferCredits');
 const {installments,billingOptions,discountOptions}=require('./clubSubscriptions');
@@ -24,6 +25,29 @@ function createCoachOffers(db,sendEmail){
   const snaps=await Promise.all(['coachId','createdBy','ownerId'].map(k=>get(db.collection('sessions').where(k,'==',uid))));
   return [...new Map(snaps.flatMap(s=>s.docs).map(d=>[d.id,{...d.data(),id:d.id}])).values()];
  };
+ // Credits only compete among contracts for the same client. Keep both legacy
+ // client keys and all three ownership keys; the calculator resolves precedence.
+ async function previewSessions(uid, contracts, get) {
+   if (!contracts.length) return [];
+   if (contracts.some(c => !c.clientId)) return sessions(uid, get);
+   const ids = [...new Set(contracts.map(c => c.clientId))];
+   const events = new Map();
+   const owner = Filter.or(...['coachId', 'createdBy', 'ownerId'].map(key => Filter.where(key, '==', uid)));
+   // Three ownership keys × two client keys × five IDs = 30 disjunctions.
+   for (let offset = 0; offset < ids.length; offset += 5) {
+     const group = ids.slice(offset, offset + 5);
+     const client = Filter.or(...['clientDocId', 'clientId'].map(key => Filter.where(key, 'in', group)));
+     try {
+       const result = await get(db.collection('sessions').where(owner).where(client).where('visibility', '==', 'both'));
+       for (const row of result.docs) events.set(row.id, { id: row.id, ...row.data() });
+     } catch (error) {
+       // During index rollout the established, owner-scoped path remains exact.
+       if (![9, 'failed-precondition'].includes(error.code) || !/index/i.test(error.message)) throw error;
+       return sessions(uid, get);
+     }
+   }
+   return [...events.values()];
+ }
  async function scope(uid,token,get){
   const user=(await get(db.collection('users').doc(uid))).data();
   const administrator=user?.role==='admin'&&token?.email_verified===true;
@@ -36,13 +60,23 @@ function createCoachOffers(db,sendEmail){
    if(!validId(input.clientId)||!date(input.date)||!['coaching','nutrition'].includes(input.service))fail('Réservation invalide.');
    const client=(await get(db.collection('clients').doc(input.clientId))).data();
    if(!client||!belongs(client,uid))fail('Accès au client refusé.',403);
-   const [state,events]=await Promise.all([read(uid,get),sessions(uid,get)]);
+   const state=await read(uid,get);
    const relevant=state.contracts.filter(c=>c.clientId===input.clientId&&(!c.service||c.service===input.service||c.service==='mixed'));
+   const events=relevant.length ? await sessions(uid,get) : [];
    const ledger=calculateCoachCredits(relevant,events.filter(e=>e.id!==input.exclude),uid,Date.parse(input.date+'T12:00:00Z'));
    return {managed:relevant.length>0,contracts:ledger.contracts.map(({id,name,available,reserved,quantity,state,expiresAt})=>({id,name,available,reserved,quantity,state,expiresAt}))};
   },
   async get(uid,token={}){const get=r=>r.get();await scope(uid,token,get);const [state,events]=await Promise.all([read(uid,get),sessions(uid,get)]);return {...state,...calculateCoachCredits(state.contracts,events,uid),loading:false};},
-  async change(uid,token,input){
+  async preview(uid, token = {}) {
+    const get = ref => ref.get();
+    await scope(uid, token, get);
+    const state = await read(uid, get);
+    const assigned = state.contracts || [];
+    const events = await previewSessions(uid, assigned, get);
+    const { contracts } = calculateCoachCredits(assigned, events, uid);
+    return { ...state, contracts, loading: false };
+  },
+  async change(uid,token,input,summary=false){
    if(!input||!['catalogue','assign','check','contract','policy'].includes(input.action))fail('Action invalide.');
    let delivery=null;
    await db.runTransaction(async tx=>{
@@ -149,7 +183,7 @@ function createCoachOffers(db,sendEmail){
     await db.runTransaction(async tx=>{const state=await read(uid,r=>tx.get(r));const check=state.checks[delivery.id];tx.set(root(uid),{...state,checks:{...state.checks,[delivery.id]:{...check,...result}},version:state.version+1});tx.set(root(uid).collection('paymentHistory').doc(),{dueId:delivery.id,...result,at:Date.now(),by:uid});});
     if(result.emailState!=='sent')fail(result.emailState==='failed'?'Paiement marqué non reçu, mais le mail n’a pas été envoyé. Vous pouvez réessayer.':'Résultat de l’envoi incertain. Vérifiez auprès du client avant toute nouvelle relance.',502);
    }
-   return service.get(uid,token);
+   return summary ? service.preview(uid,token) : service.get(uid,token);
   },
   async mine(uid){
    const [direct,...snapshots]=await Promise.all([db.collection('clients').doc(uid).get(),...['uid','accountUid','authUid','linkedUserId','userId'].map(k=>db.collection('clients').where(k,'==',uid).get())]);

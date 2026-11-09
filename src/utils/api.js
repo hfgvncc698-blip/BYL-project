@@ -18,7 +18,7 @@ export async function apiFetch(path, { json = true, timeoutMs = 20000, ...opts }
     Object.entries(authHeaders).forEach(([key, value]) => headers.set(key, value));
   }
 
-  const activity = metricsEnabled && (path === '/coach-offers' ? 'offers'
+  const activity = metricsEnabled && ((path === '/coach-offers' || path === '/coach-offers?view=summary') ? 'offers'
     : path === '/programs/dashboard-templates' ? 'dashboard-templates' : null);
   const run = () => {
     if (activity) recordMetric(activity, 'http');

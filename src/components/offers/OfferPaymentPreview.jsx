@@ -11,7 +11,6 @@ import { useOfferPreview } from './OfferPreviewStore';
 import { offerSchedule, offerToday } from '../../utils/coachOfferSchedule';
 import { currencyScale, formatClubMoney, amountUnits } from '../../utils/clubMoney';
 export default function OfferPaymentPreview({uid,compact=false,contractId=null,clientId=null,onClearFilter}) {
- useTranslation();
   const {t,i18n}=useTranslation();
   const {user}=useAuth();
   const locale=i18n.resolvedLanguage||i18n.language||'fr';
@@ -54,8 +53,10 @@ export default function OfferPaymentPreview({uid,compact=false,contractId=null,c
         {check.emailState==='sent'&&<Text mt={2} fontSize="xs" color="green.600">{clubText("Relance envoyée le")} {new Date(check.emailSentAt||check.checkedAt).toLocaleString(clubLocale())}</Text>}{['sending','failed','uncertain'].includes(check.emailState)&&<Text mt={2} fontSize="xs" color="orange.600">{check.emailState==='sending'?clubText("Envoi en cours"):check.emailState==='failed'?clubText("Mail non envoyé : vous pouvez réessayer."):clubText("Envoi incertain : vérifiez la réception auprès du client.")}</Text>}{check.emailState==='simulated'&&<Text mt={2} fontSize="xs">{clubText("Relance simulée")}{check.checkedAt?clubText(" le {{value0}}",{value0:new Date(check.checkedAt).toLocaleString(clubLocale())}):''} {clubText("· Aucun mail envoyé au client.")}</Text>}
       </Box>;
   };
+  if(compact && data.loading)return <Text role="status" fontSize="xs">{clubText("Chargement des offres…")}</Text>;
+  if(compact && data.error)return <Text role="status" fontSize="xs">{clubText(data.error)}</Text>;
   if(compact&&!due.length)return null;
-  if(compact)return <HStack as={Link} to="/coach/offers?tab=payments" aria-label={clubText('Paiements à vérifier : {{count}}',{count:due.length})} justify="space-between" spacing={2} py={2} mb={3} borderBottomWidth="1px" borderColor="blackAlpha.100" color="gray.800" _dark={{color:'gray.100',borderColor:'whiteAlpha.100'}} _hover={{textDecoration:'none',color:'blue.600',_dark:{color:'blue.300'}}}>
+  if(compact)return <HStack title={data.verifiedAt ? t('adminSupport.checked') + ' ' + new Date(data.verifiedAt).toLocaleTimeString(locale) : undefined} as={Link} to="/coach/offers?tab=payments" aria-label={clubText('Paiements à vérifier : {{count}}',{count:due.length})} justify="space-between" spacing={2} py={2} mb={3} borderBottomWidth="1px" borderColor="blackAlpha.100" color="gray.800" _dark={{color:'gray.100',borderColor:'whiteAlpha.100'}} _hover={{textDecoration:'none',color:'blue.600',_dark:{color:'blue.300'}}}>
     <HStack spacing={2.5}><Icon as={FiCreditCard} boxSize={4} color="gray.500" _dark={{color:'gray.400'}}/><Box><Text fontSize="xs" fontWeight="700">{clubText("Paiements")}</Text><Text fontSize="11px" color="gray.500" _dark={{color:'gray.400'}}>{clubText("À vérifier aujourd’hui")}</Text></Box></HStack>
     <HStack spacing={1.5}><Box minW="23px" h="23px" px={1} borderRadius="full" bg="gray.100" color="gray.700" _dark={{bg:'whiteAlpha.200',color:'gray.100'}} display="grid" placeItems="center" fontSize="xs" fontWeight="800">{due.length}</Box><Icon as={FiChevronRight} boxSize={3.5}/></HStack>
   </HStack>;

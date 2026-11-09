@@ -5,7 +5,7 @@ const { spawn, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
 const root = path.resolve(__dirname, '..');
 
-async function browserPages({ directory, revision, app, accounts, projectId, rows, changeSession }) {
+async function browserPages({ directory, revision, app, accounts, projectId, rows, changeSession, offerScenario }) {
   const folder = path.join(fs.realpathSync(directory), 'web');
   fs.mkdirSync(folder, { recursive: true });
   if (revision) {
@@ -39,9 +39,25 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
       });
       return 'import { ' + keep.join(', ') + ' } from "firebase/firestore";';
     });
+    if (!reads.includes('getDocs') && source.includes('utils/firestoreMetrics.js')) continue;
     if (!reads.includes('getDocs')) throw Error('Historical SDK boundary changed');
     write(file, 'import {forFirestorePage} from "../utils/firestoreMetrics.js";\nconst {' + reads.join(',') +
       '} = forFirestorePage(' + JSON.stringify(activity) + ');\n' + source);
+  }
+  if (offerScenario) {
+    const file = 'src/components/offers/OfferPreviewStore.js';
+    const notify = "window.dispatchEvent(new Event('fixture-offer-confirmed'));";
+    let source = fs.readFileSync(path.join(folder, file), 'utf8');
+    const insertion = revision ? 'cache.set(uid,state);' : 'publish(entry, entry.confirmed);';
+    if (!source.includes(insertion)) throw Error('Offer measurement boundary changed');
+    source = source.replace(insertion, insertion + (revision ? 'if(!state.error&&!state.loading)' : '') + notify);
+    const boundary = /return \[state,\s*update\];/;
+    if (!boundary.test(source)) throw Error('Offer render boundary changed');
+    source = source.replace(boundary, `useOfferMeasurement(() => {
+      if (!state.loading && !state.error) window.dispatchEvent(new Event('fixture-offer-usable'));
+    }, [state]);
+    return [state, update];`);
+    write(file, "import {useLayoutEffect as useOfferMeasurement} from 'react';\n" + source);
   }
   write('src/firebaseConfig.js', `
     import { initializeApp } from 'firebase/app';
@@ -71,17 +87,18 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
   const condition = appSource.match(/const showDashboardMessaging = ([\s\S]*?);/)[1];
   // Evaluate the same mount condition used by this revision of App.
   write('clubBubble.js', 'export function onClub(user,location) { return ' + condition + '; }');
-  write('entry.jsx', fs.readFileSync(path.join(__dirname, 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
+  write('entry.jsx', fs.readFileSync(path.join(__dirname, offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
   const { createServer } = await import('vite');
   const vite = await createServer({ root: folder, configFile: false, envDir: false, publicDir: false,
     cacheDir: path.join(folder, '.vite'), logLevel: 'error',
-    define: { 'import.meta.env.VITE_BYL_FIRESTORE_METRICS': '"1"',
+    define: { 'globalThis.offerScenario': JSON.stringify(offerScenario || null), 'import.meta.env.VITE_BYL_FIRESTORE_METRICS': '"1"',
       'globalThis.fixtureExtended': JSON.stringify(!revision && process.env.BYL_LOT1_EXTENDED === '1') },
     server: { middlewareMode: true, hmr: false, fs: { allow: [folder, path.join(root, 'node_modules')] } },
     optimizeDeps: { entries: ['entry.jsx'] } });
   let settle;
   const completed = new Promise(resolve => { settle = resolve; });
   let start = 0;
+  let offerTransportUnavailable = false;
   const server = require('node:http').createServer((req, res) => {
     // All external connections are disallowed even if a historical page references an external asset.
     res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'none'; worker-src 'self' blob:");
@@ -90,6 +107,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
       const totals = {};
       for (const row of rows.slice(start)) {
         const group = totals[row.activity] ||= { http: 0, reads: 0, documents: 0, bytes: 0 };
+        if (offerScenario) group.estimate = (group.estimate || 0) + row.estimatedDocumentReads;
         group.http += row.httpRequests;
         group.reads += row.sdkReads;
         group.documents += row.documentsReturned;
@@ -97,8 +115,15 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
       }
       res.end(JSON.stringify(totals)); return;
     }
-    if (req.url === '/fixture-calendar-change' && req.method === 'POST') {
-      changeSession().then(() => res.end(), () => { res.statusCode = 500; res.end(); }); return;
+    if (offerScenario && req.method === 'POST' && ['/fixture-offers-offline', '/fixture-offers-online'].includes(req.url)) {
+      offerTransportUnavailable = req.url === '/fixture-offers-offline';
+      res.end(); return;
+    }
+    if (offerTransportUnavailable && req.url.startsWith('/api/coach-offers')) {
+      res.statusCode = 503; res.end(); return;
+    }
+    if ((req.url === '/fixture-calendar-change' || (offerScenario && req.url === '/fixture-calendar-change?unrelated')) && req.method === 'POST') {
+      changeSession(req.url.endsWith('?unrelated')).then(() => res.end(), () => { res.statusCode = 500; res.end(); }); return;
     }
     if (['/fixture-coach', '/fixture-owner', '/fixture-administrator'].includes(req.url)) {
       res.setHeader('Content-Type', 'application/json');
@@ -118,7 +143,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const executable = process.env.BYL_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    chrome = spawn(executable, ['--headless=new', '--window-size=1440,1000', '--disable-background-networking', '--disable-popup-blocking', '--disable-sync', '--no-first-run',
+    chrome = spawn(executable, ['--headless=new', '--window-size=' + (offerScenario?.width || 1440) + ',1000', '--disable-background-networking', '--disable-popup-blocking', '--disable-sync', '--no-first-run',
       '--disable-default-apps', '--disable-component-update', '--no-proxy-server', '--disable-gpu',
       '--user-data-dir=' + path.join(folder, '.chrome'), 'http://127.0.0.1:' + server.address().port], { stdio: 'ignore' });
     chrome.once('error', () => settle({ failure: 'chrome-start' }));

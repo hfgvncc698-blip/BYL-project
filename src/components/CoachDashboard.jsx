@@ -2,9 +2,8 @@ import PlanInclusionBadge from "./PlanInclusionBadge";
 import { conversationIdForClient } from "../utils/messaging";
 import { nutritionCalendarHistory } from "../utils/nutritionCalendarHistory";
 import BookingCredits from './offers/BookingCredits';
-import OfferRenewalAlerts from './offers/OfferRenewalAlerts';
+import { invalidateOfferCredits, offerBookingConfirmed, warmDashboardOffers } from "./offers/OfferPreviewStore";
 import { MdOutlinePayments } from 'react-icons/md';
-import OfferPaymentPreview from './offers/OfferPaymentPreview';
 import { canMoveCoachCalendarEvent, coachCalendarMoveRequest } from "../utils/coachCalendarMove.mjs";
 import { dedupeCalendarCompletions } from "../utils/dedupeCalendarCompletions.mjs";
 import { coachSessionCalendarStatus } from "../utils/coachSessionCalendarStatus.mjs";
@@ -1870,6 +1869,9 @@ async function deleteClientCalendarEvent({ clientId, eventId }) {
   if (!clientId || !eventId) return;
   await deleteDoc(doc(db, `clients/${clientId}/calendarEvents/${eventId}`));
 }
+
+const DashboardOfferAlerts = React.lazy(() => import("./offers/DashboardOfferAlerts"));
+
 export default function CoachDashboard() {
   useCalendarClock();
   const { t } = useTranslation();
@@ -1879,7 +1881,7 @@ export default function CoachDashboard() {
     [i18n.resolvedLanguage, i18n.language]
   );
   const calendarFormats = useMemo(() => getCalendarFormats(calendarCulture), [calendarCulture]);
-  const { user, loading } = useAuth();
+  const { user, loading, effectiveRole } = useAuth();
   const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
   const location = useLocation();
@@ -1895,6 +1897,9 @@ export default function CoachDashboard() {
     ? requestedAdminPlan
     : "";
   const effectiveCoachUid = isAdmin && adminCoachId ? adminCoachId : user?.uid;
+  useEffect(() => {
+    if (!isMobileDashboard) warmDashboardOffers(effectiveCoachUid, user, effectiveRole);
+  }, [isMobileDashboard, effectiveCoachUid, user, effectiveRole]);
   const adminBackPath = adminCoachId ? `/admin/coach/${adminCoachId}` : "/admin";
   const adminCoachQuery = isAdmin && adminCoachId
     ? `adminCoachId=${encodeURIComponent(adminCoachId)}${adminPlanPreview ? `&adminPlan=${encodeURIComponent(adminPlanPreview)}` : ""}${adminClubId ? `&clubId=${encodeURIComponent(adminClubId)}&adminClubId=${encodeURIComponent(adminClubId)}` : ""}`
@@ -4418,7 +4423,11 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
       let initialized = false;
       return onSnapshot(query(collection(db, "sessions"), where(field, "==", effectiveCoachUid)), snapshot => {
         if (!initialized) { initialized = true; return; }
-        if (snapshot.docChanges().length) schedule();
+        const changes = snapshot.docChanges();
+        if (changes.length) {
+          invalidateOfferCredits(effectiveCoachUid, changes);
+          schedule();
+        }
       }, error => console.warn("[calendar] live updates unavailable", error.code));
     });
     window.addEventListener("focus", schedule);
@@ -4697,6 +4706,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
           4
         );
         setSessions(previous => mergeConfirmedCalendarEvents(previous, results.map(entry => entry?.result), effectiveCoachUid));
+        if (!effectiveClubId && results.some(entry => entry?.result && !entry.result.duplicate)) offerBookingConfirmed(effectiveCoachUid, newSession.clientId);
         const failures = results.filter((entry) => entry?.error);
         if (failures.length > 0) {
           const partialError = failures[0].error || new Error("recurrence-partial-failure");
@@ -4797,6 +4807,7 @@ selectedEvent.id.replace("planned__", "");
     await apiFetch(`/coach-sessions/${encodeURIComponent(sourceId)}/status`, {
       method: "PATCH", body: JSON.stringify({ status }),
     });
+    offerBookingConfirmed(effectiveCoachUid, selectedEvent.clientId);
     const nextSessions = sessions.map(event => event._sourceId === sourceId ? { ...event, status } : event);
     setSessions(nextSessions);
     setSelectedEvent(event => event ? { ...event, status } : event);
@@ -4994,7 +5005,10 @@ selectedEvent.id.replace("planned__", "");
       ]);
       })();
       const saveAck = await Promise.race([
-        savePromise.then(() => ({ confirmed: true })).catch((error) => ({ error })),
+        savePromise.then(() => {
+          if (!effectiveClubId) offerBookingConfirmed(effectiveCoachUid, previousClientId, nextClient.id);
+          return { confirmed: true };
+        }).catch((error) => ({ error })),
         new Promise((resolve) => window.setTimeout(() => resolve({ pending: true }), 1800)),
       ]);
       if (saveAck.error) throw saveAck.error;
@@ -5103,7 +5117,12 @@ selectedEvent.id.replace("planned__", "");
        return;
      }
      if(!effectiveClubId){
-       try{await apiFetch(`/coach-sessions/${sourceId}`,{method:'DELETE'});eventModal.onClose();refreshDashboardData();}
+       try {
+         await apiFetch(`/coach-sessions/${sourceId}`, { method: 'DELETE' });
+         offerBookingConfirmed(effectiveCoachUid, clientId);
+         eventModal.onClose();
+         refreshDashboardData();
+       }
        catch(e){notify(toast,'saveError',{title:'Suppression impossible',description:e.data?.error||'Réessayez.'});}
        return;
      }
@@ -5147,6 +5166,7 @@ selectedEvent.id.replace("planned__", "");
     try {
       const moveRequest = coachCalendarMoveRequest(event, safeStart, safeEnd, notifyClient);
       await apiFetch(moveRequest.path, { method: "PATCH", body: JSON.stringify(moveRequest.body) });
+      if (!effectiveClubId) offerBookingConfirmed(effectiveCoachUid, event.clientId);
 
       const nextSessions = sessions.map(item => item._sourceId === sourceId
         ? { ...item, start: safeStart, end: safeEnd, durationMin: Math.round((safeEnd - safeStart) / 60000) } : item);
@@ -7209,7 +7229,7 @@ position="relative" zIndex={1} h="100%">
       />
     </HStack>
   );
-  const PriorityCard = ({
+  const renderPriorityCard = ({
      title,
      eyebrow,
      icon,
@@ -7355,6 +7375,8 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
          </Flex>
        </Box>
   );
+
+  const PriorityCard = renderPriorityCard;
 
   const QuickMetricCard = ({
     title,
@@ -7535,7 +7557,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
     />
   );
 
-  const renderTodayQuickCard = ({ detailed = false, ...props } = {}) => {
+  const renderTodayQuickCard = ({ detailed = false, layout, ...props } = {}) => {
     const birthdaySummary = birthdaysToday.length > 0
       ? `${t("dashboard.banner.birthdays_label", "Anniversaires du jour")} : ${birthdaysToday
           .map((client) => client.prenom || client.nom)
@@ -7587,23 +7609,17 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
       );
     };
 
-    return (
-      <PriorityCard
-        data-tour="coach-today"
-        minH="168px"
-        title={
-          nutritionOnlyDashboard
-            ? t("dashboard.today_appointments_label", "Rendez-vous aujourd’hui")
-            : t("dashboard.banner.today_label", "Aujourd’hui")
-        }
-        eyebrow={detailed ? birthdaySummary : t("dashboard.cards.eyebrow_tracking", "Suivi")}
-        icon={MdToday}
-        accent={activeBlue}
-        summaryLayout
-        disableHover
-        {...props}
-      >
-        <OfferPaymentPreview uid={effectiveCoachUid} compact/>{!effectiveClubId&&<OfferRenewalAlerts uid={effectiveCoachUid}/>}
+    // Render the box directly: the closure used as a component type otherwise
+    // changes identity on every dashboard render and remounts its offer widgets.
+    return renderPriorityCard({
+      "data-tour": "coach-today", minH: "168px",
+      title: nutritionOnlyDashboard ? t("dashboard.today_appointments_label", "Rendez-vous aujourd’hui") : t("dashboard.banner.today_label", "Aujourd’hui"),
+      eyebrow: detailed ? birthdaySummary : t("dashboard.cards.eyebrow_tracking", "Suivi"),
+      icon: MdToday, accent: activeBlue, summaryLayout: true, disableHover: true, ...props,
+      children: <>
+        {layout && <React.Suspense fallback={null}>
+          <DashboardOfferAlerts uid={effectiveCoachUid} layout={layout} renewals={!effectiveClubId} />
+        </React.Suspense>}
         {detailed ? (
           <VStack align="stretch" spacing={3} h="full" minH={0} overflow="hidden">
             <Box minH={0}>
@@ -7683,8 +7699,8 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
             </Text>
           </>
         )}
-      </PriorityCard>
-    );
+      </>
+    });
   };
 
   const renderUpcomingSummaryCard = ({ minH = "168px" } = {}) => (
@@ -8597,10 +8613,10 @@ noOfLines={2}>
             }}
           >
             <HStack spacing={2} align="stretch" pb={1}>
-              {usePlanningSummaryLayout ? renderTodayQuickCard() : renderClientsQuickCard()}
+              {usePlanningSummaryLayout ? renderTodayQuickCard({ layout: "tablet" }) : renderClientsQuickCard()}
               {hasNutritionCalendarAccess ? renderNutritionQuickCard() : renderClientsQuickCard()}
               {nutritionOnlyDashboard ? renderClientsQuickCard() : renderProgramsQuickCard()}
-              {!usePlanningSummaryLayout ? renderTodayQuickCard() : null}
+              {!usePlanningSummaryLayout ? renderTodayQuickCard({ layout: "tablet" }) : null}
               {renderUpcomingSummaryCard()}
             </HStack>
           </Box>
@@ -8614,7 +8630,7 @@ noOfLines={2}>
             {renderClientsQuickCard()}
             {renderNutritionQuickCard()}
             {renderProgramsQuickCard()}
-            {renderTodayQuickCard()}
+            {renderTodayQuickCard({ layout: usePlanningSummaryLayout ? null : "desktop" })}
           </Box>
 
           {usePlanningSummaryLayout ? (
@@ -8626,7 +8642,7 @@ noOfLines={2}>
               alignItems="stretch"
             >
               <Box gridColumn="1" gridRow="1 / span 3" minH="100%">
-                {renderTodayQuickCard({ detailed: true, minH: "100%" })}
+                {renderTodayQuickCard({ detailed: true, layout: "desktop", minH: "100%" })}
               </Box>
 
               <Box gridColumn="2" gridRow="1">
