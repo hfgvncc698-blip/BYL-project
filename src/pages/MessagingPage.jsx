@@ -1,3 +1,4 @@
+import { useMessagingIdentity } from '../components/messaging/messagingFeed';
 import { useAuth } from "../AuthContext";
 import PlanInclusionBadge from "../components/PlanInclusionBadge";
 import { canUseIntegratedMessaging } from "../utils/proPlanAccess";
@@ -32,7 +33,9 @@ const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u03
 
 export default function MessagingPage() {
   const [params] = useSearchParams();
-  return params.get('mode') === 'club' ? <ClubMessagingPanel /> : <ProfessionalMessagingPage />;
+  const scope=useMessagingIdentity();
+  if(!scope) return null;
+  return params.get('mode') === 'club' ? <ClubMessagingPanel /> : <ProfessionalMessagingPage key={scope}/>;
 }
 function ProfessionalMessagingPage() {
   const { user } = useAuth();
@@ -43,13 +46,14 @@ function ProfessionalMessagingPage() {
   const clearPackRequest = () => navigate(location.pathname + location.search, {replace:true, state:{...location.state, packRequest:null, suggestedMessage:null}});
 
   const { t } = useTranslation();
-  const { contacts: clubContacts, error: clubError } = useMemberClubContacts();
   const theme = useAppTheme();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { contacts, loading, isClient, hideConversation } = useMessagingContacts();
   const [search, setSearch] = useState("");
-  const [directoryOpen, setDirectoryOpen] = useState(false);
-  const selectedId = searchParams.get("conversation") || "";
+  const [directoryOpen,setDirectoryOpen] = useState(false);
+  const selectedId=searchParams.get('conversation') || '';
+  const compose=directoryOpen || !!search.trim() || !!packRequest;
+  const { contacts:clubContacts,error:clubError } = useMemberClubContacts({compose,selected:selectedId});
+  const { contacts,loading,isClient,hideConversation,error:proError } = useMessagingContacts({compose,selected:selectedId});
   const allContacts = [...clubContacts, ...contacts];
   const selectedContact = allContacts.find((contact) => contact.id === selectedId) || null;
   const visibleContacts = isClient || directoryOpen || search.trim()
@@ -110,7 +114,7 @@ function ProfessionalMessagingPage() {
               overflowY="auto"
               p={3}
             >
-              {!isClient ? (
+              {(
                 <HStack mb={3} spacing={2}>
                   <InputGroup flex="1" minW={0}>
                     <InputLeftElement pointerEvents="none"><SearchIcon color={theme.mutedText} /></InputLeftElement>
@@ -127,8 +131,8 @@ function ProfessionalMessagingPage() {
                     onClick={() => setDirectoryOpen((value) => !value)}
                   />
                 </HStack>
-              ) : null}
-              {clubError && <Text role="alert" fontSize="sm">{t("clubMessaging.error")}</Text>}
+              )}
+              {(clubError || proError) && <Text role="alert" fontSize="sm">{t("clubMessaging.error")}</Text>}
               {loading ? <Flex py={10} justify="center"><Spinner size="sm" /></Flex> : (
                 <MessagingContactList
                   contacts={filteredContacts}
@@ -142,7 +146,7 @@ function ProfessionalMessagingPage() {
             <Box display={{ base: selectedContact ? "block" : "none", md: "block" }} flex="1" minW={0}>
               {selectedContact ? (
                 selectedContact.clubContact
-                  ? <ClubThread suggestedClassRequest={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.classRequest : null} suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} key={selectedContact.id} contact={selectedContact} preview={false} ownerView={false} onBack={() => setSearchParams({})} t={t} />
+                  ? <ClubThread suggestedClassRequest={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.classRequest : null} suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} key={selectedContact.id} contact={selectedContact} preview={false} ownerView={!!selectedContact.ownerView} onBack={() => setSearchParams({})} t={t} />
                   : <MessagingThread key={selectedContact.id} suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} contact={selectedContact} onBack={() => setSearchParams({})} />
               ) : (
                 <Flex h="full" align="center" justify="center" textAlign="center" px={6}>

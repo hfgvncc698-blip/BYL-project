@@ -84,7 +84,7 @@ async function replay(label, folder, directory, revision) {
   app.use(metrics.httpMetrics);
   app.use(express.json());
   app.use('/api/programs', require(path.join(folder, 'routes/coachProgramRead')));
-  app.use('/api/messaging/club', require(path.join(folder, 'routes/clubMessaging')));
+  app.use('/api/messaging', require(path.join(folder, 'routes/messaging')));
   app.use('/api/analytics', require(path.join(folder, 'routes/analytics')));
   const offers = fs.existsSync(path.join(folder, 'routes/coachOffers.js'));
   if (offers) app.use('/api/coach-offers', require(path.join(folder, 'routes/coachOffers')));
@@ -118,7 +118,7 @@ async function replay(label, folder, directory, revision) {
       'let cycleWorkerBusy=false,nextCyclePoll=0;\n' + source.slice(start, end) + '\nrunSubscriptionCycles',
       { db, console });
     await metrics.measureJob('cycles', runCycles);
-    const expected = { cycles: [1, 0], 'club-contacts': [19, 16], expiry: [2, 13], offers: [5, 37] };
+    const expected = { cycles: [1, 0], 'club-contacts': revision ? [19, 16] : [9, 17], expiry: [2, 13], offers: [5, 37] };
     assert.equal(results.length, offers ? 5 : 4);
     for (const row of results) {
       const counts = expected[row.activity];

@@ -1,143 +1,31 @@
-import { messagingOnSnapshot as onSnapshot } from "../../utils/firestoreMetrics.js";
-import {clubText} from '../../i18n/clubText';
-import {cancellationPreview} from '../../utils/cancellationPreview.mjs';
-import { useEffect, useMemo, useState } from "react";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { useLocation } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { db } from "../../firebaseConfig";
-import { useAuth } from "../../AuthContext";
-import {
-  conversationUnreadFor,
-  loadClientMessagingContacts,
-  loadCoachMessagingContacts,
-  personName,
-  toMessageMillis,
-} from "../../utils/messaging";
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { useLocation } from 'react-router-dom';
+import { db } from '../../firebaseConfig';
+import { useAuth } from '../../AuthContext';
+import { clubText } from '../../i18n/clubText';
+import { cancellationPreview } from '../../utils/cancellationPreview.mjs';
+import { useMessagingFeed } from './messagingFeed';
+import { mergeContacts } from './useMemberClubContacts';
 
-export default function useMessagingContacts() {
-  const { t, i18n } = useTranslation();
-  const { user, effectiveRole, isAdmin } = useAuth();
-  const location = useLocation();
-  const [contacts, setContacts] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const isClient = user?.role === "particulier";
-  const userUid = user?.uid || "";
-  const userEmail = user?.email || "";
-  const userLinkedClientId = user?.linkedClientId || "";
-  const userDisplayName = user?.displayName || "";
-  const userFirstName = user?.firstName || user?.firstname || user?.prenom || "";
-  const userLastName = user?.lastName || user?.lastname || user?.nom || "";
-  const professionalLabel = t("messaging.professional");
-  const adminCoachId = new URLSearchParams(location.search).get("adminCoachId") || "";
-  const effectiveCoachUid = effectiveRole === "coach" ? (adminCoachId || userUid) : "";
-
-  useEffect(() => {
-    let active = true;
-    if (!userUid) {
-      setContacts([]);
-      setLoading(false);
-      return undefined;
-    }
-    setLoading(true);
-    const messagingUser = {
-      uid: userUid,
-      email: userEmail,
-      linkedClientId: userLinkedClientId,
-      displayName: userDisplayName,
-      firstName: userFirstName,
-      lastName: userLastName,
-      role: user?.role,
-    };
-    const load = isClient
-      ? loadClientMessagingContacts(messagingUser, professionalLabel)
-      : loadCoachMessagingContacts({
-          currentUid: userUid,
-          effectiveCoachUid: effectiveCoachUid || undefined,
-          isAdmin,
-        }).then((rows) => rows.map((contact) => ({
-          ...contact,
-          professionalName: personName(messagingUser, professionalLabel),
-        })));
-    load.then((rows) => {
-      if (active) setContacts(rows);
-    }).catch(() => {
-      if (active) setContacts([]);
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, [adminCoachId, effectiveCoachUid, isAdmin, isClient, professionalLabel, user?.role, userDisplayName, userEmail, userFirstName, userLastName, userLinkedClientId, userUid]);
-
-  useEffect(() => {
-    if (!user?.uid || !contacts.length) {
-      setConversations([]);
-      return undefined;
-    }
-    let active = true;
-    setConversations([]);
-    const unsubscribe = contacts.map((contact) => onSnapshot(
-      doc(db, "conversations", contact.id),
-      (snapshot) => {
-        if (!active) return;
-        setConversations((current) => {
-          const next = new Map(current.map((conversation) => [conversation.id, conversation]));
-          if (snapshot.exists()) next.set(snapshot.id, { id: snapshot.id, ...snapshot.data() });
-          else next.delete(contact.id);
-          return [...next.values()];
-        });
-      },
-      () => {
-        if (!active) return;
-        setConversations((current) => current.filter((conversation) => conversation.id !== contact.id));
-      }
-    ));
-    return () => {
-      active = false;
-      unsubscribe.forEach((stopListening) => stopListening());
-    };
-  }, [contacts, user?.uid]);
-
-  const conversationById = useMemo(
-    () => new Map(conversations.map((conversation) => [conversation.id, conversation])),
-    [conversations]
-  );
-
-  const enrichedContacts = useMemo(() => contacts.map((contact) => {
-    const conversation = conversationById.get(contact.id) || null;
-    const lastActivityAt = toMessageMillis(conversation?.lastMessageAt) || toMessageMillis(conversation?.lastMessageAtIso);
-    const hiddenAtMillis = toMessageMillis(conversation?.hiddenAtBy?.[user?.uid]);
-    const isHidden = Boolean(conversation && hiddenAtMillis && lastActivityAt <= hiddenAtMillis);
-    return {
-      ...contact,
-      lastMessage: isHidden ? "" : cancellationPreview(conversation,clubText),
-      conversation: isHidden ? null : conversation,
-      hiddenAtMillis,
-      unread: isHidden ? false : conversationUnreadFor(conversation, user?.uid),
-      lastActivityAt: isHidden ? 0 : lastActivityAt,
-    };
-  }).sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0) || a.title.localeCompare(b.title)), [contacts, conversationById, user?.uid, i18n.language]);
-
-  const hideConversation = async (contact) => {
-    if (!contact?.conversation || !contact?.id || !user?.uid) return;
-    try {
-      await updateDoc(doc(db, "conversations", contact.id), {
-        [`hiddenAtBy.${user.uid}`]: serverTimestamp(),
-        [`readAtBy.${user.uid}`]: serverTimestamp(),
-      });
-    } catch {
-      throw new Error(t("messaging.deleteConversationError"));
-    }
+export default function useMessagingContacts({compose=false, selected=''}={}) {
+  const {user,effectiveRole,isAdmin}=useAuth();
+  const {t,i18n}=useTranslation();
+  const location=useLocation();
+  const scope = isAdmin && effectiveRole==='coach' ? new URLSearchParams(location.search).get('adminCoachId') || '' : '';
+  const inbox=useMessagingFeed({professional:true,scope});
+  const needsTarget = selected && !selected.startsWith('club:') && !inbox.error && !inbox.loading && !inbox.contacts.some(c=>c.id===selected);
+  const feed=useMessagingFeed({professional:true,scope,compose:compose || needsTarget});
+  const contacts=useMemo(()=>mergeContacts(feed.directory,feed.contacts).map(c=>({...c,
+    hiddenAtMillis:c.hiddenAtMillis || feed.hiddenAtByConversation?.[c.id] || 0,
+    title:c.title || t('messaging.professional'),lastMessage:cancellationPreview(c,clubText)}))
+    .sort((a,b)=>(b.lastActivityAt||0)-(a.lastActivityAt||0)||a.title.localeCompare(b.title)),
+    [feed.contacts,feed.directory,feed.hiddenAtByConversation,i18n.language,t]);
+  const hideConversation=async c=>{
+    if(!user?.uid || !c.conversation) return;
+    await updateDoc(doc(db,'conversations',c.id),{[`hiddenAtBy.${user.uid}`]:serverTimestamp(),[`readAtBy.${user.uid}`]:serverTimestamp()});
   };
-
-  return {
-    contacts: enrichedContacts,
-    loading,
-    unreadCount: enrichedContacts.filter((contact) => contact.unread).length,
-    isClient,
-    hideConversation,
-  };
+  return {contacts,loading:feed.loading,error:feed.error||feed.directoryError,isClient:user?.role==='particulier',hideConversation,
+    unreadCount:contacts.filter(c=>c.unread).length};
 }

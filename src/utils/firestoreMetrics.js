@@ -1,10 +1,10 @@
 // Local counters only. Arguments, references, URLs, headers and snapshot data never enter the report.
-import { getDoc, getDocs, getDocFromCache, getDocsFromCache, onSnapshot, query } from "firebase/firestore";
+import { getDoc, getDocs, getDocFromServer, getDocsFromServer, getDocFromCache, getDocsFromCache, onSnapshot, query } from "firebase/firestore";
 
 import { allowedCollection, enabled, recordMetric } from "./browserMetrics.js";
 
 export function forFirestorePage(activity) {
-  const sdk = { getDoc, getDocs, getDocFromCache, getDocsFromCache, onSnapshot, query };
+  const sdk = { getDoc, getDocs, getDocFromServer, getDocsFromServer, getDocFromCache, getDocsFromCache, onSnapshot, query };
   if (!enabled) return sdk;
   const queryCollections = new WeakMap();
   const collectionOf = ref => allowedCollection(ref?.type === "collection" ? ref.id
@@ -33,10 +33,10 @@ export function forFirestorePage(activity) {
     };
   }
   // The instrumented pages use the (query, next, error) listener overload.
-  function listen(query, next, error) {
+  function listen(query, next, error, options) {
     let first = true;
     recordMetric(activity, "listener-start");
-    const stop = onSnapshot(query, snapshot => {
+    const stop = onSnapshot(query, ...(options ? [options] : []), snapshot => {
       const changes = { added: 0, modified: 0, removed: 0 };
       for (const change of snapshot.docChanges?.() || []) changes[change.type]++;
       recordMetric(activity, "listener-snapshot", { ...changes, documentsReturned: snapshot.size ?? Number(snapshot.exists()),
@@ -51,6 +51,7 @@ export function forFirestorePage(activity) {
     return () => { recordMetric(activity, "listener-stop"); stop(); };
   }
   return { getDoc: read(getDoc, "default"), getDocs: read(getDocs, "default"),
+    getDocFromServer: read(getDocFromServer, "server"), getDocsFromServer: read(getDocsFromServer, "server"),
     getDocFromCache: read(getDocFromCache, "cache"), getDocsFromCache: read(getDocsFromCache, "cache"), onSnapshot: listen, query: measuredQuery };
 }
 
@@ -76,3 +77,7 @@ export const messagingGetDoc = enabled ? messaging.getDoc : getDoc;
 export const messagingGetDocs = enabled ? messaging.getDocs : getDocs;
 export const messagingQuery = enabled ? messaging.query : query;
 export const messagingOnSnapshot = enabled ? messaging.onSnapshot : onSnapshot;
+
+export const messagingServerDoc = enabled ? messaging.getDocFromServer : getDocFromServer;
+export const messagingServerDocs = enabled ? messaging.getDocsFromServer : getDocsFromServer;
+export const messagingThreadSnapshot = (ref,next,error) => enabled ? messaging.onSnapshot(ref,next,error,{includeMetadataChanges:true}) : onSnapshot(ref,{includeMetadataChanges:true},next,error);

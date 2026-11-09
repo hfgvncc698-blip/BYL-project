@@ -287,13 +287,13 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
   assert.ok(
     messagingRoute.includes('type: "text"') &&
       thread.includes("MAX_MESSAGE_LENGTH = 4000") &&
-      thread.includes('/messaging/send') &&
-      thread.includes("getAuthHeaders()") &&
+      thread.includes("api('send'") &&
+      read("src/components/messaging/clubMessagingApi.js").includes("account.getIdToken()") &&
       messagingRoute.includes('router.post("/send", requireFirebaseAuth') &&
-      messagingRoute.includes("const batch = db.batch()") &&
-      messagingRoute.includes("batch.set(conversationRef") &&
-      messagingRoute.includes("batch.set(messageRef") &&
-      messagingRoute.includes("await batch.commit()") &&
+      messagingRoute.includes("await db.runTransaction(") &&
+      messagingRoute.includes("tx.set(ref,") &&
+      messagingRoute.includes("tx.set(messageRef") &&
+      messagingRoute.includes("tx.get(messageRef)") &&
       thread.includes("endBefore(cursor)") &&
       thread.includes("loadOlderMessages") &&
       thread.includes('messaging.loadPrevious') &&
@@ -303,14 +303,14 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
     "Messaging must save atomically, paginate older history and expose real read receipts"
   );
   assert.ok(
-    contacts.includes('onSnapshot(') &&
-      contacts.includes('doc(db, "conversations", contact.id)') &&
+    contacts.includes('useMessagingFeed({professional:true') &&
+      read("backend/utils/clubInboxWatch.js").includes(".onSnapshot(") &&
       bubble.includes('bg="red.500"') &&
       bubble.includes('messaging.unread') &&
       bubble.includes('MESSAGING_NOTIFICATION_STORAGE_PREFIX') &&
-      bubble.includes('window.localStorage.setItem(') &&
-      bubble.includes('activity > (previousActivity||0)') &&
-      bubble.includes('duration: 1800') &&
+      bubble.includes('localStorage.setItem(') &&
+      bubble.includes('notificationTime(version)<=notificationTime(old)') &&
+      bubble.includes('duration:1800') &&
       navbar.includes('link.to === ROUTES.messaging && messagingUnreadCount'),
     "Unread messages must update live, notify only on new activity and remain visible on the launcher and navigation menu"
   );
@@ -322,10 +322,10 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       contactList.includes('messaging.deleteConversationTitle') &&
       contactList.includes('common.cancel') &&
       contacts.includes("hiddenAtBy.${user.uid}") &&
-      contacts.includes("conversation?.hiddenAtBy?.[user?.uid]") &&
+      messagingRoute.includes("row.hiddenAtBy?.[uid]") &&
       bubble.includes("onDelete={hideConversation}") &&
       thread.includes("contact?.hiddenAtMillis") &&
-      contacts.includes('updateDoc(doc(db, "conversations", contact.id)') &&
+      contacts.includes("updateDoc(doc(db,'conversations',c.id)") &&
       !thread.includes("deleteField") &&
       rules.includes('newData.hiddenAtBy.diff(oldData.hiddenAtBy).affectedKeys().hasOnly([request.auth.uid])'),
     "Mobile conversations must support a private swipe-to-remove action without deleting the other participant's history"

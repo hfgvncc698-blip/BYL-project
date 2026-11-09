@@ -28,8 +28,8 @@ function createClubTermination(db,timestamp){
  function message(tx,s,memberUid,actor,text,side,revision,copy){
   const targetId=s.request?.clientId||s.records[0].id,ref=db.collection('clubConversations').doc(idFor(s.club.id,'client',targetId));
   const id=`${Date.now()}_termination_${revision}_${side}`,createdAtIso=new Date().toISOString();
-  tx.set(ref.collection('messages').doc(id),{id,text,side,senderUid:actor,createdAtIso,terminationRequest:{memberUid,clubId:s.club.id,...copy}});
-  tx.set(ref,{clubId:s.club.id,kind:'client',targetId,peerUid:memberUid,lastMessage:copy.label,lastSide:side,lastMessageAt:timestamp(),readAt:{[side]:timestamp()}},{merge:true});
+  tx.set(ref.collection('messages').doc(id),{id,text,side,senderUid:actor,createdAtIso,sentAt:timestamp(),committedAt:timestamp(),terminationRequest:{memberUid,clubId:s.club.id,...copy}});
+  tx.set(ref,{clubId:s.club.id,kind:'client',targetId,peerUid:memberUid,lastMessage:copy.label,lastSide:side,lastMessageAt:timestamp(),lastIdBySide:{[side]:id},lastBySide:{[side]:timestamp()}},{merge:true});
  }
  return {
   async history(uid){return {requests:(await db.collection('users').doc(uid).collection('terminationRequests').get()).docs.map(s=>s.data())};},

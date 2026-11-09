@@ -1,24 +1,12 @@
-import { messagingGetDoc as getDoc, messagingGetDocs as getDocs, messagingQuery as query } from "./firestoreMetrics.js";
+import { messagingServerDoc as getDoc, messagingServerDocs as getDocs, messagingQuery as query } from "./firestoreMetrics";
 import { collection, limit, where, doc } from "firebase/firestore";
 import { apiFetch } from "./api";
 import { db } from "../firebaseConfig";
-import { resolveClientSnapshotForUser } from "./clientResolver";
 
 export const conversationIdForClient = (clientId = "", professionalUid = "") => {
   const client = String(clientId || "").trim();
   const professional = String(professionalUid || "").trim();
   return client && professional ? `${client}__${professional}` : client;
-};
-
-const cachedClientIdForUser = (user) => {
-  if (typeof window === "undefined" || !user?.uid) return "";
-  const key = `byl:client-resolve:${user.uid}:${String(user.email || "").trim().toLowerCase()}`;
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
-    return parsed?.clientId ? String(parsed.clientId) : "";
-  } catch {
-    return "";
-  }
 };
 
 const LEGACY_PROFESSIONAL_NAMES = Object.freeze({
@@ -27,24 +15,6 @@ const LEGACY_PROFESSIONAL_NAMES = Object.freeze({
 });
 
 const EMPTY_QUERY_SNAPSHOT = Object.freeze({ docs: [] });
-const DASHBOARD_CACHE_POINTER = "byl:coach-dashboard:data:7:last";
-const MESSAGING_DIRECTORY_CACHE = "byl:messaging:coach-directory:v1";
-let messagingDirectoryMemory = [];
-
-const releaseDashboardCacheStorage = () => {
-  if (typeof window === "undefined") return;
-  try {
-    const removableKeys = [];
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index) || "";
-      if (key.startsWith("byl:coach-dashboard:data:7:")) removableKeys.push(key);
-    }
-    removableKeys.forEach((key) => window.localStorage.removeItem(key));
-  } catch {
-    // Le répertoire en mémoire reste utilisable si le stockage est indisponible.
-  }
-};
-
 const getDocsWithoutBlockingUi = async (queryRef, timeoutMs = 20000) => {
   const timeout = new Promise((resolve) => {
     setTimeout(() => resolve(EMPTY_QUERY_SNAPSHOT), timeoutMs);
@@ -53,52 +23,6 @@ const getDocsWithoutBlockingUi = async (queryRef, timeoutMs = 20000) => {
     getDocs(queryRef).catch(() => EMPTY_QUERY_SNAPSHOT),
     timeout,
   ]);
-};
-
-const cachedDashboardClients = () => {
-  if (typeof window === "undefined") return [];
-  try {
-    if (messagingDirectoryMemory.length) {
-      releaseDashboardCacheStorage();
-      return messagingDirectoryMemory;
-    }
-    const savedDirectory = JSON.parse(window.localStorage.getItem(MESSAGING_DIRECTORY_CACHE) || "null");
-    if (Array.isArray(savedDirectory) && savedDirectory.length) {
-      messagingDirectoryMemory = savedDirectory;
-      releaseDashboardCacheStorage();
-      return savedDirectory;
-    }
-    const cacheKey = window.localStorage.getItem(DASHBOARD_CACHE_POINTER);
-    const payload = cacheKey ? JSON.parse(window.localStorage.getItem(cacheKey) || "null") : null;
-    const clients = Array.isArray(payload?.data?.clients) ? payload.data.clients : [];
-    const directory = clients.map((client) => ({
-      id: client?.id || "",
-      uid: client?.uid || "",
-      userId: client?.userId || "",
-      linkedUserId: client?.linkedUserId || "",
-      accountUid: client?.accountUid || "",
-      authUid: client?.authUid || "",
-      firstName: client?.firstName || client?.firstname || client?.prenom || "",
-      lastName: client?.lastName || client?.lastname || client?.nom || "",
-      displayName: client?.displayName || client?.fullName || client?.name || "",
-      email: client?.email || "",
-      coachId: client?.coachId || "",
-      coachUid: client?.coachUid || "",
-      createdBy: client?.createdBy || "",
-      ownerUid: client?.ownerUid || "",
-      assignedBy: client?.assignedBy || "",
-      coachIds: Array.isArray(client?.coachIds) ? client.coachIds : [],
-      professionalIds: Array.isArray(client?.professionalIds) ? client.professionalIds : [],
-      nutritionCoachIds: Array.isArray(client?.nutritionCoachIds) ? client.nutritionCoachIds : [],
-    })).filter((client) => client.id);
-    if (cacheKey) window.localStorage.removeItem(cacheKey);
-    window.localStorage.removeItem(DASHBOARD_CACHE_POINTER);
-    if (directory.length) window.localStorage.setItem(MESSAGING_DIRECTORY_CACHE, JSON.stringify(directory));
-    messagingDirectoryMemory = directory;
-    return directory;
-  } catch {
-    return [];
-  }
 };
 
 const professionalNameFromValue = (value) => {
@@ -210,14 +134,12 @@ const loadProfessionalProfile = async (professionalUid) => {
 export async function loadClientMessagingContacts(user, professionalFallback) {
   const directIds = [...new Set([
     user?.linkedClientId,
-    cachedClientIdForUser(user),
     user?.uid,
   ].filter(Boolean))];
   const directSnapshots = await Promise.all(directIds.map((clientId) =>
     getDoc(doc(db, "clients", clientId)).catch(() => null)
   ));
-  const snapshot = directSnapshots.find((item) => item?.exists?.())
-    || await resolveClientSnapshotForUser(user, { logPrefix: "Messaging" });
+  const snapshot = directSnapshots.find((item) => item?.exists?.());
   const directory = await apiFetch("/messaging/client-records").catch(() => null);
   const records = new Map((directory?.records || []).map(record => [record.id, record]));
   if (snapshot?.exists?.()) records.set(snapshot.id, { id: snapshot.id, ...snapshot.data() });
@@ -280,15 +202,6 @@ export async function loadClientMessagingContacts(user, professionalFallback) {
 
 export async function loadCoachMessagingContacts({ currentUid, effectiveCoachUid, isAdmin = false }) {
   const targetCoachUid = effectiveCoachUid || currentUid;
-  const cachedClients = cachedDashboardClients()
-    .filter((client) => clientProfessionalUids(client).includes(String(targetCoachUid)));
-  if (cachedClients.length) {
-    return cachedClients
-      .filter((client) => client?.id)
-      .map((client) => contactFromClient(client, { currentUid, coachUid: targetCoachUid }))
-      .filter((contact) => contact.title)
-      .sort((a, b) => a.title.localeCompare(b.title));
-  }
   const snapshots = isAdmin && !effectiveCoachUid
     ? [await getDocsWithoutBlockingUi(query(collection(db, "clients"), limit(200)))]
     : await Promise.all([

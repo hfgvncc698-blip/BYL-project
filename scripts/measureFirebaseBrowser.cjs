@@ -5,7 +5,7 @@ const { spawn, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
 const root = path.resolve(__dirname, '..');
 
-async function browserPages({ directory, revision, app, accounts, projectId, rows, changeSession, offerScenario }) {
+async function browserPages({ directory, revision, app, accounts, projectId, rows, changeSession, offerScenario, messagingScenario, revokeMessagingAccess }) {
   const folder = path.join(fs.realpathSync(directory), 'web');
   fs.mkdirSync(folder, { recursive: true });
   if (revision) {
@@ -72,26 +72,27 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
   `);
   write('src/AuthContext.jsx', `
     const coach = {uid:'coach',role:'coach',subscriptionStatus:'active',hasActiveSubscription:true};
+    const member = {uid:'member0',role:'particulier'};
     const owner = {uid:'owner',role:'club',accountType:'club_owner',clubId:'sample'};
     const administrator = {uid:'administrator',role:'admin'};
-    export const useAuth = () => ({user: window.fixtureAdmin ? administrator : window.fixtureOwner ? owner : coach, isAdmin: !!window.fixtureAdmin, isCoach: !window.fixtureOwner,
-      isAuthenticated:true, loading:false, effectiveRole:window.fixtureOwner ? 'club' : 'coach'});
+    export const useAuth = () => ({user: window.fixtureMember ? member : window.fixtureAdmin ? administrator : window.fixtureOwner ? owner : coach, isAdmin: !!window.fixtureAdmin, isCoach: !window.fixtureOwner,
+      isAuthenticated:true, loading:false, effectiveRole:window.fixtureMember ? 'particulier' : window.fixtureOwner ? 'club' : 'coach'});
     export const AuthProvider = ({children}) => children;
   `);
   write('index.html', `<meta charset="utf-8"><div id="root"></div>
     <script>
-    const fail = () => fetch('/fixture-results', {method:'POST',body:JSON.stringify({failure:'page-exception'})});
+    const fail = event => fetch('/fixture-results', {method:'POST',body:JSON.stringify({failure:'page-exception '+(event.error?.name || event.reason?.name || 'unknown')+' line '+(event.lineno || 0)})});
     window.addEventListener('error', fail); window.addEventListener('unhandledrejection', fail);
     </script><script type="module" src="/entry.jsx"></script>`);
   const appSource = fs.readFileSync(path.join(folder, 'src/App.jsx'), 'utf8');
   const condition = appSource.match(/const showDashboardMessaging = ([\s\S]*?);/)[1];
   // Evaluate the same mount condition used by this revision of App.
   write('clubBubble.js', 'export function onClub(user,location) { return ' + condition + '; }');
-  write('entry.jsx', fs.readFileSync(path.join(__dirname, offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
+  write('entry.jsx', fs.readFileSync(path.join(__dirname, messagingScenario ? 'fixtures/firebaseMessagingBrowser.jsx' : offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
   const { createServer } = await import('vite');
   const vite = await createServer({ root: folder, configFile: false, envDir: false, publicDir: false,
     cacheDir: path.join(folder, '.vite'), logLevel: 'error',
-    define: { 'globalThis.offerScenario': JSON.stringify(offerScenario || null), 'import.meta.env.VITE_BYL_FIRESTORE_METRICS': '"1"',
+    define: { 'globalThis.messagingScenario': JSON.stringify(messagingScenario || null), 'globalThis.offerScenario': JSON.stringify(offerScenario || null), 'import.meta.env.VITE_BYL_FIRESTORE_METRICS': '"1"',
       'globalThis.fixtureExtended': JSON.stringify(!revision && process.env.BYL_LOT1_EXTENDED === '1') },
     server: { middlewareMode: true, hmr: false, fs: { allow: [folder, path.join(root, 'node_modules')] } },
     optimizeDeps: { entries: ['entry.jsx'] } });
@@ -102,12 +103,15 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
   const server = require('node:http').createServer((req, res) => {
     // All external connections are disallowed even if a historical page references an external asset.
     res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'none'; worker-src 'self' blob:");
+    if (messagingScenario && revokeMessagingAccess && req.url==='/fixture-revoke' && req.method==='POST') {
+      revokeMessagingAccess().then(()=>res.end(),()=>{res.statusCode=500;res.end();});return;
+    }
     if (req.url === '/fixture-start') { start = rows.length; res.end(); return; }
     if (req.url === '/fixture-stop') {
       const totals = {};
       for (const row of rows.slice(start)) {
         const group = totals[row.activity] ||= { http: 0, reads: 0, documents: 0, bytes: 0 };
-        if (offerScenario) group.estimate = (group.estimate || 0) + row.estimatedDocumentReads;
+        if (offerScenario || messagingScenario) group.estimate = (group.estimate || 0) + row.estimatedDocumentReads;
         group.http += row.httpRequests;
         group.reads += row.sdkReads;
         group.documents += row.documentsReturned;
@@ -125,7 +129,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
     if ((req.url === '/fixture-calendar-change' || (offerScenario && req.url === '/fixture-calendar-change?unrelated')) && req.method === 'POST') {
       changeSession(req.url.endsWith('?unrelated')).then(() => res.end(), () => { res.statusCode = 500; res.end(); }); return;
     }
-    if (['/fixture-coach', '/fixture-owner', '/fixture-administrator'].includes(req.url)) {
+    if (['/fixture-coach', '/fixture-owner', '/fixture-administrator', ...(messagingScenario?['/fixture-member0']:[])].includes(req.url)) {
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(accounts[req.url.slice('/fixture-'.length)])); return;
     }
@@ -143,7 +147,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const executable = process.env.BYL_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    chrome = spawn(executable, ['--headless=new', '--window-size=' + (offerScenario?.width || 1440) + ',1000', '--disable-background-networking', '--disable-popup-blocking', '--disable-sync', '--no-first-run',
+    chrome = spawn(executable, ['--headless=new', '--window-size=' + (offerScenario?.width || messagingScenario?.width || 1440) + ',1000', '--disable-background-networking', '--disable-popup-blocking', '--disable-sync', '--no-first-run',
       '--disable-default-apps', '--disable-component-update', '--no-proxy-server', '--disable-gpu',
       '--user-data-dir=' + path.join(folder, '.chrome'), 'http://127.0.0.1:' + server.address().port], { stdio: 'ignore' });
     chrome.once('error', () => settle({ failure: 'chrome-start' }));

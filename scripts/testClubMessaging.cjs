@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const { createClubMessaging, idFor } = require('../backend/utils/clubMessaging');
 const records = new Map(Object.entries({
   'clubs/a': { name: 'Club A' }, 'clubs/b': { name: 'Club B' },
+  'users/admin': {role:'admin'},
   'users/owner': { clubId: 'a', role: 'coach', accountType: 'club_owner' },
   'users/otherOwner': { clubId: 'b', role: 'coach', clubRole: 'owner' },
   'users/coach': { clubId: 'a', role: 'coach', firstName: 'Coach' },
@@ -52,7 +53,7 @@ const db = { collection: path => ref(path), runTransaction: async callback => ca
   const firestore = () => db;
   firestore.FieldPath = { documentId: () => '__name__' };
   firestore.FieldValue = { serverTimestamp: () => ({ toMillis: () => Date.now() }) };
-  const context = { require: name => name === 'express' ? { Router: () => router } : name === '../firebaseAdmin' ? { firestore } : name === '../utils/firebaseAuth' ? { requireFirebaseAuth: (req, res, next) => next(), getUserRole: async uid => uid === 'admin' ? 'admin' : 'coach' } : require('../backend/utils/clubMessaging'), module: { exports: {} }, console };
+  const context = { require: name => name === 'node:crypto' ? require(name) : name === 'express' ? { Router: () => router } : name === '../firebaseAdmin' ? { firestore } : name === '../utils/firebaseAuth' ? { requireFirebaseAuth: (req, res, next) => next(), getUserRole: async uid => uid === 'admin' ? 'admin' : 'coach' } : require('../backend/utils/clubMessaging'), module: { exports: {} }, console, setTimeout };
   vm.runInNewContext(fs.readFileSync('backend/routes/clubMessaging.js', 'utf8'), context);
   async function request(uid, method, path, input) {
     const req = { method, auth: { uid, token: { email_verified: true } }, body: method === 'POST' ? input : {}, query: method === 'GET' ? input : {} };

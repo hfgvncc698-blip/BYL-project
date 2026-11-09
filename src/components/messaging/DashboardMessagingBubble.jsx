@@ -1,3 +1,4 @@
+import { useMessagingIdentity } from './messagingFeed';
 import PlanInclusionBadge from "../../components/PlanInclusionBadge";
 import { canUseIntegratedMessaging } from "../../utils/proPlanAccess";
 import useMemberClubContacts from './useMemberClubContacts';
@@ -37,20 +38,30 @@ const normalizeSearch = (value) => String(value || "")
   .replace(/[\u0300-\u036f]/g, "")
   .toLowerCase();
 
-export default function DashboardMessagingBubble({notificationsOnly=false}) {
+function notificationTime(value) {
+  const match=/^(\d{1,13})(?::(\d{1,9}))?$/.exec(String(value || ''));
+  if(!match) return 0n;
+  return match[2]===undefined ? BigInt(match[1])*1000000n : BigInt(match[1])*1000000000n+BigInt(match[2]);
+}
+export default function DashboardMessagingBubble(props) {
+  const scope=useMessagingIdentity();
+  return scope ? <MessagingBubble key={scope} {...props}/> : null;
+}
+function MessagingBubble({notificationsOnly=false}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const theme = useAppTheme();
   const { user } = useAuth();
-  const { contacts: professionalContacts, loading, isClient, hideConversation } = useMessagingContacts();
-  const { contacts: clubContacts } = useMemberClubContacts({includeOwners:true});
-  const contacts = useMemo(() => [...professionalContacts, ...clubContacts].sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0)), [professionalContacts, clubContacts]);
-  const unreadCount = contacts.filter(contact => contact.unread).length;
-  const [open, setOpen] = useState(false);
-  const [selectedContact, setSelectedContact] = useState(null);
-  const [directoryOpen, setDirectoryOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [open,setOpen]=useState(false);
+  const [selectedContact,setSelectedContact]=useState(null);
+  const [directoryOpen,setDirectoryOpen]=useState(false);
+  const [search,setSearch]=useState('');
+  const compose=open && (directoryOpen || !!search);
+  const { contacts: professionalContacts, loading, error:proError, isClient, hideConversation } = useMessagingContacts({compose,selected:selectedContact?.id || ''});
+  const { contacts: clubContacts, error:clubError } = useMemberClubContacts({includeOwners:true,compose,selected:selectedContact?.id || ''});
+  const contacts = useMemo(() => [...professionalContacts, ...clubContacts].sort((a,b)=>b.lastActivityAt-a.lastActivityAt), [professionalContacts,clubContacts]);
+  const unreadCount=contacts.filter(c=>c.unread).length;
   const panelRef = useRef(null);
   const launcherRef = useRef(null);
   const previousActivityByContactRef = useRef(new Map());
@@ -70,7 +81,7 @@ export default function DashboardMessagingBubble({notificationsOnly=false}) {
     try {
       const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
       previousActivityByContactRef.current = new Map(
-        Object.entries(saved).map(([contactId, activity]) => [contactId, Number(activity) || 0])
+        Object.entries(saved).map(([contactId, activity]) => [contactId, activity])
       );
     } catch {
       previousActivityByContactRef.current = new Map();
@@ -78,54 +89,29 @@ export default function DashboardMessagingBubble({notificationsOnly=false}) {
   }, [user?.uid]);
 
   useEffect(() => {
-    const notifiedActivities = new Map(previousActivityByContactRef.current);
-    let newlyReceived = null;
-    let hasChanges = false;
-    contacts.forEach((contact) => {
-      const activity = contact.lastActivityAt || 0;
-      if (!activity) return;
-      const previousActivity = notifiedActivities.get(contact.id);
-      if (previousActivity === undefined) {
-        notifiedActivities.set(contact.id, 0);
-        hasChanges = true;
+    if (!user?.uid) return;
+    let live=true;
+    const key=MESSAGING_NOTIFICATION_STORAGE_PREFIX+user.uid;
+    const notify=()=>{
+      if(!live || document.hidden) return;
+      const saved=previousActivityByContactRef.current;
+      try { for(const [id,v] of Object.entries(JSON.parse(localStorage.getItem(key)||'{}'))) saved.set(id,v); } catch { /* local fallback */ }
+      let changed=false;
+      for(const c of contacts){
+        if(!c.unread) continue;
+        const version=c.receivedVersion || String(c.lastActivityAt);
+        const old=saved.get(c.id);
+        if(notificationTime(version)<=notificationTime(old)) continue;
+        saved.delete(c.id); saved.set(c.id,version); changed=true;
+        toast({ id:'message-'+c.id+'-'+version, title:t('messaging.newMessage','Nouveau message'),description:c.title,
+          status:'info',duration:1800,isClosable:false,position:'top-right',containerStyle:{maxWidth:'260px'} });
       }
-      if (
-        contact.unread &&
-        activity > (previousActivity||0) &&
-        (!newlyReceived || activity > newlyReceived.lastActivityAt)
-      ) newlyReceived = contact;
-    });
-    if (newlyReceived) {
-      contacts.forEach((contact) => {
-        const activity = contact.lastActivityAt || 0;
-        if (contact.unread && activity > (notifiedActivities.get(contact.id) || 0)) {
-          notifiedActivities.set(contact.id, activity);
-          hasChanges = true;
-        }
-      });
-    }
-    previousActivityByContactRef.current = notifiedActivities;
-    if (hasChanges && user?.uid) {
-      try {
-        window.localStorage.setItem(
-          `${MESSAGING_NOTIFICATION_STORAGE_PREFIX}${user.uid}`,
-          JSON.stringify(Object.fromEntries([...notifiedActivities.entries()].slice(-200)))
-        );
-      } catch {
-        // Le suivi en mémoire évite déjà les doublons pendant la session courante.
-      }
-    }
-    if (!newlyReceived) return;
-    toast({
-      title: t("messaging.newMessage", "Nouveau message"),
-      description: newlyReceived.title,
-      status: "info",
-      duration: 1800,
-      isClosable: false,
-      position: "top-right",
-      containerStyle: { maxWidth: "260px" },
-    });
-  }, [contacts, t, toast, user?.uid]);
+      if(changed) try { localStorage.setItem(key,JSON.stringify(Object.fromEntries([...saved].slice(-200)))); } catch { /* local fallback */ }
+    };
+    const check=()=>{if(navigator.locks) navigator.locks.request(key,notify).catch(()=>{});else notify();};
+    check(); document.addEventListener('visibilitychange',check);
+    return ()=>{live=false;document.removeEventListener('visibilitychange',check);};
+  },[contacts,t,toast,user?.uid]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -185,7 +171,7 @@ export default function DashboardMessagingBubble({notificationsOnly=false}) {
               </HStack>
             </Button>
             <HStack spacing={1}>
-              {!isClient && !selectedContact ? (
+              {!selectedContact ? (
                 <IconButton
                   size="sm"
                   borderRadius="full"
@@ -212,16 +198,17 @@ export default function DashboardMessagingBubble({notificationsOnly=false}) {
             </HStack>
           </HStack>
 
+          {(proError || clubError) && <Text role="alert" px={3}>{t("clubMessaging.error")}</Text>}
           <Box flex="1" minH={0} overflow="hidden">
             {loading ? <Flex h="full" align="center" justify="center"><Spinner size="sm" /></Flex> : selectedContact ? (
-              selectedContact.clubContact ? <Suspense fallback={<Spinner />}><ClubThread key={selectedContact.id} contact={selectedContact} preview={false} ownerView={false} onBack={() => setSelectedContact(null)} t={t} /></Suspense> : <MessagingThread
+              selectedContact.clubContact ? <Suspense fallback={<Spinner />}><ClubThread key={selectedContact.id} contact={selectedContact} preview={false} ownerView={!!selectedContact.ownerView} onBack={() => setSelectedContact(null)} t={t} /></Suspense> : <MessagingThread
                 contact={selectedContact}
                 compact
                 onBack={() => setSelectedContact(null)}
               />
             ) : (
               <Box h="full" overflowY="auto" p={3}>
-                {!isClient ? (
+                {!isClient || directoryOpen ? (
                   <InputGroup mb={3}>
                     <InputLeftElement pointerEvents="none"><SearchIcon color={theme.mutedText} /></InputLeftElement>
                     <Input

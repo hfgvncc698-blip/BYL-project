@@ -1,3 +1,4 @@
+const { FieldValue } = require('firebase-admin/firestore');
 const {idFor}=require('./clubMessaging');
 const {hasActiveProfessionalAccess}=require('./firebaseAuth');
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
@@ -7,17 +8,17 @@ function createClientSessionCancellation(db){
    if(r.clubId&&r.clientUid){
     const conversation=db.collection('clubConversations').doc(idFor(r.clubId,'client',r.clientId)),now=new Date();
     const text=decision==='accepted'?'Justification acceptée':'Justification refusée';
-    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{cancellation:{sessionId:id,title:r.title,startsAt:r.startsAt,reason:r.reason,decision,reviewNote,version:r.version+1,reviewedAt}},{merge:true});
-    tx.set(conversation.collection('messages').doc(`cancellation_decision_${id}`),{type:'cancellation-decision',decision,sessionTitle:r.title,reviewNote,senderUid:uid,side:'club',text,createdAtIso:now.toISOString()});
-    tx.set(conversation,{lastMessage:text,lastMessageAt:now,lastSide:'club'},{merge:true});
+    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{committedAt:FieldValue.serverTimestamp(),cancellation:{sessionId:id,title:r.title,startsAt:r.startsAt,reason:r.reason,decision,reviewNote,version:r.version+1,reviewedAt}},{merge:true});
+    tx.set(conversation.collection('messages').doc(`cancellation_decision_${id}`),{sentAt:FieldValue.serverTimestamp(),committedAt:FieldValue.serverTimestamp(),type:'cancellation-decision',decision,sessionTitle:r.title,reviewNote,senderUid:uid,side:'club',text,createdAtIso:now.toISOString()});
+    tx.set(conversation,{lastMessage:text,lastMessageAt:FieldValue.serverTimestamp(),lastIdBySide:{club:`cancellation_decision_${id}`},lastBySide:{club:FieldValue.serverTimestamp()},lastSide:'club'},{merge:true});
    }
 
    if(r.conversationId){
     const conversation=db.collection('conversations').doc(r.conversationId),now=new Date();
     tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{cancellation:{sessionId:id,title:r.title,startsAt:r.startsAt,reason:r.reason,decision:decision,reviewNote,version:r.version+1,reviewedAt:reviewedAt}},{merge:true});
     const text=decision==='accepted'?'Justification acceptée':'Justification refusée';
-    tx.set(conversation.collection('messages').doc(`cancellation_decision_${id}`),{type:'cancellation-decision',reviewNote,senderUid:uid,text,createdAt:now,createdAtIso:now.toISOString(),decision:decision,sessionTitle:r.title});
-    tx.set(conversation,{lastMessageMeta:{kind:'cancellation-decision',decision:decision,at:now.toISOString()},lastMessage:text,lastMessageAt:now,lastMessageAtIso:now.toISOString(),lastSenderUid:uid,updatedAt:now},{merge:true});
+    tx.set(conversation.collection('messages').doc(`cancellation_decision_${id}`),{type:'cancellation-decision',reviewNote,senderUid:uid,text,createdAt:FieldValue.serverTimestamp(),createdAtIso:now.toISOString(),decision:decision,sessionTitle:r.title});
+    tx.set(conversation,{lastMessageMeta:{kind:'cancellation-decision',decision:decision,at:now.toISOString()},lastMessage:text,lastMessageAt:FieldValue.serverTimestamp(),lastMessageAtIso:now.toISOString(),lastSenderUid:uid,lastByUid:{[uid]:FieldValue.serverTimestamp()},updatedAt:now},{merge:true});
    }
  }
  async function read(tx,uid,id){
@@ -121,8 +122,8 @@ function createClientSessionCancellation(db){
     tx.set(requestRef,{conversationId,sessionId:id,clubId:'',statusBefore:s.s.status,clientId:s.cid,clientName:[s.client.firstName||s.client.prenom,s.client.lastName||s.client.nom].filter(Boolean).join(' ')||'Client',coachId:s.coachId,title:s.s.title||'Rendez-vous',startsAt:ms(s.s.start),reason:reason.trim(),decision:s.cancellable?'accepted':'pending',createdAt:Date.now(),version:0});
     const conversation=db.collection('conversations').doc(conversationId),now=new Date();
     const title=s.s.title||'Rendez-vous',text=`Annulation · ${title}\n${reason.trim()}`;
-    tx.set(conversation,{clientId:s.cid,clientUid:uid,coachUid:s.coachId,professionalUid:s.coachId,participantUids:[uid,s.coachId],lastMessageMeta:{kind:'cancellation',title,at:now.toISOString()},lastMessage:text.slice(0,180),lastMessageAt:now,lastMessageAtIso:now.toISOString(),lastSenderUid:uid,updatedAt:now},{merge:true});
-    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{type:'cancellation',senderUid:uid,text,createdAt:now,createdAtIso:now.toISOString(),cancellation:{sessionId:id,title,startsAt:ms(s.s.start),reason:reason.trim(),decision:s.cancellable?'accepted':'pending',automatic:s.cancellable,version:0}});
+    tx.set(conversation,{clientId:s.cid,clientUid:uid,coachUid:s.coachId,professionalUid:s.coachId,participantUids:[uid,s.coachId],lastMessageMeta:{kind:'cancellation',title,at:now.toISOString()},lastMessage:text.slice(0,180),lastMessageAt:FieldValue.serverTimestamp(),lastMessageAtIso:now.toISOString(),lastSenderUid:uid,lastByUid:{[uid]:FieldValue.serverTimestamp()},updatedAt:now},{merge:true});
+    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{type:'cancellation',senderUid:uid,text,createdAt:FieldValue.serverTimestamp(),createdAtIso:now.toISOString(),cancellation:{sessionId:id,title,startsAt:ms(s.s.start),reason:reason.trim(),decision:s.cancellable?'accepted':'pending',automatic:s.cancellable,version:0}});
     return {ok:true};
    }
    if(!s.cancellable)fail('La date limite d’annulation est dépassée ou cette séance est déjà terminée.',409);
@@ -136,15 +137,15 @@ function createClientSessionCancellation(db){
    tx.set(db.collection('sessionCancellationRequests').doc(id),{conversationId,clientUid:uid,sessionId:id,clubId:s.s.clubId,eventId:s.s.clubAppointmentId,clientId:s.cid,clientName:[s.client.firstName||s.client.prenom,s.client.lastName||s.client.nom].filter(Boolean).join(' ')||s.client.displayName||'Client',coachId:s.appointment.coachId||s.s.coachId||s.s.createdBy||'',title:s.appointment.title||s.s.title||'Rendez-vous',startsAt:ms(s.appointment.startsAt),reason:reason.trim(),decision:'pending',createdAt:Date.now(),version:0});
    {
     const conversation=db.collection('clubConversations').doc(idFor(s.s.clubId,'client',s.cid)),now=new Date(),title=s.appointment.title||s.s.title||'Rendez-vous';
-    tx.set(conversation,{clubId:s.s.clubId,kind:'client',targetId:s.cid,peerUid:uid,lastMessage:'Annulations',lastMessageAt:now,lastSide:'member'},{merge:true});
-    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{senderUid:uid,side:'member',text:reason.trim(),createdAtIso:now.toISOString(),cancellation:{sessionId:id,title,startsAt:ms(s.appointment.startsAt),reason:reason.trim(),decision:'pending',version:0}});
+    tx.set(conversation,{clubId:s.s.clubId,kind:'client',targetId:s.cid,peerUid:uid,lastMessage:'Annulations',lastMessageAt:FieldValue.serverTimestamp(),lastIdBySide:{member:`cancellation_${id}`},lastBySide:{member:FieldValue.serverTimestamp()},lastSide:'member'},{merge:true});
+    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{sentAt:FieldValue.serverTimestamp(),committedAt:FieldValue.serverTimestamp(),senderUid:uid,side:'member',text:reason.trim(),createdAtIso:now.toISOString(),cancellation:{sessionId:id,title,startsAt:ms(s.appointment.startsAt),reason:reason.trim(),decision:'pending',version:0}});
    }
    if(conversationId){
     const conversation=db.collection('conversations').doc(conversationId),now=new Date();
     const title=s.appointment.title||s.s.title||'Rendez-vous';
     const text=`Annulation · ${title}\n${reason.trim()}`;
-    tx.set(conversation,{clientId:s.cid,clientUid:uid,coachUid:coachId,professionalUid:coachId,participantUids:[uid,coachId],lastMessageMeta:{kind:'cancellation',title,at:now.toISOString()},lastMessage:text.slice(0,180),lastMessageAt:now,lastMessageAtIso:now.toISOString(),lastSenderUid:uid,updatedAt:now},{merge:true});
-    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{type:'cancellation',senderUid:uid,text,createdAt:now,createdAtIso:now.toISOString(),cancellation:{sessionId:id,title,startsAt:ms(s.appointment.startsAt),reason:reason.trim(),decision:'pending',version:0}});
+    tx.set(conversation,{clientId:s.cid,clientUid:uid,coachUid:coachId,professionalUid:coachId,participantUids:[uid,coachId],lastMessageMeta:{kind:'cancellation',title,at:now.toISOString()},lastMessage:text.slice(0,180),lastMessageAt:FieldValue.serverTimestamp(),lastMessageAtIso:now.toISOString(),lastSenderUid:uid,lastByUid:{[uid]:FieldValue.serverTimestamp()},updatedAt:now},{merge:true});
+    tx.set(conversation.collection('messages').doc(`cancellation_${id}`),{type:'cancellation',senderUid:uid,text,createdAt:FieldValue.serverTimestamp(),createdAtIso:now.toISOString(),cancellation:{sessionId:id,title,startsAt:ms(s.appointment.startsAt),reason:reason.trim(),decision:'pending',version:0}});
    }
    return {ok:true};
   });

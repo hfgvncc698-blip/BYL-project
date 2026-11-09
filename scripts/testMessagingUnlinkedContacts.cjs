@@ -4,7 +4,8 @@ const vm = require('node:vm');
 const source = fs.readFileSync('src/utils/messaging.js', 'utf8');
 const cachedClient = { id: 'offline-client', coachId: 'coach', displayName: 'Marie' };
 const context = {
-  cachedDashboardClients: () => [cachedClient],
+  query: x=>x, collection:()=>({}), where:()=>({}), limit:()=>({}), db:{},
+  getDocsWithoutBlockingUi: async()=>({docs:[{id:cachedClient.id,data:()=>cachedClient}]}),
   clientProfessionalUids: client => [client.coachId],
   contactFromClient: (client, {coachUid}) => ({id: `${client.id}__${coachUid}`, title: client.displayName, clientUid: client.uid || ''}),
 };

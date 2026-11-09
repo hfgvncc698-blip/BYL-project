@@ -5,7 +5,7 @@ const policy=require('../backend/utils/messagingPlanAccess');
 (async()=>{
  const frontend=await import('../src/utils/proPlanAccess.js');
  for(const pack of ['sport','nutrition','complete']) for(const tier of ['solo','growth','unlimited']) {
-  const profile={role:'coach',proAccess:{packageKey:pack,packageTier:tier}};
+  const profile={role:'coach',subscriptionStatus:'active',proAccess:{packageKey:pack,packageTier:tier}};
   assert.equal(policy.canUseIntegratedMessaging(profile),tier!=='solo');
   assert.equal(frontend.canUseIntegratedMessaging(profile),tier!=='solo');
   for(const sender of ['coach','client']) {
@@ -14,13 +14,13 @@ const policy=require('../backend/utils/messagingPlanAccess');
    const db = {
     collection(name) { return { doc(id) { return {
      id: id || 'new-message',
-     get: async () => ({exists:true, data:()=>name === 'users' ? profile : {uid:'client',coachId:'coach'}}),
+     get: async () => ({exists:['users','clients'].includes(name), data:()=>name === 'users' ? profile : name==='clients' ? {uid:'client',coachId:'coach'} : undefined}),
      collection() { return db.collection('messages'); }
     }; } }; },
-    batch() { return {set(){writes++;}, commit:async()=>{}}; }
+    runTransaction(fn) { return fn({get:r=>r.get(),set(){writes++;}}); }
    };
    const admin={firestore:Object.assign(()=>db,{FieldValue:{serverTimestamp:()=>123}})};
-   const context={require(name){if(name==='express')return {Router:()=>router};if(name==='../firebaseAdmin')return admin;if(name.includes('firebaseAuth'))return {getUserRole:async()=>sender==='coach'?'coach':'particulier',requireFirebaseAuth(){}};if(name.includes('messagingPlanAccess'))return policy;if(name==='./clubMessaging')return {};throw Error(name)},module:{exports:{}},console};
+   const context={require(name){if(name==='express')return {Router:()=>router};if(name==='../firebaseAdmin')return admin;if(name.includes('firebaseAuth'))return {getUserRole:async()=>sender==='coach'?'coach':'particulier',requireFirebaseAuth(){}};if(name.includes('messagingPlanAccess'))return policy;if(name==='./clubMessaging'||name.includes('clubInboxWatch'))return {};throw Error(name)},module:{exports:{}},console};
    vm.runInNewContext(fs.readFileSync('backend/routes/messaging.js','utf8'),context);
    let status=200,payload;const res={status(code){status=code;return this},json(value){payload=value;return this}};
    await routes['POST /send']({auth:{uid:sender},body:{text:'test',clientId:'record',clientUid:'client',professionalUid:'coach'}},res);

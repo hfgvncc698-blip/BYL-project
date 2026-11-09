@@ -20,22 +20,21 @@ import {
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import {
   collection,
-  doc,
   endBefore,
-  getDocs,
   limitToLast,
-  onSnapshot,
   orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
+  startAfter,
+  limit,
 } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
+import { auth } from "../../firebaseConfig";
+import { useVisibleReceipt } from "./useVisibleReceipt";
+import { stampOrder } from "./useClubThread";
 import { db } from "../../firebaseConfig";
 import { useAuth } from "../../AuthContext";
 import { conversationIdForClient, personName, toMessageMillis } from "../../utils/messaging";
-import { getApiBase } from "../../utils/apiBase";
-import { getAuthHeaders } from "../../utils/authHeaders";
+import { api } from "./clubMessagingApi";
+import { messagingThreadSnapshot as onSnapshot, messagingQuery as query, messagingServerDocs as getDocs } from "../../utils/firestoreMetrics";
 import { useAppTheme } from "../../styles/appTheme";
 
 const MAX_MESSAGE_LENGTH = 4000;
@@ -57,6 +56,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const messagesPaneRef = useRef(null);
+  const epoch=useRef(0);
   const historyCursorRef = useRef(null);
   const historyLoadedRef = useRef(false);
   const conversationId = conversationIdForClient(contact?.clientId, contact?.coachUid);
@@ -70,6 +70,10 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
       (toMessageMillis(b.createdAt) || toMessageMillis(b.createdAtIso))
     ));
   }, [contact?.hiddenAtMillis, liveMessages, olderMessages]);
+  const pendingSend = useRef(null);
+  const receiptRows=useMemo(()=>messages.map(m=>({...m,watermark:m.createdAt && [m.createdAt.seconds,m.createdAt.nanoseconds].join(':')})),[messages]);
+  useVisibleReceipt({pane:messagesPaneRef,rows:receiptRows,account:auth.currentUser,
+    params:JSON.stringify({conversationId}),enabled:!loading&&!error,professional:true,ownReadVersion:contact?.conversation?.readStamps?.[user?.uid]});
   const latestMessageId = messages[messages.length - 1]?.id || "";
   const locale = i18n.resolvedLanguage || i18n.language || "fr";
   const loadErrorLabel = t("messaging.loadError");
@@ -93,23 +97,41 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
       orderBy("createdAt", "asc"),
       limitToLast(pageSize)
     );
-    return onSnapshot(messagesQuery, (snapshot) => {
-      setLiveMessages(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
-      if (!historyLoadedRef.current) {
-        historyCursorRef.current = snapshot.docs[0] || null;
-        setHasOlder(snapshot.size === pageSize);
-      }
-      setLoading(false);
-      setError("");
-    }, () => {
-      setLoading(false);
-      setError(loadErrorLabel);
-    });
+    epoch.current++;
+    let active=true, lastDoc=null, queue=Promise.resolve();
+    const stop=onSnapshot(messagesQuery, snapshot => {
+      if(snapshot.metadata.fromCache) return;
+      queue=queue.then(async()=>{
+        if(!active) return;
+        const docs=snapshot.docs;
+        const additions=[];
+        if(lastDoc && docs.length===pageSize && !docs.some(d=>d.id===lastDoc.id)){
+          let cursor=lastDoc;
+          while(active){
+            const gap=await getDocs(query(collection(db,"conversations",conversationId,"messages"),orderBy("createdAt"),startAfter(cursor),endBefore(docs[0]),limit(pageSize)));
+            additions.push(...gap.docs);
+            if(gap.size<pageSize) break;
+            cursor=gap.docs.at(-1);
+          }
+        }
+        if(!active) return;
+        setLiveMessages(old=>[...new Map([...old,...[...additions,...docs].map(d=>({id:d.id,...d.data()}))].map(m=>[m.id,m])).values()]);
+        if(!lastDoc && !historyLoadedRef.current){
+          historyCursorRef.current=docs[0]||null;
+          setHasOlder(docs.length===pageSize);
+        }
+        lastDoc=docs.at(-1)||lastDoc;
+        setLoading(false);setError("");
+      }).catch(()=>{if(active){setLiveMessages([]);setOlderMessages([]);setError(loadErrorLabel);setLoading(false);}});
+    },()=>{active=false;epoch.current++;setLiveMessages([]);setOlderMessages([]);setError(loadErrorLabel);setLoading(false);});
+    return ()=>{active=false;epoch.current++;stop();};
+
   }, [contact?.clientUid, conversationId, loadErrorLabel, pageSize, user?.uid]);
 
   const loadOlderMessages = async () => {
     const cursor = historyCursorRef.current;
     if (!cursor || !conversationId || loadingOlder) return;
+    const started=epoch.current;
     setLoadingOlder(true);
     setError("");
     try {
@@ -120,6 +142,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
         limitToLast(pageSize)
       ));
       const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      if(started!==epoch.current || auth.currentUser?.uid!==user?.uid) return;
       historyLoadedRef.current = true;
       if (snapshot.docs.length) historyCursorRef.current = snapshot.docs[0];
       setOlderMessages((current) => {
@@ -133,13 +156,6 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
       setLoadingOlder(false);
     }
   };
-
-  useEffect(() => {
-    if (!conversationId || !user?.uid || !latestMessageId) return;
-    setDoc(doc(db, "conversations", conversationId), {
-      readAtBy: { [user.uid]: serverTimestamp() },
-    }, { merge: true }).catch(() => {});
-  }, [conversationId, latestMessageId, user?.uid]);
 
   useEffect(() => {
     const pane = messagesPaneRef.current;
@@ -171,32 +187,24 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
     setSending(true);
     setError("");
     try {
-      const response = await fetch(`${getApiBase()}/messaging/send`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await getAuthHeaders()),
-        },
-        body: JSON.stringify({
-          text,
-          clientId: contact.clientId,
-          clientUid: contact.clientUid,
-          professionalUid: contact.coachUid,
-          clientName: contact.clientName || (user.uid === contact.clientUid ? personName(user) : contact.title),
-          professionalName: contact.professionalName || (user.uid === contact.coachUid ? personName(user) : contact.title),
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.message?.id) {
-        throw new Error(payload?.error || `message-send-${response.status}`);
-      }
+      if(pendingSend.current?.text!==text) pendingSend.current={text,requestId:crypto.randomUUID()};
+      const started=epoch.current;
+      const account=auth.currentUser;
+      const payload=await api('send',{
+        ...pendingSend.current, clientId:contact.clientId, clientUid:contact.clientUid, professionalUid:contact.coachUid,
+        clientName:contact.clientName || (user.uid===contact.clientUid ? personName(user) : contact.title),
+        professionalName:contact.professionalName || (user.uid===contact.coachUid ? personName(user) : contact.title)
+      },null,account,true);
+      if(started!==epoch.current || auth.currentUser!==account) return;
+      if(!payload?.message?.id) throw new Error('unconfirmed-message');
       setLiveMessages((current) => {
         if (current.some((message) => message.id === payload.message.id)) return current;
         return [...current, payload.message];
       });
+      pendingSend.current=null;
       setDraft("");
     } catch (sendError) {
-      console.error("[messaging] send failed", sendError);
+      console.error("[messaging] send failed", sendError?.status || "unavailable");
       setError(t(sendError?.message === "messaging-not-included" ? "messaging.planReadOnly" : "messaging.sendError"));
     } finally {
       setSending(false);
@@ -246,9 +254,10 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
         {groupedMessages.map((message) => {
           const mine = message.senderUid === user?.uid;
           const showReceipt = mine && message.id === lastOwnMessageId;
-          const isRead = showReceipt && recipientReadAt >= message.createdAtMillis;
+          const peerStamp=contact?.conversation?.readStamps?.[recipientUid];
+          const isRead=showReceipt && (peerStamp && message.createdAt ? stampOrder(peerStamp,[message.createdAt.seconds,message.createdAt.nanoseconds].join(':'))>=0 : recipientReadAt >= message.createdAtMillis);
           return (
-            <Flex key={message.id} justify={mine ? "flex-end" : "flex-start"}>
+            <Flex data-message-id={message.id} key={message.id} justify={mine ? "flex-end" : "flex-start"}>
               <Box
                 maxW="82%"
                 px={3}
