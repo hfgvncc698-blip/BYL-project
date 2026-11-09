@@ -2,13 +2,15 @@ const express = require("express");
 const admin = require("../firebaseAdmin");
 const { canUseIntegratedMessaging } = require("../utils/messagingPlanAccess");
 const { watchInbox, replyInbox } = require('../utils/clubInboxWatch');
-const { requireFirebaseAuth } = require("../utils/firebaseAuth");
+const { requireUnrevokedFirebaseAuth: requireFirebaseAuth } = require("../utils/firebaseAuth");
 
 const router = express.Router();
 router.use("/club", require("./clubMessaging"));
 const db = admin.firestore();
 
 const clean = (value, maxLength = 180) => String(value || "").trim().slice(0, maxLength);
+const disabled = profile => profile?.disabled || profile?.disabledByClub || profile?.deletedFromClub ||
+  ['club_disabled','club_deleted'].includes(profile?.subscriptionStatus) || ['deleted','removed','disabled','inactive','club_deleted'].includes(profile?.status);
 const list = (value) => (Array.isArray(value) ? value.map(String) : []);
 
 // A relink supersedes older aliases; the dossier ID is the final legacy fallback.
@@ -31,6 +33,7 @@ const clientProfessionalUids = (client = {}) => new Set([
 router.get("/client-records", requireFirebaseAuth, async (req, res) => {
   try {
     const uid = req.auth.uid;
+    if(disabled((await db.collection('users').doc(uid).get()).data())) return res.status(403).json({error:'messaging-forbidden'});
     const direct = await db.collection("clients").doc(uid).get();
     const results = await Promise.all(["authUid", "accountUid", "linkedUserId", "userId", "uid"].map(field => db.collection("clients").where(field, "==", uid).get()));
     const records = new Map();
@@ -56,6 +59,9 @@ router.get("/access", requireFirebaseAuth, async (req, res) => {
       return res.status(403).json({ error: "conversation-not-allowed" });
     }
     const professional = await db.collection("users").doc(professionalUid).get();
+    const actor=req.auth.uid===professionalUid?professional.data():(await db.collection('users').doc(req.auth.uid).get()).data();
+    if(disabled(actor)) return res.status(403).json({error:'conversation-not-allowed'});
+    if(req.auth.uid===professionalUid && !coachAccess(professional.data(),req.auth.token)) return res.status(403).json({error:'conversation-not-allowed'});
     res.json({ included: professional.exists && canUseIntegratedMessaging(professional.data()) });
   } catch (_error) { res.status(500).json({ error: "messaging-access-unavailable" }); }
 });
@@ -69,8 +75,9 @@ function coachAccess(profile, token = {}) {
 }
 // Apply current dossier and participant checks before exposing any summary.
 function visibleTo(row, client, uid, profile, token, preview) {
+  if(disabled(profile)) return false;
   if (!client || !Array.isArray(row.participantUids) || !row.participantUids.includes(row.clientUid) || !row.participantUids?.includes(row.professionalUid)) return false;
-  if (!clientAccountUids(row.clientId,client).has(row.clientUid)) return false;
+  if (!clientProfessionalUids(client).has(row.professionalUid) || !clientAccountUids(row.clientId,client).has(row.clientUid)) return false;
   if (preview) return profile?.role === 'admin' && token.email_verified === true;
   if (!row.participantUids.includes(uid)) return false;
   if (profile?.role === 'admin' && token.email_verified === true) return true;
@@ -87,10 +94,31 @@ router.get('/inbox', requireFirebaseAuth, async (req,res) => {
     if(typeof target!=='string' || target.length>180 || target.includes('/')) return res.sendStatus(400);
     const profileRef=db.collection('users').doc(uid);
     if (preview && (req.auth.token.email_verified!==true || (await profileRef.get()).data()?.role!=='admin')) return res.sendStatus(403);
-    const snapshot=await watchInbox(db, 'participantUids',target,req.query.since,controller.signal,'conversations','array-contains');
+    const focused=req.query.focusConversation;
+    const paths=[];
+    if(focused!==undefined){
+      if(typeof focused!=='string' || !focused || focused.includes('/') || focused.length>400) return res.sendStatus(400);
+      const row=(await db.collection('conversations').doc(focused).get()).data();
+      if(row && Array.isArray(row.participantUids) && row.participantUids.includes(target)){
+        row.professionalUid ||= row.coachUid;
+        if(typeof row.clientId==='string' && !row.clientId.includes('/') && focused===row.clientId+'__'+row.professionalUid){
+          const [dossier,actor]=await Promise.all([db.collection('clients').doc(row.clientId).get(),profileRef.get()]);
+          if(visibleTo(row,dossier.data(),uid,actor.data(),req.auth.token,preview) && (!preview || row.professionalUid===target))
+            paths.push('users/'+uid,'clients/'+row.clientId);
+        }
+      }
+    }
+    const snapshot=await watchInbox(db,'participantUids',target,req.query.since,controller.signal,'conversations','array-contains',paths);
+    if(controller.signal.aborted) return;
+    if(req.query.since){await requireFirebaseAuth(req,res,()=>true);if(res.headersSent) return;}
     const profile=(await profileRef.get()).data();
     if (preview && (profile?.role!=='admin' || !req.auth.token.email_verified)) return res.sendStatus(403);
     const dossiers=new Map(), professionals=new Map(), contacts=[], hiddenAtByConversation={};
+    const ids=[...new Set(snapshot.docs.map(d=>d.data().clientId).filter(id=>typeof id==='string' && id && !id.includes('/')))];
+    if(ids.length>=8) for(let i=0;i<ids.length;i+=100){
+      const docs=await db.getAll(...ids.slice(i,i+100).map(id=>db.collection('clients').doc(id)));
+      for(const doc of docs) dossiers.set(doc.id,doc.data());
+    }
     for(const doc of snapshot.docs){
       const row=doc.data();
       row.professionalUid ||= row.coachUid;
@@ -120,7 +148,8 @@ router.get('/inbox', requireFirebaseAuth, async (req,res) => {
         lastActivityAt:activity,receivedVersion:incoming && [incoming.seconds,incoming.nanoseconds].join(':'),hiddenAtMillis:hidden, unread:!!incoming && (!read || incoming.seconds>read.seconds || (incoming.seconds===read.seconds && incoming.nanoseconds>read.nanoseconds)),
         conversation:{id:doc.id,readStamps:Object.fromEntries(Object.entries(row.readAtBy||{}).map(([key,t])=>[key,[t.seconds,t.nanoseconds].join(':')])),readAtBy:Object.fromEntries(Object.entries(row.readAtBy||{}).map(([key,t])=>[key,t.toMillis?.()||0]))}});
     }
-    if(!controller.signal.aborted) replyInbox(res,req.query.known,snapshot.version,{contacts,hiddenAtByConversation});
+    const deniedThread=focused && !contacts.some(c=>c.id===focused) ? JSON.stringify(['','professional',focused]) : '';
+    if(!controller.signal.aborted) replyInbox(res,req.query.known,snapshot.version,{contacts,hiddenAtByConversation,deniedThread});
   } catch(error) { if(!controller.signal.aborted) res.status(503).json({error:'messaging-inbox-unavailable'}); }
 });
 
@@ -169,10 +198,11 @@ router.post("/send", requireFirebaseAuth, async (req, res) => {
         tx.get(db.collection('clients').doc(clientId)),tx.get(db.collection('users').doc(senderUid)),
         tx.get(db.collection('users').doc(professionalUid)),tx.get(ref),tx.get(messageRef)]);
       const allowedAdmin=['admin','super_admin','superadmin'].includes(user.data()?.role) && req.auth.token?.email_verified===true;
+      if(disabled(user.data())) throw Object.assign(new Error('conversation-not-allowed'),{status:403});
       if (!client.exists || !clientAccountUids(clientId,client.data()).has(clientUid) || !clientProfessionalUids(client.data()).has(professionalUid)
         || (!allowedAdmin && senderUid!==professionalUid && senderUid!==clientUid)
         || (senderUid===professionalUid && !allowedAdmin && !coachAccess(user.data(),req.auth.token))
-        || (parent.exists && (parent.data().clientUid!==clientUid || (parent.data().professionalUid || parent.data().coachUid)!==professionalUid)))
+        || (parent.exists && (parent.data().clientUid!==clientUid || (parent.data().professionalUid || parent.data().coachUid)!==professionalUid || !Array.isArray(parent.data().participantUids) || !parent.data().participantUids.includes(clientUid) || !parent.data().participantUids.includes(professionalUid))))
         throw Object.assign(new Error('conversation-not-allowed'),{status:403});
       if(!professional.exists || !canUseIntegratedMessaging(professional.data())) throw Object.assign(new Error('messaging-not-included'),{status:403});
       if(existing.exists) {

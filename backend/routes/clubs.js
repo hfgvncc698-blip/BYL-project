@@ -10,7 +10,8 @@ const crypto = require("crypto");
 const express = require("express");
 const admin = require('../firebaseAdmin');
 const nodemailer = require("nodemailer");
-const { requireFirebaseAuth } = require("../utils/firebaseAuth");
+const { requireFirebaseAuth, requireUnrevokedFirebaseAuth } = require("../utils/firebaseAuth");
+const { active: activeMessagingProfile } = require("../utils/clubMessaging");
 const { recordEmailEvent } = require("../utils/emailEvents");
 const { brandedEmailHtml } = require("../utils/brandedEmail");
 
@@ -2316,8 +2317,9 @@ router.get("/resolve-program-link", requireFirebaseAuth, async (req, res) => {
   }
 });
 
-router.patch("/coaches/:uid", requireFirebaseAuth, assertClubOwner, async (req, res) => {
+router.patch("/coaches/:uid", requireUnrevokedFirebaseAuth, assertClubOwner, async (req, res) => {
   try {
+    if (!activeMessagingProfile(req.clubUser)) return res.status(403).json({error:"club-owner-required"});
     const uid = cleanText(req.params.uid, 160);
     const { members } = await getClubScope(req.clubId);
     const member = members.find((item) => item.uid === uid && item.role !== "owner" && item.status !== "deleted");
@@ -2341,9 +2343,6 @@ router.patch("/coaches/:uid", requireFirebaseAuth, assertClubOwner, async (req, 
       payload.status = status;
       userPayload.subscriptionStatus = status === "disabled" ? "club_disabled" : "club_active";
       userPayload.disabledByClub = status === "disabled";
-      await admin.auth().updateUser(uid, { disabled: status === "disabled" }).catch((error) => {
-        console.warn("[clubs] auth disabled update failed:", error?.message || error);
-      });
     }
 
     if (specialty) {
@@ -2368,10 +2367,14 @@ router.patch("/coaches/:uid", requireFirebaseAuth, assertClubOwner, async (req, 
       userPayload.clubRole = clubRole;
     }
 
-    await Promise.all([
-      db.collection("clubs").doc(req.clubId).collection("members").doc(uid).set(payload, { merge: true }),
-      db.collection("users").doc(uid).set(userPayload, { merge: true }),
-    ]);
+    const batch = db.batch();
+    batch.set(db.collection("clubs").doc(req.clubId).collection("members").doc(uid), payload, {merge:true});
+    batch.set(db.collection("users").doc(uid), userPayload, {merge:true});
+    await batch.commit();
+    // Existing ID tokens must already be denied by rules when Auth is disabled.
+    if (status) await admin.auth().updateUser(uid, { disabled: status === "disabled" }).catch(error => {
+      console.warn("[clubs] auth disabled update failed:", error.code);
+    });
 
     return res.json({ ok: true, coach: { uid, status: status || member.status || "active" } });
   } catch (error) {
@@ -3282,35 +3285,26 @@ router.patch("/", requireFirebaseAuth, assertClubOwner, async (req, res) => {
   }
 });
 
-router.delete("/coaches/:uid", requireFirebaseAuth, assertClubOwner, async (req, res) => {
+router.delete("/coaches/:uid", requireUnrevokedFirebaseAuth, assertClubOwner, async (req, res) => {
   try {
+    if (!activeMessagingProfile(req.clubUser)) return res.status(403).json({error:"club-owner-required"});
     const uid = cleanText(req.params.uid, 160);
     const { members } = await getClubScope(req.clubId);
     const member = members.find((item) => item.uid === uid && item.role !== "owner" && item.status !== "deleted");
     if (!member) return res.status(404).json({ error: "club-member-not-found" });
 
-    await Promise.all([
-      db.collection("clubs").doc(req.clubId).collection("members").doc(uid).set(
-        {
-          status: "deleted",
-          deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      ),
-      db.collection("users").doc(uid).set(
-        {
-          subscriptionStatus: "club_deleted",
-          disabledByClub: true,
-          deletedFromClub: true,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      ),
-      admin.auth().updateUser(uid, { disabled: true }).catch((error) => {
-        console.warn("[clubs] auth delete disable failed:", error?.message || error);
-      }),
-    ]);
+    const batch = db.batch();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    batch.set(db.collection("clubs").doc(req.clubId).collection("members").doc(uid), {
+      status:"deleted", deletedAt:now, updatedAt:now
+    }, {merge:true});
+    batch.set(db.collection("users").doc(uid), {
+      subscriptionStatus:"club_deleted", disabledByClub:true, deletedFromClub:true, updatedAt:now
+    }, {merge:true});
+    await batch.commit();
+    await admin.auth().updateUser(uid,{disabled:true}).catch(error=>{
+      console.warn("[clubs] auth delete disable failed:",error.code);
+    });
 
     return res.json({ ok: true });
   } catch (error) {

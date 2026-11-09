@@ -20,7 +20,7 @@ const policy=require('../backend/utils/messagingPlanAccess');
     runTransaction(fn) { return fn({get:r=>r.get(),set(){writes++;}}); }
    };
    const admin={firestore:Object.assign(()=>db,{FieldValue:{serverTimestamp:()=>123}})};
-   const context={require(name){if(name==='express')return {Router:()=>router};if(name==='../firebaseAdmin')return admin;if(name.includes('firebaseAuth'))return {getUserRole:async()=>sender==='coach'?'coach':'particulier',requireFirebaseAuth(){}};if(name.includes('messagingPlanAccess'))return policy;if(name==='./clubMessaging'||name.includes('clubInboxWatch'))return {};throw Error(name)},module:{exports:{}},console};
+   const context={require(name){if(name==='express')return {Router:()=>router};if(name==='../firebaseAdmin')return admin;if(name.includes('firebaseAuth'))return {requireUnrevokedFirebaseAuth(){}};if(name.includes('messagingPlanAccess'))return policy;if(name==='./clubMessaging'||name.includes('clubInboxWatch'))return {};throw Error(name)},module:{exports:{}},console};
    vm.runInNewContext(fs.readFileSync('backend/routes/messaging.js','utf8'),context);
    let status=200,payload;const res={status(code){status=code;return this},json(value){payload=value;return this}};
    await routes['POST /send']({auth:{uid:sender},body:{text:'test',clientId:'record',clientUid:'client',professionalUid:'coach'}},res);

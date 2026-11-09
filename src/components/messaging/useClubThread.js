@@ -156,7 +156,7 @@ function makeThread(key, account, contact) {
 }
 export function useClubThread(contact, ownerView) {
   const feed = useMessagingFeed({
-    scope: ownerView ? contact.clubId : ''
+    scope: ownerView ? contact.clubId : '', focusedThread:contact
   });
   const account = auth.currentUser;
   const key = JSON.stringify([feed.scopeKey, contact.clubId, contact.kind, contact.targetId, contact.peerUid]);
@@ -170,7 +170,9 @@ export function useClubThread(contact, ownerView) {
   }, [key, account]);
   const state = useSyncExternalStore(entry.subscribe, entry.snapshot, entry.snapshot);
   const active = feed.contacts.find(c => c.clubId === contact.clubId && c.kind === contact.kind && c.targetId === contact.targetId);
+  const withdrawn=feed.deniedThread===JSON.stringify([contact.clubId,contact.kind,contact.targetId]);
   useEffect(() => {
+    if(withdrawn){entry.cancel(true);return;}
     if (!account || feed.error || !feed.scopeKey) {
       entry.cancel(!account || !feed.scopeKey || !!feed.denied);
       return;
@@ -183,10 +185,11 @@ export function useClubThread(contact, ownerView) {
     // Empty/new threads also check their authorization at each inbox heartbeat.
     const version = active?.activityVersion || 'empty:' + feed.checked;
     entry.sync(state.error ? version + ':retry:' + feed.checked : version, active?.deltaSupported);
-  }, [account, entry, feed.error, feed.denied, feed.scopeKey, feed.loading, feed.checked, active?.peerUid, active?.activityVersion, active?.deltaSupported, contact.peerUid]);
+  }, [account, entry, withdrawn, feed.error, feed.denied, feed.scopeKey, feed.loading, feed.checked, active?.peerUid, active?.activityVersion, active?.deltaSupported, contact.peerUid]);
   return {
     ...state,
-    messages: feed.error || !feed.scopeKey ? [] : state.messages,
+    denied:withdrawn || state.denied,
+    messages: withdrawn || feed.error || !feed.scopeKey ? [] : state.messages,
     active,
     older: entry.olderPage,
     reload: entry.reload

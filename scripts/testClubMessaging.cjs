@@ -53,7 +53,7 @@ const db = { collection: path => ref(path), runTransaction: async callback => ca
   const firestore = () => db;
   firestore.FieldPath = { documentId: () => '__name__' };
   firestore.FieldValue = { serverTimestamp: () => ({ toMillis: () => Date.now() }) };
-  const context = { require: name => name === 'node:crypto' ? require(name) : name === 'express' ? { Router: () => router } : name === '../firebaseAdmin' ? { firestore } : name === '../utils/firebaseAuth' ? { requireFirebaseAuth: (req, res, next) => next(), getUserRole: async uid => uid === 'admin' ? 'admin' : 'coach' } : require('../backend/utils/clubMessaging'), module: { exports: {} }, console, setTimeout };
+  const context = { require: name => name === 'node:crypto' ? require(name) : name === 'express' ? { Router: () => router } : name === '../firebaseAdmin' ? { firestore } : name === '../utils/firebaseAuth' ? { requireUnrevokedFirebaseAuth: (req, res, next) => next(), getUserRole: async uid => uid === 'admin' ? 'admin' : 'coach' } : require('../backend/utils/clubMessaging'), module: { exports: {} }, console, setTimeout };
   vm.runInNewContext(fs.readFileSync('backend/routes/clubMessaging.js', 'utf8'), context);
   async function request(uid, method, path, input) {
     const req = { method, auth: { uid, token: { email_verified: true } }, body: method === 'POST' ? input : {}, query: method === 'GET' ? input : {} };

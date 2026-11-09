@@ -57,9 +57,9 @@ function MessagingBubble({notificationsOnly=false}) {
   const [selectedContact,setSelectedContact]=useState(null);
   const [directoryOpen,setDirectoryOpen]=useState(false);
   const [search,setSearch]=useState('');
-  const compose=open && (directoryOpen || !!search);
-  const { contacts: professionalContacts, loading, error:proError, isClient, hideConversation } = useMessagingContacts({compose,selected:selectedContact?.id || ''});
-  const { contacts: clubContacts, error:clubError } = useMemberClubContacts({includeOwners:true,compose,selected:selectedContact?.id || ''});
+  const compose=open && !notificationsOnly && (directoryOpen || !!search);
+  const { contacts: professionalContacts, loading, error:proError, isClient, hideConversation } = useMessagingContacts({compose,selected:open && !notificationsOnly ? selectedContact?.id || '' : ''});
+  const { contacts: clubContacts, error:clubError } = useMemberClubContacts({includeOwners:true,compose,selected:open && !notificationsOnly ? selectedContact?.id || '' : ''});
   const contacts = useMemo(() => [...professionalContacts, ...clubContacts].sort((a,b)=>b.lastActivityAt-a.lastActivityAt), [professionalContacts,clubContacts]);
   const unreadCount=contacts.filter(c=>c.unread).length;
   const panelRef = useRef(null);

@@ -191,23 +191,43 @@ service cloud.firestore {
         access.get("packageTier", professional.get("packageTier", "")) != "solo";
     }
 
+    function messagingActorEnabled() {
+      let profile = currentUser();
+      return !(profile.get("status", "") in ["deleted","removed","disabled","inactive","club_deleted"]) &&
+        !(profile.get("subscriptionStatus", "") in ["club_disabled","club_deleted"]) &&
+        profile.get("disabled", false) != true &&
+        profile.get("deletedFromClub", false) != true &&
+        profile.get("disabledByClub", false) != true;
+    }
+
     function canReadConversation(data) {
       return data.clientId is string &&
         data.participantUids is list &&
         canAccessConversation(data.clientId) &&
-        (isAdmin() || request.auth.uid in data.participantUids);
+        conversationClientUidMatches(data.clientId, data.clientUid) &&
+        conversationProfessionalMatches(data.clientId, data.get("professionalUid",data.get("coachUid",""))) &&
+        messagingActorEnabled() &&
+        (isAdmin() || (request.auth.uid in data.participantUids &&
+          (request.auth.uid == data.clientUid ||
+            (request.auth.uid == data.get("professionalUid",data.get("coachUid","")) && hasCoachAccess()))));
     }
 
     function conversationClientUidMatches(clientId, clientUid) {
       let client = get(/databases/$(database)/documents/clients/$(clientId)).data;
-      return clientUid is string && (
-        clientId == clientUid ||
-        (client.keys().hasAny(["authUid"]) && client.authUid == clientUid) ||
-        (client.keys().hasAny(["accountUid"]) && client.accountUid == clientUid) ||
-        (client.keys().hasAny(["linkedUserId"]) && client.linkedUserId == clientUid) ||
-        (client.keys().hasAny(["userId"]) && client.userId == clientUid) ||
-        (client.keys().hasAny(["uid"]) && client.uid == clientUid)
-      );
+      return canonicalAccount(client, clientId) == clientUid;
+    }
+
+    function canonicalAccount(client, fallback) {
+      let auth = client.get("authUid", "");
+      let account = client.get("accountUid", "");
+      let linked = client.get("linkedUserId", "");
+      let user = client.get("userId", "");
+      let uid = client.get("uid", "");
+      return auth is string && auth.size() > 0 ? auth :
+        account is string && account.size() > 0 ? account :
+        linked is string && linked.size() > 0 ? linked :
+        user is string && user.size() > 0 ? user :
+        uid is string && uid.size() > 0 ? uid : fallback;
     }
 
     function conversationProfessionalMatches(clientId, professionalUid) {
@@ -338,6 +358,7 @@ service cloud.firestore {
 
     function clientSecurityFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "professionalIds", "nutritionCoachIds", "disabled", "disabledByClub", "deletedFromClub", "status",
         "subscriptionCycle",
         "subscriptionAccessUntil",
         "trainingPlan",
@@ -470,6 +491,7 @@ service cloud.firestore {
 
     function userSelfProtectedFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "disabled", "deletedFromClub", "disabledByClub", "status",
         "role",
         "isAdmin",
         "admin",
@@ -675,7 +697,7 @@ service cloud.firestore {
     match /conversations/{conversationId} {
       allow read: if canReadConversation(resource.data);
       allow create: if signedIn() &&
-        canAccessConversation(request.resource.data.clientId) &&
+        canReadConversation(request.resource.data) &&
         validConversationCreate(conversationId, request.resource.data) && messagingPlanIncluded(request.resource.data);
       allow update: if signedIn() && validConversationUpdate(resource.data, request.resource.data);
       allow delete: if isAdmin();

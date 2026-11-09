@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
-const active = value => value && !value.deletedFromClub && !['deleted', 'inactive', 'removed', 'club_deleted'].includes(value.status) && value.subscriptionStatus !== 'club_deleted';
-const owner = value => active(value) && (value.accountType === 'club_owner' || value.clubRole === 'owner' || value.role === 'club');
+const { firestore } = require('../firebaseAdmin');
+const active = value => value && !value.deletedFromClub && !value.disabledByClub && !value.disabled && !['deleted', 'inactive', 'removed', 'disabled', 'club_deleted'].includes(value.status) && !['club_disabled','club_deleted'].includes(value.subscriptionStatus);
+const owner = value => active(value) && ['club','coach','admin'].includes(value.role) && (value.accountType === 'club_owner' || value.clubRole === 'owner' || value.role === 'club');
 const account = value => value.authUid || value.accountUid || value.linkedUserId || value.userId || value.uid || '';
 const name = value => [value.firstName || value.firstname || value.prenom, value.lastName || value.lastname || value.nom].filter(Boolean).join(' ') || value.displayName || value.name || value.email || '';
 const belongs = (value, clubId) => value.clubId === clubId || (Array.isArray(value.clubIds) && value.clubIds.includes(clubId));
@@ -19,13 +20,14 @@ function createClubMessaging(db) {
       rows(db.collection('clients').where('clubId', '==', clubId).limit(1000)),
       rows(db.collection('clients').where('clubIds', 'array-contains', clubId).limit(1000)),
     ]);
+    const revokedPeers=new Set([...members,...users].filter(u=>!active(u)).map(u=>u.id));
     const owners = users.filter(owner).map(u => u.id);
     const coaches = users.filter(u => active(u) && !owner(u) && u.role === 'coach'
-      && !members.some(m => m.id === u.id && !active(m)));
+      && !revokedPeers.has(u.id));
     const contacts = [
       ...coaches.map(u => ({ kind: 'coach', targetId: u.id, peerUid: u.id, title: name(u), email: u.email || '' })),
       ...[...new Map([...clients, ...multiClients].map(c => [c.id, c])).values()].filter(active).map(c => ({ kind: 'client', targetId: c.id, peerUid: account(c), title: name(c), email: c.email || '' })),
-    ].filter(c => !owners.includes(c.peerUid)).map(c => ({ ...c, clubId, id: idFor(clubId, c.kind, c.targetId) }));
+    ].filter(c => !owners.includes(c.peerUid) && !revokedPeers.has(c.peerUid)).map(c => ({ ...c, clubId, id: idFor(clubId, c.kind, c.targetId) }));
     return { clubId, clubName: club.name || club.nom || 'Club', owners, contacts };
   }
   // Memoization lasts exactly one authorization pass (or one transaction attempt).
@@ -44,6 +46,7 @@ function createClubMessaging(db) {
     const admin = async () => token.email_verified === true && ['admin', 'super_admin', 'superadmin'].includes((await actor())?.role);
     async function scope(requested) {
       const user = await actor();
+      if(user && !active(user)) throw forbidden();
       const clubId = requested || (owner(user) ? user.clubId : '');
       if (!clubId) return { ownerView:false, preview:false, clubId:'', clubName:'' };
       const isOwner = owner(user) && user.clubId === clubId;
@@ -59,22 +62,54 @@ function createClubMessaging(db) {
     });
     async function authorize(clubId, kind, targetId, allowPreview) {
       const [user, club, target] = await Promise.all([actor(), item('clubs',clubId), item(kind==='coach'?'users':'clients',targetId)]);
-      if (!club || !active(target) || (kind==='client' ? !belongs(target,clubId) : target.clubId !== clubId || target.role !== 'coach')) throw forbidden();
+      if ((user && !active(user)) || !club || !active(target) || (kind==='client' ? !belongs(target,clubId) : target.clubId !== clubId || target.role !== 'coach')) throw forbidden();
       const peerUid = kind==='coach' ? targetId : account(target);
       const isOwner = owner(user) && user.clubId === clubId;
       if (!peerUid || (!isOwner && uid !== peerUid && !allowPreview)) throw forbidden();
-      if (kind==='coach') {
-        const member = await item('clubs/'+clubId+'/members',targetId);
-        if (member && !active(member)) throw forbidden();
-      }
+      const member = await item('clubs/'+clubId+'/members',peerUid);
+      if (member && !active(member)) throw forbidden();
       const peer = kind==='coach' ? target : await item('users',peerUid);
-      if (owner(peer) && peer.clubId === clubId) throw forbidden();
+      if ((peer && !active(peer)) || (owner(peer) && peer.clubId === clubId)) throw forbidden();
       if (!isOwner && !await ownersExist(clubId)) throw forbidden();
       const contact = {id:idFor(clubId,kind,targetId), kind,targetId,clubId,peerUid,
         title:isOwner || uid!==peerUid ? name(target) : club.name || club.nom || 'Club', email:uid===peerUid?'':target.email || ''};
       return {clubId,contact,side:isOwner?'club':'member',preview:!isOwner && uid!==peerUid};
     }
-    return { scope, admin, authorize };
+    // Fetch the same authorization documents in bounded batches for a large inbox.
+    // These results live only for this projection. Never reuse them for mutations.
+    async function preload(rows) {
+      if(rows.length < 8) return;
+      async function load(paths) {
+        const unique=[...new Set(paths)].filter(path=>!memo.has(path));
+        for(let i=0;i<unique.length;i+=100){
+          const docs=await db.getAll(...unique.slice(i,i+100).map(path=>db.doc(path)));
+          for(const doc of docs) memo.set(doc.ref.path,Promise.resolve(doc.exists ? {...doc.data(),id:doc.id} : null));
+        }
+      }
+      const pathFor=r=>(r.kind==='coach'?'users/':'clients/')+r.targetId;
+      await load(rows.map(pathFor));
+      const users=[], byClub=new Map();
+      for(const row of rows){
+        const target=await memo.get(pathFor(row));
+        if(!active(target) || (row.kind==='client' ? !belongs(target,row.clubId) : target.clubId!==row.clubId || target.role!=='coach')) continue;
+        const peer=row.kind==='coach'?row.targetId:account(target);
+        if(!peer || peer!==row.peerUid) continue;
+        users.push('users/'+peer);
+        if(!byClub.has(row.clubId)) byClub.set(row.clubId,new Set());
+        byClub.get(row.clubId).add(peer);
+      }
+      await load(users);
+      for(const [clubId,set] of byClub){
+        const ids=[...set], collection=db.collection('clubs').doc(clubId).collection('members');
+        for(let i=0;i<ids.length;i+=30){
+          const chunk=ids.slice(i,i+30);
+          const snap=await collection.where(firestore.FieldPath.documentId(),'in',chunk).get();
+          for(const id of chunk) memo.set(collection.doc(id).path,Promise.resolve(null));
+          for(const doc of snap.docs) memo.set(doc.ref.path,Promise.resolve({...doc.data(),id:doc.id}));
+        }
+      }
+    }
+    return { scope, admin, authorize, preload };
   }
   async function authorize(uid, clubId, kind, targetId, adminPreview = false) {
     return access(uid).authorize(clubId,kind,targetId,adminPreview);

@@ -16,7 +16,7 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
 (async () => {
   // Use the ESM SDK consistently with the actual browser operation module.
   const { initializeTestEnvironment, assertSucceeds, assertFails } = await import('@firebase/rules-unit-testing');
-  const { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, Timestamp } = await import('firebase/firestore');
+  const { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, Timestamp, serverTimestamp } = await import('firebase/firestore');
   const [emulatorHost, port] = host.split(':');
   const env = await initializeTestEnvironment({ projectId, firestore: { host: emulatorHost, port: Number(port), rules: fs.readFileSync(path.join(__dirname, '../firestore.rules'), 'utf8') } });
   const { createProgramCreationOperation, createProgramAssignmentOperation } = await import('../src/utils/programWriteOperations.js');
@@ -64,6 +64,34 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
     const read = (db, key) => getDoc(doc(db, key));
     const patch = (db, key, value = { title: 'Edited' }) => updateDoc(doc(db, key), value);
 
+    await test('professional thread denies stale aliases, replacement, former coach and revoked writes', async()=>{
+      const conversation='conversations/security__coach-a';
+      const history=conversation+'/messages/first';
+      const setFixture=(key,data)=>env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),key),data,{merge:true}));
+      await setFixture('clients/security',{authUid:'patient',linkedUserId:'patient',coachId:'coach-a'});
+      await setFixture(conversation,{clientId:'security',clientUid:'patient',professionalUid:'coach-a',participantUids:['patient','coach-a']});
+      await setFixture(history,{text:'fixture'});
+      const patient=dbFor('patient'), professional=dbFor('coach-a');
+      await assertSucceeds(read(patient,history));await assertSucceeds(read(professional,history));
+      const send=database=>setDoc(doc(database,conversation+'/messages/attempt'),{text:'fixture',senderUid:'patient',type:'text',createdAt:serverTimestamp(),createdAtIso:'2026-01-01'});
+      await assertSucceeds(send(patient));
+      await assertSucceeds(patch(patient,conversation,{'readAtBy.patient':serverTimestamp()}));
+      await setFixture('clients/security',{authUid:'replacement'});
+      await assertFails(read(patient,conversation));await assertFails(read(patient,history));
+      await assertFails(read(dbFor('replacement'),history));
+      await assertFails(setDoc(doc(patient,conversation+'/messages/new'),{text:'fixture',senderUid:'patient',type:'text',createdAt:serverTimestamp(),createdAtIso:'2026-01-01'}));
+      await assertFails(patch(patient,conversation,{'readAtBy.patient':serverTimestamp()}));
+      await setFixture('clients/security',{authUid:'patient',coachId:'coach-b',sharedWith:['coach-a']});
+      await assertFails(read(professional,history));await assertFails(read(patient,history));
+      await setFixture('clients/security',{coachId:'coach-a'});
+      await setFixture('users/coach-a',{role:'particulier',linkedClientId:'security'});
+      await assertFails(read(professional,history));
+      await setFixture('users/coach-a',{role:'coach',linkedClientId:null});
+      await setFixture('users/patient',{disabledByClub:true});await assertFails(read(patient,history));
+      await assertFails(patch(patient,'users/patient',{disabledByClub:false}));
+      await assertFails(patch(patient,'clients/security',{professionalIds:['coach-a','coach-b']}));
+      await setFixture('users/patient',{disabledByClub:false});await assertSucceeds(read(patient,history));
+    });
     await test('nullable links do not expose unrelated sessions', () => assertFails(read(dbFor('assigned-reader'), 'sessions/unlinked-null')));
     await test('client can consult professional appointments', () => assertSucceeds(read(dbFor('patient'), 'sessions/pro-planned')));
     await test('client cannot move professional appointments', () => assertFails(patch(dbFor('patient'), 'sessions/pro-planned', {start:3, end:4})));

@@ -16,7 +16,8 @@ export default function useMessagingContacts({compose=false, selected=''}={}) {
   const scope = isAdmin && effectiveRole==='coach' ? new URLSearchParams(location.search).get('adminCoachId') || '' : '';
   const inbox=useMessagingFeed({professional:true,scope});
   const needsTarget = selected && !selected.startsWith('club:') && !inbox.error && !inbox.loading && !inbox.contacts.some(c=>c.id===selected);
-  const feed=useMessagingFeed({professional:true,scope,compose:compose || needsTarget});
+  const openThread=inbox.contacts.some(c=>c.id===selected) ? {clubId:'',kind:'professional',targetId:selected} : null;
+  const feed=useMessagingFeed({professional:true,scope,compose:compose || needsTarget,focusedThread:openThread});
   const contacts=useMemo(()=>mergeContacts(feed.directory,feed.contacts).map(c=>({...c,
     hiddenAtMillis:c.hiddenAtMillis || feed.hiddenAtByConversation?.[c.id] || 0,
     title:c.title || t('messaging.professional'),lastMessage:cancellationPreview(c,clubText)}))

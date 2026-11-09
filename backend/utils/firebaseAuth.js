@@ -46,12 +46,18 @@ function hasActiveProfessionalAccess(user = {}, authToken = {}) {
   return user.hasActiveSubscription === true || status === "active" || status === "club_active";
 }
 
-async function requireFirebaseAuth(req, res, next) {
+function requireFirebaseAuth(req, res, next) {
+  return authenticate(req, res, next, false);
+}
+function requireUnrevokedFirebaseAuth(req, res, next) {
+  return authenticate(req, res, next, true);
+}
+async function authenticate(req, res, next, checkRevoked) {
   try {
     const token = getBearerToken(req);
     if (!token) return res.status(401).json({ error: "auth-required" });
 
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await admin.auth().verifyIdToken(token, checkRevoked);
     req.auth = {
       uid: decoded.uid,
       email: decoded.email || null,
@@ -59,7 +65,7 @@ async function requireFirebaseAuth(req, res, next) {
     };
     return next();
   } catch (error) {
-    console.warn("[auth] invalid Firebase token:", error?.message || error);
+    console.warn("[auth] invalid Firebase token:", checkRevoked ? error?.code || "unknown" : error?.message || error);
     return res.status(401).json({ error: "invalid-auth-token" });
   }
 }
@@ -98,6 +104,7 @@ module.exports = {
   getUserRole,
   hasActiveProfessionalAccess,
   requireFirebaseAuth,
+  requireUnrevokedFirebaseAuth,
   requireSelfOrAdmin,
   safeSecretEqual,
 };

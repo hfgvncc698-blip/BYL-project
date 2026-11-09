@@ -82,6 +82,12 @@ async function start(entry) {
     while (!controller.signal.aborted && entry.listeners.size) {
       const params = new URLSearchParams();
       if (entry.scope) params.set(entry.professional ? 'coach' : 'clubId', entry.scope);
+      const focus=entry.focus?.keys().next().value;
+      if(focus){
+        const [club,kind,target]=JSON.parse(focus);
+        if(entry.professional) params.set('focusConversation',target);
+        else {params.set('focusClub',club);params.set('focusKind',kind);params.set('focusTarget',target);}
+      }
       if (version) params.set('since', version);
       if (known) params.set('known', known);
       const result = await api('inbox?' + params, null, controller.signal, entry.account, entry.professional);
@@ -90,9 +96,11 @@ async function start(entry) {
       known = result.known;
       entry.delay = 1000;
       const lost = entry.state.error;
+      if(result.deniedThread) entry.directoryController?.abort();
       publish(entry, {
         ...entry.state,
         ...result,
+        ...(result.deniedThread ? {directory:[]} : {}),
         loading: false,
         error: false,
         denied: false,
@@ -154,7 +162,7 @@ async function directory(entry) {
   }
 }
 function entryFor(account, user, role, isAdmin, professional, scope) {
-  const key = JSON.stringify([account.uid, user.clubId || '', user.linkedClientId || '', role, user.role, isAdmin, professional, scope]);
+  const key = JSON.stringify([account.uid, user.clubId || '', user.linkedClientId || '', role, user.role,user.accountType,user.clubRole,user.subscriptionStatus, isAdmin, professional, scope]);
   let e = entries.get(key);
   if (!e || e.account !== account) {
     e = {
@@ -190,7 +198,7 @@ export function useMessagingFeed({
   professional = false,
   scope = '',
   enabled = true,
-  compose = false
+  compose = false, focusedThread=null
 } = {}) {
   const {
     user,
@@ -199,8 +207,21 @@ export function useMessagingFeed({
   } = useAuth();
   const account = useSyncExternalStore(subscribeAuth, accountNow, () => null);
   const ownerClub = !professional && (user?.role === 'club' || user?.clubRole === 'owner' || user?.accountType === 'club_owner') ? user.clubId : '';
-  const entry = enabled && account && user?.uid === account.uid ? entryFor(account, user, effectiveRole, isAdmin, professional, scope || ownerClub || '') : null;
+  const entry = enabled && account && !user?.messagingDisabled && user?.uid === account.uid ? entryFor(account, user, effectiveRole, isAdmin, professional, scope || ownerClub || '') : null;
   const state = useSyncExternalStore(entry?.subscribe || noop, entry?.snapshot || emptySnapshot, emptySnapshot);
+  const focusKey=focusedThread && JSON.stringify([focusedThread.clubId,focusedThread.kind,focusedThread.targetId]);
+  useEffect(()=>{
+    if(!entry || !focusKey) return;
+    entry.focus ||= new Map();
+    const change=(delta)=>{
+      const previous=entry.focus.keys().next().value;
+      const count=(entry.focus.get(focusKey)||0)+delta;
+      if(count) entry.focus.set(focusKey,count);else entry.focus.delete(focusKey);
+      if(previous!==entry.focus.keys().next().value) entry.controller?.abort();
+    };
+    change(1);
+    return ()=>change(-1);
+  },[entry,focusKey]);
   useEffect(() => {
     if (!compose || !entry) return;
     if (++entry.directoryUsers === 1) directory(entry);
@@ -233,5 +254,5 @@ export function useMessagingIdentity() {
     effectiveRole
   } = useAuth();
   const account = useSyncExternalStore(subscribeAuth, accountNow, () => null);
-  return account && account.uid === user?.uid ? JSON.stringify([account.uid, user.clubId, effectiveRole, user.linkedClientId]) : null;
+  return account && !user?.messagingDisabled && account.uid === user?.uid ? JSON.stringify([account.uid, user.clubId,user.role,user.accountType,user.clubRole,user.subscriptionStatus,effectiveRole, user.linkedClientId]) : null;
 }

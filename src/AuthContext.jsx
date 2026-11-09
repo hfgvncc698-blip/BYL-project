@@ -291,6 +291,7 @@ const normalizeUserDoc = (uid, data, fb) => {
     firstName: data?.firstName ?? data?.prenom ?? "Utilisateur",
     lastName: data?.lastName ?? data?.nom ?? "",
     role,
+    messagingDisabled: Boolean(data?.disabled || data?.disabledByClub || data?.deletedFromClub || ['club_disabled','club_deleted'].includes(data?.subscriptionStatus) || ['disabled','deleted','removed','inactive','club_deleted'].includes(data?.status)),
     accountType: data?.accountType ?? (data?.clubRole ? "club_member" : ""),
     clubId: data?.clubId ?? null,
     clubRole: data?.clubRole ?? null,

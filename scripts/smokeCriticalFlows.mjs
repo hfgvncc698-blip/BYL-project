@@ -1885,7 +1885,10 @@ check("guided tutorials match the current screens and keep targets bright", () =
   ].forEach((target) => {
     assert.ok(
       tutorial.includes(`[data-tour='${target}']`) &&
-        currentScreens.includes(`data-tour="${target}"`),
+        (currentScreens.includes(`data-tour="${target}"`) ||
+          (target === "coach-today" &&
+            /return renderPriorityCard\(\{\s*"data-tour": "coach-today"/.test(currentScreens) &&
+            /const renderPriorityCard = \(\{[^}]*\.\.\.props\s*\}\) => \(\s*<Box\s+\{\.\.\.props\}/.test(currentScreens))),
       `Tutorial target ${target} must exist on its current screen`
     );
   });

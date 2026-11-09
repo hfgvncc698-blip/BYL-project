@@ -1,7 +1,7 @@
 const express = require('express');
 const admin = require('../firebaseAdmin');
 const {
-  requireFirebaseAuth
+  requireUnrevokedFirebaseAuth: requireFirebaseAuth
 } = require('../utils/firebaseAuth');
 const {
   watchInbox,
@@ -103,8 +103,26 @@ router.get('/inbox', async (req, res) => {
   res.once('close', () => controller.abort());
   try {
     const requested = checkedClub(req);
-    const first = await service.access(req.auth.uid, req.auth.token).scope(requested);
-    const snapshot = await watchInbox(db, first.ownerView ? 'clubId' : 'peerUid', first.clubId || req.auth.uid, req.query.since, controller.signal);
+    const admission=service.access(req.auth.uid,req.auth.token);
+    const first=await admission.scope(requested);
+    const paths=[];
+    if(req.query.focusTarget!==undefined){
+      const {focusClub:club,focusKind:kind,focusTarget:target}=req.query;
+      if(!valid(club) || !valid(target) || !['coach','client'].includes(kind) || (first.ownerView && first.clubId!==club))
+        return res.status(400).json({error:'invalid-focus'});
+      try {
+        const info=await admission.authorize(club,kind,target,first.preview);
+        paths.push('users/'+req.auth.uid,'clubs/'+club,(kind==='coach'?'users/':'clients/')+target,
+          'users/'+info.contact.peerUid,'clubs/'+club+'/members/'+info.contact.peerUid);
+      } catch(error){if(error.status!==403) throw error;}
+    }
+    const snapshot=await watchInbox(db,first.ownerView?'clubId':'peerUid',first.clubId||req.auth.uid,
+      req.query.since,controller.signal,'clubConversations','==',paths);
+    if (controller.signal.aborted) return;
+    if (req.query.since) {
+      await requireFirebaseAuth(req,res,()=>true);
+      if (res.headersSent) return;
+    }
     // Never use the listener or the authorization from before the wait as a grant.
     const access = service.access(req.auth.uid, req.auth.token);
     const scope = await access.scope(requested);
@@ -112,9 +130,14 @@ router.get('/inbox', async (req, res) => {
       status: 403
     });
     const contacts = [];
-    for (const doc of snapshot.docs) {
+    const candidates=snapshot.docs.filter(doc=>{
+      const row=doc.data();
+      return valid(row.clubId) && valid(row.targetId) && valid(row.peerUid) &&
+        ['coach','client'].includes(row.kind);
+    });
+    await access.preload(candidates.map(doc=>doc.data()));
+    for (const doc of candidates) {
       const row = doc.data();
-      if (!valid(row.clubId) || !valid(row.targetId) || !['coach', 'client'].includes(row.kind)) continue;
       try {
         const info = await access.authorize(row.clubId, row.kind, row.targetId, scope.preview);
         if (info.contact.id !== doc.id || info.contact.peerUid !== row.peerUid) continue;
@@ -123,9 +146,21 @@ router.get('/inbox', async (req, res) => {
         if (error.status !== 403) throw error;
       }
     }
+    let deniedThread;
+    if(req.query.focusTarget!==undefined){
+      const {focusClub,focusKind,focusTarget}=req.query;
+      try {
+        const info=await access.authorize(focusClub,focusKind,focusTarget,scope.preview);
+        const row=snapshot.docs.find(d=>d.id===info.contact.id);
+        if(row && row.data().peerUid!==info.contact.peerUid) throw Object.assign(new Error('recipient-changed'),{status:403});
+      } catch(error){
+        if(error.status!==403) throw error;
+        deniedThread=JSON.stringify([focusClub,focusKind,focusTarget]);
+      }
+    }
     if (!controller.signal.aborted) {
       replyInbox(res, req.query.known, snapshot.version, {
-        ...scope,
+        ...scope, deniedThread:deniedThread || '',
         contacts,
         unreadCount: contacts.filter(c => c.unread).length
       });
@@ -161,10 +196,16 @@ router.get('/contacts', async (req, res) => {
     const info = await service.contacts(req.auth.uid, requested, scope.preview);
     const snap = await db.collection('clubConversations').where(scope.ownerView ? 'clubId' : 'peerUid', '==', scope.clubId || req.auth.uid).get();
     const rows = new Map(snap.docs.map(d => [d.id, d.data()]));
-    const contacts = info.contacts.map(c => {
-      const row = rows.get(c.id);
-      return summary(c, row && row.peerUid === c.peerUid ? row : {}, scope.ownerView ? 'club' : 'member');
-    });
+    const contacts=[];
+    await access.preload(snap.docs.map(d=>d.data()).filter(r=>valid(r.targetId)&&valid(r.peerUid)&&valid(r.clubId)&&['client','coach'].includes(r.kind)));
+    for (const c of info.contacts) {
+      let row=rows.get(c.id);
+      if(row && row.peerUid===c.peerUid){
+        try {await access.authorize(c.clubId,c.kind,c.targetId,scope.preview);}
+        catch(error){if(error.status!==403) throw error;row=null;}
+      } else row=null;
+      contacts.push(summary(c,row || {},scope.ownerView?'club':'member'));
+    }
     res.json({
       ...scope,
       contacts
@@ -207,57 +248,57 @@ function messageRow(doc) {
 }
 router.get('/messages', async (req, res) => {
   try {
-    const {
-      ref,
-      info
-    } = await authorize(req);
-    res.set?.('Cache-Control', 'private, no-store');
-    if (req.query.after) {
-      const match = /^(\d{1,12}):(\d{1,9})$/.exec(req.query.after);
-      if (!match || Number(match[2]) >= 1e9 || req.query.afterId && !valid(req.query.afterId)) return res.status(400).json({
-        error: 'invalid-cursor'
-      });
-      const time = new admin.firestore.Timestamp(Number(match[1]), Number(match[2]));
-      let changes = ref.collection('messages').orderBy('committedAt').orderBy(admin.firestore.FieldPath.documentId());
-      changes = req.query.afterId ? changes.startAfter(time, req.query.afterId) : changes.where('committedAt', '>', time);
-      const page = await changes.limit(51).get();
-      const docs = page.docs.slice(0, 50),
-        more = page.size > 50;
-      return res.json({
-        messages: docs.map(messageRow),
-        more,
-        after: stamp(more ? docs.at(-1).data().committedAt : page.readTime),
-        afterId: more ? docs.at(-1).id : ''
-      });
-    }
-    let query = ref.collection('messages').orderBy('createdAtIso', 'desc');
-    if (req.query.before) {
-      if (!valid(req.query.before)) return res.status(400).json({
-        error: 'invalid-cursor'
-      });
-      const cursor = await ref.collection('messages').doc(req.query.before).get();
-      if (!cursor.exists) return res.status(400).json({
-        error: 'invalid-cursor'
-      });
-      query = query.startAfter(cursor);
-    }
-    const snap = await query.limit(51).get();
-    const docs = snap.docs.slice(0, 50);
-    if (!req.query.before && req.query.receipt !== 'visible') {
-      const inbound = docs.find(doc => doc.data().side !== info.side);
-      rememberPage(res, deliveryKey(req.auth.uid, ref.id), inbound ? {
-        messageId: inbound.id,
-        watermark: stamp(sentAt(inbound))
-      } : {
-        empty: true
-      });
-    }
-    res.json({
-      messages: docs.map(messageRow).reverse(),
-      more: snap.size > 50,
-      cursor: docs.at(-1)?.id || '',
-      after: stamp(snap.readTime)
-    });
+    let legacy;
+    const page=await db.runTransaction(async tx=>{
+      const {
+        ref,
+        info
+      } = await authorize(req,tx);
+
+      if (req.query.after) {
+        const match = /^(\d{1,12}):(\d{1,9})$/.exec(req.query.after);
+        if (!match || Number(match[2]) >= 1e9 || req.query.afterId && !valid(req.query.afterId)) throw Object.assign(new Error('invalid-cursor'),{status:400});
+        const time = new admin.firestore.Timestamp(Number(match[1]), Number(match[2]));
+        let changes = ref.collection('messages').orderBy('committedAt').orderBy(admin.firestore.FieldPath.documentId());
+        changes = req.query.afterId ? changes.startAfter(time, req.query.afterId) : changes.where('committedAt', '>', time);
+        const page = await tx.get(changes.limit(51));
+        const docs = page.docs.slice(0, 50),
+          more = page.size > 50;
+        return {
+          messages: docs.map(messageRow),
+          more,
+          after: stamp(more ? docs.at(-1).data().committedAt : page.readTime),
+          afterId: more ? docs.at(-1).id : ''
+        };
+      }
+      let query = ref.collection('messages').orderBy('createdAtIso', 'desc');
+      if (req.query.before) {
+        if (!valid(req.query.before)) throw Object.assign(new Error('invalid-cursor'),{status:400});
+        const cursor = await tx.get(ref.collection('messages').doc(req.query.before));
+        if (!cursor.exists) throw Object.assign(new Error('invalid-cursor'),{status:400});
+        query = query.startAfter(cursor);
+      }
+      const snap = await tx.get(query.limit(51));
+      const docs = snap.docs.slice(0, 50);
+      if (!req.query.before && req.query.receipt !== 'visible') {
+        const inbound = docs.find(doc => doc.data().side !== info.side);
+        legacy=[deliveryKey(req.auth.uid, ref.id), inbound ? {
+          messageId: inbound.id,
+          watermark: stamp(sentAt(inbound))
+        } : {
+          empty: true
+        }];
+      }
+      return {
+        messages: docs.map(messageRow).reverse(),
+        more: snap.size > 50,
+        cursor: docs.at(-1)?.id || '',
+        after: stamp(snap.readTime)
+      };
+    },{readOnly:true});
+    if(legacy) rememberPage(res,...legacy);
+    res.set?.('Cache-Control','private, no-store');
+    res.json(page);
   } catch (error) {
     fail(res, error);
   }
