@@ -1430,7 +1430,7 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
     "Automatic email sends must honor the account-wide notification preference"
   );
   assert.ok(
-    functionsIndex.includes("if (!(await claimLifecycleEmail(programRef, kind))) return false"),
+    functionsIndex.includes("if (!(await claimLifecycleEmail(programRef, kind, { field, date: program[field] }))) return false"),
     "Program lifecycle emails must claim delivery before SMTP"
   );
   assert.ok(

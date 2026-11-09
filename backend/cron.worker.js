@@ -14,19 +14,8 @@ const { db, FieldValue } = require('./utils/db');
 const withRetry = require('./utils/withRetry');
 const { generateAndSaveAutoProgram } = require('./utils/generateAutoProgram');
 const subscriptionCycles = require('./utils/subscriptionCycles').createSubscriptionCycles({db,FieldValue,generateProgram:generateAndSaveAutoProgram});
-let cycleWorkerBusy=false;
-let nextCyclePoll=0;
-async function runSubscriptionCycles() {
-  if(cycleWorkerBusy || Date.now()<nextCyclePoll)return;
-  cycleWorkerBusy=true; nextCyclePoll=Date.now()+5000;
-  try {
-    const jobs=await db.collection('subscription_cycle_jobs').where('status','==','pending').where('leaseUntil','<=',Date.now()).orderBy('leaseUntil').limit(20).get();
-    for(const job of jobs.docs) {
-      if(Number(job.data().leaseUntil)>Date.now())continue;
-      try {await subscriptionCycles.process(job.id);} catch(error) {console.error('[CYCLE]',job.id,error.message);}
-    }
-  } finally {cycleWorkerBusy=false;}
-}
+const { startCycleWorker } = require('./utils/subscriptionCycleWorker');
+const stopCycles = startCycleWorker(db, subscriptionCycles);
 
 const clubMemberships = require('./utils/clubMemberships').createClubMemberships(db);
 let expiryBusy = false, nextExpiryPoll = 0;
@@ -37,16 +26,7 @@ async function runMembershipExpiry() {
 }
 
 const TZ = process.env.CRON_TZ || 'Europe/Paris';
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
-const nowMs = () => Date.now();
-const millis = (any) => {
-  if (!any) return null;
-  if (any instanceof Date) return any.getTime();
-  if (typeof any === 'number') return any;
-  if (typeof any?.toDate === 'function') return any.toDate().getTime();
-  return null;
-};
+const { deliverMonthly, runTrialExpiry } = require('./utils/legacyCronSubscriptions');
 
 // --- Petites mémoires en RAM pour éviter les doublons si le process se réveille en décalé
 let lastTrialCheckMinuteKey = null;
@@ -71,29 +51,9 @@ async function runTrialGuard() {
   lastTrialCheckMinuteKey = k;
 
   try {
-    const now = nowMs();
-    const snap = await withRetry(() =>
-      db.collection('users').where('subscriptionStatus', '==', 'trialing').get()
-    );
-
-    for (const docu of snap.docs) {
-      const u = docu.data();
-      const endMs = millis(u.trialEnd ?? u.trialEndsAt);
-      const hasStripeSub = !!u.stripeSubscriptionId;
-      if (!hasStripeSub && endMs && endMs <= now) {
-        await withRetry(() =>
-          db.collection('users').doc(docu.id).set({
-            hasActiveSubscription: false,
-            subscriptionStatus: 'canceled',
-            trialStatus: 'ended',
-            updatedAt: FieldValue.serverTimestamp(),
-          }, { merge: true })
-        );
-        console.log('[CRON-TRIAL] Essai expiré -> accès coupé pour', docu.id);
-      }
-    }
+    await runTrialExpiry(db, FieldValue, Date.now(), { retry: withRetry });
   } catch (e) {
-    console.error('[CRON-TRIAL] erreur:', e);
+    console.error('[CRON-TRIAL] failed', e.code || 'trial-error');
   }
 }
 
@@ -118,59 +78,20 @@ async function runMonthlyPrograms() {
       );
 
       for (const doc of clientsSnap.docs) {
-        const data = doc.data();
-        const clientId = doc.id;
-        if (data.subscriptionCycle?.enabled) continue;
-        // New paid subscriptions are delivered exactly once per paid invoice.
-        // Keep the historical 30-day worker only for legacy subscriptions.
-        if (data.deliveryMode === 'stripe-invoice') continue;
-        const hasStripeSub = !!data.stripeSubscriptionId || !!data.stripeCustomerId;
-        if (!hasStripeSub) continue;
-
-        const nbSeances = data.nbSeancesAbonnement;
-        if (!nbSeances) continue;
-
-        const dernierProg = data.dernierProgrammeGenere
-          ? new Date(data.dernierProgrammeGenere).getTime()
-          : 0;
-        if (dernierProg && nowMs() - dernierProg < THIRTY_DAYS_MS) continue;
-
-        const defaultCycle = ['endurance', 'prise de masse', 'force'];
-        const cycle = Array.isArray(data.cycleAbonnement) && data.cycleAbonnement.length
-          ? data.cycleAbonnement
-          : defaultCycle;
-
-        let idx = typeof data.cycleAbonnementIndex === 'number' ? data.cycleAbonnementIndex : 0;
-        if (idx >= cycle.length) idx = 0;
-
-        const objectif = cycle[idx];
-        const niveau = data.niveauSportif || 'Débutant';
-        const sexe = data.sexe || 'Homme';
-
-        await generateAndSaveAutoProgram({
-          clientId, sexe, niveau, nbSeances, objectif, createdBy: 'auto-cron-30d',
-        });
-
-        await withRetry(() =>
-          db.collection('clients').doc(clientId).set({
-            cycleAbonnementIndex: (idx + 1) % cycle.length,
-            dernierProgrammeGenere: new Date(),
-          }, { merge: true })
-        );
-
-        console.log(`[CRON-30D] Programme généré pour ${data.prenom || clientId} [${objectif}]`);
+        try { await deliverMonthly(db, doc, generateAndSaveAutoProgram, FieldValue); }
+        catch (error) { console.error('[CRON-30D] job failed', error.code || 'generation-error'); }
       }
 
       console.log('[CRON-30D] Terminé.');
     } catch (err) {
-      console.error('[CRON-30D] Erreur boucle:', err);
+      console.error('[CRON-30D] selection failed', err.code || 'query-error');
     }
   }), jitterMs);
 }
 
 // --- ticker propre (1 tick/sec), sans rater d’exécution si la machine “se réveille”
 let lastTick = performance.now();
-setInterval(() => {
+const ticker = setInterval(() => {
   const t = performance.now();
   const driftMs = t - lastTick - 1000;
   lastTick = t;
@@ -178,11 +99,16 @@ setInterval(() => {
   if (driftMs > 2000) {
     console.log(`[CRON] wake/lag detected (${Math.round(driftMs)}ms)`);
   }
-  measureJob('expiry', runMembershipExpiry).catch(error => console.error('[MEMBERSHIP-EXPIRY]', error.message));
+  measureJob('expiry', runMembershipExpiry).catch(error => console.error('[MEMBERSHIP-EXPIRY]', error.code || 'expiry-error'));
   // exécutions
   measureJob('trials', runTrialGuard).catch(() => {});
   runMonthlyPrograms().catch(() => {});
-  measureJob('cycles', runSubscriptionCycles).catch(error => console.error('[CYCLE-WORKER]',error.message));
 }, 1000);
 
 console.log('[CRON] worker started (ticker) TZ=' + (process.env.TZ || TZ));
+
+for (const signal of ['SIGINT','SIGTERM']) process.once(signal, async () => {
+  clearInterval(ticker);
+  await stopCycles();
+  process.exit(0);
+});

@@ -1,4 +1,6 @@
 // Memberships are separate from authentication accounts. All writes use the Admin SDK.
+const { workerFirestoreStatus } = require('./workerFirestoreError');
+const { expiryLease } = require('./membershipExpiryLease');
 const clubsOf = d => [...new Set([d.clubId, ...(Array.isArray(d.clubIds) ? d.clubIds : []), d.club?.id].filter(Boolean))];
 const identities = (id, d) => [id, d.uid, d.authUid, d.accountUid, d.linkedUserId, d.userId];
 const fail = (message, status = 409) => { throw Object.assign(new Error(message), { status }); };
@@ -16,7 +18,10 @@ function removeReservations(event, ids, now) {
   return { participantIds: kept.slice(0, event.capacity), waitlistIds: kept.slice(event.capacity) };
 }
 const profile = d => Object.fromEntries(['prenom', 'nom', 'firstName', 'lastName', 'email', 'telephone', 'dateNaissance', 'niveauSportif', 'objectifs', 'notes', 'adresse', 'address', 'codePostal', 'postalCode', 'ville', 'city', 'pays', 'country'].filter(k => d[k] !== undefined).map(k => [k, d[k]]));
-function createClubMemberships(db) {
+const parisCalendar = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit',
+});
+function createClubMemberships(db, { clock = Date.now } = {}) {
   async function records(uid, reader = db) {
     const direct = reader === db ? await db.collection('clients').doc(uid).get() : await reader.get(db.collection('clients').doc(uid));
     const snapshots = await Promise.all(['uid', 'authUid', 'accountUid', 'linkedUserId', 'userId'].map(k => {
@@ -26,29 +31,71 @@ function createClubMemberships(db) {
     const own = direct || await db.collection('clients').doc(uid).get();
     return [...new Map([own, ...snapshots.flatMap(s => s.docs)].filter(s => s.exists && identities(s.id, s.data()).includes(uid)).map(s => [s.id, s])).values()];
   }
+  let warnedAboutIndex = false;
+  // Page by the indexed contract date, including older unprocessed contracts after downtime.
+  async function expireCandidates(collection, clubId, lease) {
+    const today = parisCalendar.format(clock());
+    const due = collection.where('exitDate', '>', '').where('exitDate', '<', today)
+      .orderBy('exitDate').select('exitDate').limit(200);
+    let cursor, examined = 0, failed = 0;
+    do {
+      const page = await (cursor ? due.startAfter(cursor) : due).get();
+      const parents = new Map();
+      for (const doc of page.docs) {
+        const path = doc.ref.path.split('/');
+        if (path.length !== 4 || path[0] !== 'clubs') continue;
+        const id = clubId || path[1];
+        examined++;
+        try {
+          // A collection group includes orphaned subcollections; the old global scan did not.
+          if (!clubId && !parents.has(id)) parents.set(id, (await db.collection('clubs').doc(id).get()).exists);
+          if (!clubId && !parents.get(id)) continue;
+          const client = await db.collection('clients').doc(doc.id).get();
+          if (!client.exists || !clubsOf(client.data()).includes(id)) continue;
+          if (lease && !await lease.acquire()) return { examined, failed, busy: true };
+          const d = client.data();
+          await service.leave(d.authUid || d.accountUid || d.linkedUserId || d.userId || d.uid || client.id, id, { expiredOnly: true });
+        } catch (error) {
+          if (clubId) throw error;
+          failed++;
+          console.error('[membership expiry] candidate failed', error.code || 'processing-error');
+        }
+      }
+      cursor = page.size === 200 ? page.docs.at(-1) : null;
+    } while (cursor);
+    return { examined, failed };
+  }
   const service = {
     async expireClient(uid) {
       const linked = await records(uid);
       for (const clubId of new Set(linked.flatMap(s => clubsOf(s.data())))) await service.leave(uid, clubId, { expiredOnly: true });
     },
-    async expireClub(clubId) {
-      const docs = await db.collection('clubs').doc(clubId).collection('privateClients').get();
-      const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
-      for (const doc of docs.docs) {
-        if (!doc.data().exitDate || doc.data().exitDate >= today) continue;
-        const client = await db.collection('clients').doc(doc.id).get();
-        if (!client.exists || !clubsOf(client.data()).includes(clubId)) continue;
-        const d = client.data();
-        await service.leave(d.authUid || d.accountUid || d.linkedUserId || d.userId || d.uid || client.id, clubId, { expiredOnly:true });
-      }
+    expireClub(clubId) {
+      return expireCandidates(db.collection('clubs').doc(clubId).collection('privateClients'), clubId);
     },
     async expireAll() {
-      const clubs = await db.collection('clubs').get();
-      let failed = 0;
-      for (const club of clubs.docs) {
-        try { await service.expireClub(club.id); } catch (e) { failed += 1; console.error('[membership expiry]', club.id, e.message); }
-      }
-      return { clubs: clubs.docs.length, failed };
+      const lease = expiryLease(db);
+      try {
+        try {
+          const result = await expireCandidates(db.collectionGroup('privateClients'), undefined, lease);
+          warnedAboutIndex = false;
+          return result;
+        } catch (error) {
+          // The scoped query does not require the new collection-group index.
+          if (workerFirestoreStatus(error) !== 'FAILED_PRECONDITION') throw error;
+          if (!warnedAboutIndex) console.warn('[membership expiry] Group index unavailable; using per-club date queries');
+          warnedAboutIndex = true;
+          const clubs = await db.collection('clubs').select().get();
+          let failed = 0;
+          for (const club of clubs.docs) {
+            try {
+              const result = await expireCandidates(club.ref.collection('privateClients'), club.id, lease);
+              if (result.busy) return { fallback: true, busy: true, failed };
+            } catch { failed++; }
+          }
+          return { fallback: true, clubs: clubs.size, failed };
+        }
+      } finally { await lease.release(); }
     },
     async link(uid, clubId, ownerUid, input) {
       return db.runTransaction(async tx => {
@@ -94,7 +141,7 @@ function createClubMemberships(db) {
         if(!expiredOnly){
           const subscriptions=await Promise.all(affected.map(s=>tx.get(club.collection('privateClients').doc(s.id).collection('subscriptions'))));
           const termination=await tx.get(club.collection('terminationRequests').doc(uid));
-          const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+          const day=parisCalendar.format(clock());
           if(subscriptions.some(rows=>rows.docs.some(s=>(s.data().format??'subscription')==='subscription'&&s.data().end>=day))||['pending','accepted','end_of_term'].includes(termination.data()?.status))fail('Une demande de résiliation auprès du club est nécessaire.');
         }
         let expiredAt = null;

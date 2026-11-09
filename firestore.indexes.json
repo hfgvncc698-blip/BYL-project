@@ -1,5 +1,7 @@
 {
   "indexes": [
+    {"collectionGroup":"users","queryScope":"COLLECTION","fields":[{"fieldPath":"subscriptionStatus","order":"ASCENDING"},{"fieldPath":"trialEnd","order":"ASCENDING"}]},
+    {"collectionGroup":"users","queryScope":"COLLECTION","fields":[{"fieldPath":"subscriptionStatus","order":"ASCENDING"},{"fieldPath":"trialEndsAt","order":"ASCENDING"}]},
     {"collectionGroup":"subscription_cycle_jobs","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"leaseUntil","order":"ASCENDING"}]},
     {
       "collectionGroup": "sessions",
@@ -57,6 +59,16 @@
     }
   ],
   "fieldOverrides": [
+    {
+      "collectionGroup": "privateClients",
+      "fieldPath": "exitDate",
+      "indexes": [
+        {"order":"ASCENDING","queryScope":"COLLECTION"},
+        {"order":"DESCENDING","queryScope":"COLLECTION"},
+        {"arrayConfig":"CONTAINS","queryScope":"COLLECTION"},
+        {"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}
+      ]
+    },
     {
       "collectionGroup": "programmes",
       "fieldPath": "programId",

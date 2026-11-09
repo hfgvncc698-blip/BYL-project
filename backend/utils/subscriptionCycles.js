@@ -1,4 +1,5 @@
 const {createHash,randomUUID}=require('node:crypto');
+const {lostVersion}=require('./workerFirestoreError');
 const {assertProgramSize}=require('./programDocumentSize.cjs');
 const hash=value=>createHash('sha256').update(String(value)).digest('hex').slice(0,32);
 const ROTATION=[['hypertrophy',4],['recovery',1],['strength',3],['recovery',1]];
@@ -71,28 +72,48 @@ function createSubscriptionCycles({db,FieldValue,generateProgram,now=Date.now}) 
     if(automatic(current)&&!id&&next&&GOALS[next.type]&&!next.draftProgramId)throw new Error('subscription-cycle-pending');
     return {clientId:clientRef.id,programAssignmentId:id,viewerUrl:id?`/clients/${clientRef.id}/programmes/${id}`:'/mes-programmes'};
   }
-  async function process(clientId) {
+  async function process(clientId, { pendingOnly = false, candidate } = {}) {
     const clientRef=db.collection('clients').doc(clientId),jobRef=db.collection('subscription_cycle_jobs').doc(clientId);
     const token=randomUUID();
+    // Competing queue consumers must not both open a business transaction on
+    // the same client. Only the version selected from the due query can be claimed.
+    const reservedUntil=candidate ? now()+120000 : null;
+    if(candidate) {
+      if(candidate.ref.path!==jobRef.path || candidate.data().status!=='pending' || candidate.data().leaseUntil>now())return;
+      try {
+        await jobRef.update({leaseToken:token,leaseUntil:reservedUntil,updatedAt:FieldValue.serverTimestamp()},
+          {lastUpdateTime:candidate.updateTime});
+      } catch(error) {
+        if(lostVersion(error))return;
+        throw error;
+      }
+    }
     const claim=await db.runTransaction(async tx=>{
       const [cs,js]=await Promise.all([tx.get(clientRef),tx.get(jobRef)]);
       const client=cs.data()||{},job=js.data()||{};
+      if(pendingOnly && job.status !== 'pending') return null;
+      if(candidate && (job.leaseToken!==token || job.leaseUntil!==reservedUntil))return null;
       if(!automatic(client)||!entitled(client,now())) {if(js.exists)tx.set(jobRef,{status:'paused',leaseUntil:0},{merge:true});return null;}
-      if(job.leaseUntil>now())return null;
+      if(!candidate && job.leaseUntil>now())return null;
       let plan=client.trainingPlan;
       if(!plan?.cycles?.length){tx.set(jobRef,{status:'idle',leaseUntil:0},{merge:true});return null;}
       if(plan.cycles.every(c=>c.closedAt)) {
         // Repeat the actual timeline, including coach edits, not a separate billing rotation.
         const pattern=plan.cycles.filter(c=>!c.autoRepeat && c.type!=='general');
-        if(!pattern.length)return null;
+        if(!pattern.length){tx.set(jobRef,{status:'idle',leaseUntil:0},{merge:true});return null;}
         const repeated=pattern.map((c,i)=>({id:`auto_${hash(`${clientId}:${plan.cycles.length+i}`)}`,type:c.type,weeks:c.weeks,programId:'',notes:c.notes||'',...(c.name?{name:c.name}:{}),autoRepeat:true}));
         plan={...plan,cycles:[...plan.cycles,...repeated]};
       }
       const index=plan.cycles.findIndex(c=>!c.closedAt),cycle=plan.cycles[index];
       if(cycle.programId||cycle.draftProgramId||!GOALS[cycle.type]) {tx.set(jobRef,{status:'idle',leaseUntil:0},{merge:true});return null;}
-      if(!Number.isInteger(cycle.weeks)||cycle.weeks<1||cycle.weeks>52)throw new Error('invalid-cycle-duration');
-      tx.set(jobRef,{status:'pending',leaseToken:token,leaseUntil:now()+120000,updatedAt:FieldValue.serverTimestamp()},{merge:true});
-      return {client,plan,cycle,index,revision:client.trainingPlan.revision||0};
+      if(!Number.isInteger(cycle.weeks)||cycle.weeks<1||cycle.weeks>52) {
+        if(!pendingOnly)throw new Error('invalid-cycle-duration');
+        tx.set(jobRef,{leaseUntil:now()+30000,error:'invalid-cycle-duration'},{merge:true});
+        return null;
+      }
+      const leaseUntil=candidate ? reservedUntil : now()+120000;
+      if(!candidate)tx.set(jobRef,{status:'pending',leaseToken:token,leaseUntil,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+      return {client,plan,cycle,index,leaseUntil,revision:client.trainingPlan.revision||0};
     });
     if(!claim)return;
     try {
@@ -114,7 +135,7 @@ function createSubscriptionCycles({db,FieldValue,generateProgram,now=Date.now}) 
       await db.runTransaction(async tx=>{
         const [cs,js,ps]=await Promise.all([tx.get(clientRef),tx.get(jobRef),tx.get(programRef)]);
         const fresh=cs.data()||{};
-        if(js.data()?.leaseToken!==token)throw new Error('cycle-lease-lost');
+        if(js.data()?.status!=='pending' || js.data()?.leaseToken!==token || js.data()?.leaseUntil!==claim.leaseUntil)throw new Error('cycle-lease-lost');
         if(!automatic(fresh)||!entitled(fresh,now()))throw new Error('subscription-not-active');
         if((fresh.trainingPlan?.revision||0)!==revision || JSON.stringify(fresh.trainingPlan?.cycles)!==JSON.stringify(client.trainingPlan.cycles))throw new Error('cycle-plan-changed');
         if(ps.exists && ps.data().subscriptionCycleId!==cycle.id)throw new Error('cycle-id-conflict');
@@ -129,7 +150,7 @@ function createSubscriptionCycles({db,FieldValue,generateProgram,now=Date.now}) 
     } catch(error) {
       await db.runTransaction(async tx=>{
         const job=(await tx.get(jobRef)).data()||{};
-        if(job.leaseToken===token)tx.set(jobRef,{status:'pending',leaseUntil:now()+30000,error:String(error.message).slice(0,120),updatedAt:FieldValue.serverTimestamp()},{merge:true});
+        if(job.status==='pending' && job.leaseToken===token && job.leaseUntil===claim.leaseUntil)tx.set(jobRef,{status:'pending',leaseUntil:now()+30000,error:String(error.message).slice(0,120),updatedAt:FieldValue.serverTimestamp()},{merge:true});
       });
       throw error;
     }

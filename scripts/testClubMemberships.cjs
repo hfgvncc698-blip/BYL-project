@@ -6,6 +6,7 @@ const now = Date.now();
 const data = new Map([
  ['users/u', { firstName: 'Camille', clubId: 'old', role: 'particulier' }],
  ['users/owner', { clubId: 'old', role: 'coach', accountType: 'club_owner' }],
+ ['users/newOwner', { clubId: 'new', role:'coach', accountType:'club_owner' }],
  ['clubs/old', { name: 'Ancien club', clientLimit: 20 }], ['clubs/new', { name: 'Nouveau club', clientLimit: 20 }],
  ['clients/dossier', { uid: 'u', clubId: 'old', clubIds: ['old'], prenom: 'Camille', nom: 'Test', notes: 'PRIVATE OLD', coachIds: ['independent'], createdBy: 'independent' }],
  ['clients/other', { uid: 'other', clubId: 'new', notes: 'OTHER CLIENT' }],
@@ -15,14 +16,14 @@ const data = new Map([
 ]);
 function snap(path) { return { id: path.split('/').pop(), ref: ref(path), exists: data.has(path), data: () => structuredClone(data.get(path)) }; }
 function ref(path) { return { path, id: path.split('/').pop(), get: async () => snap(path), collection: name => coll(`${path}/${name}`) }; }
-function coll(path, filters = []) {
- return { doc: id => ref(`${path}/${id}`), limit: () => coll(path, filters), where: (key, op, value) => coll(path, [...filters, [key, op, value]]), get: async () => {
-   const docs = [...data.keys()].filter(k => k.startsWith(path + '/') && k.split('/').length === path.split('/').length + 1 && filters.every(([key, op, value]) => op === 'array-contains' ? data.get(k)[key]?.includes(value) : data.get(k)[key] === value)).map(snap);
+function coll(path, filters = [], group = false) {
+ return { doc: id => ref(`${path}/${id}`), limit: () => coll(path, filters, group), orderBy: () => coll(path, filters, group), select: () => coll(path, filters, group), where: (key, op, value) => coll(path, [...filters, [key, op, value]], group), get: async () => {
+   const docs = [...data.keys()].filter(k => (group ? k.split('/').at(-2)===path : k.startsWith(path + '/') && k.split('/').length === path.split('/').length + 1) && filters.every(([key, op, value]) => op === '>' ? data.get(k)[key]>value : op === '<' ? data.get(k)[key]<value : op === 'array-contains' ? data.get(k)[key]?.includes(value) : data.get(k)[key] === value)).map(snap);
    return { docs, size: docs.length, empty: !docs.length };
  }};
 }
 let queue = Promise.resolve();
-const db = { collection: coll, runTransaction: fn => {
+const db = { collection: coll, collectionGroup: name=>coll(name, [], true), runTransaction: fn => {
  const run = queue.then(async () => {
    const writes = [];
    const result = await fn({ get: r => { assert.equal(writes.length, 0, 'All reads precede writes'); return r.get(); }, update: (r, p) => writes.push([r.path, p, true]), set: (r, p, options) => writes.push([r.path, p, options?.merge]) });

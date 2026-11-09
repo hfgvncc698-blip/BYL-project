@@ -1616,9 +1616,7 @@ function messageField(name) {
   return `lifecycleEmails.${name}MessageId`;
 }
 
-function lifecycleValue(data, name, suffix) {
-  return data?.lifecycleEmails?.[`${name}${suffix}`] || data?.[`lifecycleEmails.${name}${suffix}`];
-}
+const { lifecycleValue, retireSentSchedules, sameDueDate } = require('./lifecycleSchedule');
 
 function hasLifecycleEmailMarker(data, name) {
   return Boolean(lifecycleValue(data, name, "SentAt"));
@@ -1662,11 +1660,13 @@ function isAutomaticEmailEnabled(profile, kind) {
   return preferences[automaticEmailPreferenceKey(kind)] !== false;
 }
 
-async function claimLifecycleEmail(ref, name) {
+async function claimLifecycleEmail(ref, name, schedule) {
   return db.runTransaction(async (transaction) => {
     const snap = await transaction.get(ref);
     if (!snap.exists) return false;
     const data = snap.data() || {};
+    if (schedule && (!sameDueDate(schedule.date, data[schedule.field]) ||
+      (name === 'inactivity' && hasLifecycleEmailMarker(data, 'programCompleted')))) return false;
     if (
       hasLifecycleEmailMarker(data, name) ||
       hasLifecycleEmailCancellation(data, name) ||
@@ -1856,7 +1856,8 @@ async function sendProgramLifecycleEmail({ programRef, program, clientId, progra
   const client = clientSnap.exists ? clientSnap.data() || {} : {};
   const to = safeTrim(client.email).toLowerCase();
   if (!to || !isAutomaticEmailEnabled(client, kind)) return false;
-  if (!(await claimLifecycleEmail(programRef, kind))) return false;
+  const field = kind === 'inactivity' ? 'inactiveReminderDueAt' : 'completionEmailDueAt';
+  if (!(await claimLifecycleEmail(programRef, kind, { field, date: program[field] }))) return false;
 
   const lng = getClientLngFromAny(client);
   const programName = pickProgramName(program);
@@ -3108,13 +3109,14 @@ exports.runLifecycleEmailJobs = onSchedule(
         .collectionGroup("programmes")
         .where("completionEmailDueAt", "<=", nowTs)
         .limit(500));
-      const tasks = [];
+      const tasks = [], sent = [];
       snap.forEach((docSnap) => {
         const program = docSnap.data() || {};
-        if (
-          hasLifecycleEmailMarker(program, "programCompleted") ||
-          hasLifecycleEmailCancellation(program, "programCompleted")
-        ) return;
+        if (hasLifecycleEmailMarker(program, 'programCompleted')) {
+          sent.push(docSnap);
+          return;
+        }
+        if (hasLifecycleEmailCancellation(program, 'programCompleted')) return;
         const parts = docSnap.ref.path.split("/");
         if (parts[0] !== "clients" || parts[2] !== "programmes") return;
         const clientId = parts[1];
@@ -3147,6 +3149,7 @@ exports.runLifecycleEmailJobs = onSchedule(
         );
       });
       await Promise.allSettled(tasks);
+      await retireSentSchedules(sent, 'programCompleted', 'completionEmailDueAt', admin.firestore.FieldValue);
     }
 
     async function sendInactivityReminders() {
@@ -3154,11 +3157,14 @@ exports.runLifecycleEmailJobs = onSchedule(
         .collectionGroup("programmes")
         .where("inactiveReminderDueAt", "<=", nowTs)
         .limit(500));
-      const tasks = [];
+      const tasks = [], sent = [];
       for (const docSnap of snap.docs) {
         const program = docSnap.data() || {};
+        if (hasLifecycleEmailMarker(program, 'inactivity')) {
+          sent.push(docSnap);
+          continue;
+        }
         if (
-          hasLifecycleEmailMarker(program, "inactivity") ||
           hasLifecycleEmailCancellation(program, "inactivity") ||
           hasLifecycleEmailMarker(program, "programCompleted")
         ) continue;
@@ -3188,6 +3194,7 @@ exports.runLifecycleEmailJobs = onSchedule(
         );
       }
       await Promise.allSettled(tasks);
+      await retireSentSchedules(sent, 'inactivity', 'inactiveReminderDueAt', admin.firestore.FieldValue);
     }
 
     await sendTrialReminders();

@@ -109,16 +109,24 @@ async function replay(label, folder, directory, revision) {
     await request('/api/analytics/admin/geo?window=today', 'administrator');
     const memberships = require(path.join(folder, 'utils/clubMemberships')).createClubMemberships(db);
     await metrics.measureJob('expiry', () => memberships.expireAll());
-    // Evaluate only the historical worker's real empty-queue selection. No scheduler or business writes.
-    const source = fs.readFileSync(path.join(folder, 'cron.worker.js'), 'utf8');
-    const start = source.indexOf('async function runSubscriptionCycles()');
-    const end = source.indexOf('const clubMemberships', start);
-    assert.ok(start >= 0 && end > start);
-    const runCycles = require('node:vm').runInNewContext(
-      'let cycleWorkerBusy=false,nextCyclePoll=0;\n' + source.slice(start, end) + '\nrunSubscriptionCycles',
-      { db, console });
-    await metrics.measureJob('cycles', runCycles);
-    const expected = { cycles: [1, 0], 'club-contacts': revision ? [19, 16] : [10, 17], expiry: [2, 13], offers: [5, 37] };
+    const eventWorker = fs.existsSync(path.join(folder, 'utils/subscriptionCycleWorker.js'));
+    if (eventWorker) {
+      // Empty queue: observe the actual initial head, then detach before the watchdog.
+      let ready;
+      const initial = new Promise(resolve => { ready = resolve; });
+      const stop = require(path.join(folder, 'utils/subscriptionCycleWorker')).startCycleWorker(db, {}, {onSnapshotMetrics: ready});
+      try { await initial; } finally { await stop(); }
+    } else {
+      const source = fs.readFileSync(path.join(folder, 'cron.worker.js'), 'utf8');
+      const start = source.indexOf('async function runSubscriptionCycles()');
+      const end = source.indexOf('const clubMemberships', start);
+      assert.ok(start >= 0 && end > start);
+      const runCycles = require('node:vm').runInNewContext(
+        'let cycleWorkerBusy=false,nextCyclePoll=0;\n' + source.slice(start, end) + '\nrunSubscriptionCycles', { db, console });
+      await metrics.measureJob('cycles', runCycles);
+    }
+    const expected = { cycles: [1, 0], 'cycle-head':[1,0], 'club-contacts': revision ? [19, 16] : [10, 17],
+      expiry: eventWorker ? [1,0] : [2, 13], offers: [5, 37] };
     assert.equal(results.length, offers ? 5 : 4);
     for (const row of results) {
       const counts = expected[row.activity];

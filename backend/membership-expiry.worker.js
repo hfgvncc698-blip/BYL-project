@@ -13,7 +13,7 @@ async function tick() {
     if (firstPass || result.failed) console.log('[MEMBERSHIP-EXPIRY]', new Date().toISOString(), JSON.stringify(result));
     firstPass = false;
   }
-  catch (error) { console.error('[MEMBERSHIP-EXPIRY]', error.message); }
+  catch (error) { console.error('[MEMBERSHIP-EXPIRY]', error.code || 'expiry-error'); }
   finally { busy = false; }
 }
 tick();
