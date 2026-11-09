@@ -1,3 +1,4 @@
+import { recordMetric } from '../utils/browserMetrics';
 import VisitAddress from '../components/admin/VisitAddress';
 // src/pages/AdminGeo.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -46,7 +47,8 @@ import { useNavigate } from "react-router-dom";
 // ====== Carte 2D (Leaflet)
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, Tooltip, useMap, useMapEvents } from "react-leaflet";
-import { collection, doc, getDoc, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { collection, doc, limit, orderBy } from "firebase/firestore";
+import { geoGetDoc as getDoc, geoGetDocs as getDocs, geoQuery as query } from "../utils/firestoreMetrics.js";
 
 import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
@@ -413,8 +415,10 @@ async function loadAdminGeoFromFirestore(windowKey) {
 }
 
 async function loadAdminGeoData(windowKey) {
+  const headers = { ...(await getAuthHeaders({ forceRefresh: true })) };
+  recordMetric('admin-geo', 'http');
   const response = await fetch(`${getApiBase()}/analytics/admin/geo?window=${encodeURIComponent(windowKey)}`, {
-    headers: { ...(await getAuthHeaders({ forceRefresh: true })) },
+    headers,
     credentials: "include",
     cache: "no-store",
   });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { recordMetric } from '../../utils/browserMetrics';
 import { apiFetch } from '../../utils/api';
 
 // Keep the exported name for existing consumers. Data now comes from the
@@ -8,6 +9,7 @@ const empty=()=>({contracts:[],checks:{},version:0,loading:true,error:''});
 const eventName='coach-offers-changed';
 const publish=(uid,state)=>{if((cache.get(uid)?.version??-1)>state.version)return;cache.set(uid,state);window.dispatchEvent(new CustomEvent(eventName,{detail:uid}));};
 const load=async uid=>{
+ recordMetric('offers', 'refresh');
  try {const state=await apiFetch('/coach-offers');
   // Preserve the coach's edited catalogue as a starting point only. It is
   // saved to the account on the next explicit save, never with sample clients.

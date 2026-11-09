@@ -1,7 +1,8 @@
+import { messagingOnSnapshot as onSnapshot } from "../../utils/firestoreMetrics.js";
 import {clubText} from '../../i18n/clubText';
 import {cancellationPreview} from '../../utils/cancellationPreview.mjs';
 import { useEffect, useMemo, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { db } from "../../firebaseConfig";

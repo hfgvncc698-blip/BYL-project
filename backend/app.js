@@ -43,6 +43,8 @@ if (!admin.apps.length) {
 // ====================== App de base ======================
 const app = express();
 app.disable('x-powered-by');
+const firestoreMetrics = require('./utils/firestoreMetrics');
+if (firestoreMetrics.enabled) app.use(firestoreMetrics.httpMetrics);
 // Nginx est le seul proxy de confiance en production. Ne jamais faire confiance
 // à toute la chaîne X-Forwarded-For, sinon un client peut falsifier son IP et
 // contourner les limites de requêtes.

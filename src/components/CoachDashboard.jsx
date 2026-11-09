@@ -85,23 +85,20 @@ import { notify } from "../utils/notify";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
   collection,
-  getDocs,
-  onSnapshot,
   addDoc,
   setDoc,
   updateDoc,
   deleteDoc,
   doc,
-  getDoc,
-  getDocFromCache,
   serverTimestamp,
   Timestamp,
-  query,
   where,
   limit,
   orderBy,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { coachGetDoc as getDoc, coachGetDocs as getDocs, coachGetDocFromCache as getDocFromCache, coachOnSnapshot as onSnapshot, coachQuery as query } from "../utils/firestoreMetrics.js";
+import { recordMetric } from "../utils/browserMetrics.js";
 import { resolveStorageUrl } from "../utils/storageUrls";
 import { canUseAdvancedCalendar, canUseGuidedProgram, getProPlanAccess, hasPlanModule, isActiveCoachTrial } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
@@ -3393,6 +3390,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
   const fetchData = useCallback(async ({ force = false, silent = false } = {}) => {
      if (!effectiveCoachUid) return;
      force = force || dashboardPerfFresh;
+     if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("coach-dashboard", "refresh");
      markDashboardTiming("core", "loading");
      const loadSeq = dashboardLoadSeqRef.current + 1;
      dashboardLoadSeqRef.current = loadSeq;
@@ -3426,6 +3424,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
          }
        }
        const cachedDashboardData = cachedDashboardEntry?.data || null;
+       if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("coach-dashboard", cachedDashboardEntry ? (cachedDashboardEntry.isStale ? "cache-stale" : "cache-hit") : "cache-miss");
        cachedDashboardDataForRefresh = cachedDashboardData;
        if (cachedDashboardEntry) {
          hasCachedDashboardData = true;
@@ -4331,6 +4330,7 @@ plannedEvt._sessionTitle,
         assignedCounts: counts,
         assignedClientsMap: map,
       };
+      if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1" && isLatestLoad()) recordMetric("coach-dashboard", "ready");
       if (isLatestLoad()) markDashboardTiming("core", "ready", { clients: clientsForCoachDashboard.length, detailedClients: detailedClients.length, programs: progs.length, sessions: merged.length, snapshotChars: dashboardPerfEnabled ? JSON.stringify(dashboardPayload).length : undefined });
       writeDashboardDataCache(effectiveCoachUid, effectiveClubId, dashboardPayload);
       // Les deux destinations les plus fréquentes peuvent réutiliser ce que le

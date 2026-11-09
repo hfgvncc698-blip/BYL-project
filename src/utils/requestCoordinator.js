@@ -4,9 +4,12 @@ export function createRequestCoordinator() {
   const pending = new Map();
   let activeMutations = 0;
   return {
-    read(key, run) {
+    read(key, run, onJoin) {
       if (!key || activeMutations) return Promise.resolve().then(run);
-      if (pending.has(key)) return pending.get(key);
+      if (pending.has(key)) {
+        onJoin?.();
+        return pending.get(key);
+      }
       const promise = Promise.resolve().then(run).finally(() => {
         if (pending.get(key) === promise) pending.delete(key);
       });

@@ -4,6 +4,7 @@ if (process.env.CRON_ENABLED !== 'true') {
   console.log('[CRON] disabled (CRON_ENABLED!=true)'); process.exit(0);
 }
 
+const { measureJob } = require('./utils/firestoreMetrics');
 const { performance } = require('perf_hooks');
 const admin = require('./firebaseAdmin');
 const serviceAccount = require('./serviceAccountKey.json');
@@ -110,7 +111,7 @@ async function runMonthlyPrograms() {
 
   // petite randomisation (0–60 min) pour lisser la charge
   const jitterMs = Math.floor(Math.random() * 61) * 60_000;
-  setTimeout(async () => {
+  setTimeout(() => measureJob('monthly', async () => {
     try {
       const clientsSnap = await withRetry(() =>
         db.collection('clients').where('abonnementActif', '==', true).get()
@@ -164,7 +165,7 @@ async function runMonthlyPrograms() {
     } catch (err) {
       console.error('[CRON-30D] Erreur boucle:', err);
     }
-  }, jitterMs);
+  }), jitterMs);
 }
 
 // --- ticker propre (1 tick/sec), sans rater d’exécution si la machine “se réveille”
@@ -177,11 +178,11 @@ setInterval(() => {
   if (driftMs > 2000) {
     console.log(`[CRON] wake/lag detected (${Math.round(driftMs)}ms)`);
   }
-  runMembershipExpiry().catch(error => console.error('[MEMBERSHIP-EXPIRY]', error.message));
+  measureJob('expiry', runMembershipExpiry).catch(error => console.error('[MEMBERSHIP-EXPIRY]', error.message));
   // exécutions
-  runTrialGuard().catch(() => {});
+  measureJob('trials', runTrialGuard).catch(() => {});
   runMonthlyPrograms().catch(() => {});
-  runSubscriptionCycles().catch(error => console.error('[CYCLE-WORKER]',error.message));
+  measureJob('cycles', runSubscriptionCycles).catch(error => console.error('[CYCLE-WORKER]',error.message));
 }, 1000);
 
 console.log('[CRON] worker started (ticker) TZ=' + (process.env.TZ || TZ));

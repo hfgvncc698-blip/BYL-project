@@ -14,14 +14,18 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 let calls = [];
 let handleFetch;
 const context = vm.createContext({
-  Headers, AbortController, structuredClone, setTimeout, clearTimeout,
+  window: {}, Headers, AbortController, structuredClone, setTimeout, clearTimeout,
   fetch: (url, options) => { calls.push({ url, options }); return handleFetch(url, options); },
+});
+const metrics = new vm.SourceTextModule(read('../src/utils/browserMetrics.js'), {
+  context, initializeImportMeta: meta => { meta.env = { VITE_BYL_FIRESTORE_METRICS: '1' }; },
 });
 const coordinator = new vm.SourceTextModule(read('../src/utils/requestCoordinator.js'), { context });
 const api = new vm.SourceTextModule(read('../src/utils/api.js'), {
   context, initializeImportMeta: meta => { meta.env = { DEV: false }; },
 });
 await api.link(specifier => {
+  if (specifier === './browserMetrics') return metrics;
   if (specifier === './requestCoordinator.js') return coordinator;
   const exports = specifier === './apiBase'
     ? { getApiBase: () => '/api' }
@@ -37,11 +41,16 @@ const response = data => ({ ok: true, status: 200, json: async () => data });
 // Burst from several widgets: one read, independent results, then a fresh read.
 let gate = deferred();
 handleFetch = () => gate.promise;
-const burst = Array.from({ length: 12 }, () => apiFetch('/dashboard'));
+const burst = Array.from({ length: 12 }, () => apiFetch('/coach-offers'));
 await tick();
 assert.equal(calls.length, 1);
 gate.resolve(response({ rows: [{ name: 'original' }] }));
 const rows = await Promise.all(burst);
+const measured = context.window.bylFirestoreMetrics.snapshot();
+assert.equal(measured.counters['offers/http'].calls, 1);
+assert.equal(measured.counters['offers/joined'].calls, 11);
+assert.equal(measured.actualBilledReads, null);
+assert.doesNotMatch(JSON.stringify(measured), /Bearer|test-account|original/);
 rows[0].rows[0].name = 'changed';
 assert.equal(rows[1].rows[0].name, 'original');
 handleFetch = async () => response({ updated: true });

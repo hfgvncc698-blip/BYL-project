@@ -3023,8 +3023,24 @@ exports.runLifecycleEmailJobs = onSchedule(
     const nowTs = admin.firestore.Timestamp.fromDate(now);
     const baseUrl = getBaseUrlFromSecret();
 
+    // Count only the three scheduled selection queries, independent of browser traffic.
+    const scan = async (kind, query) => {
+      if (process.env.BYL_FIRESTORE_METRICS !== "1") return query.get();
+      let documentsReturned = 0, failed = true;
+      try {
+        const result = await query.get();
+        documentsReturned = result.size;
+        failed = false;
+        return result;
+      } finally {
+        console.info("[byl-metrics]", JSON.stringify({ scope: "scheduler", activity: kind,
+          httpRequests: 0, sdkReads: 1, failedReads: Number(failed), unestimatedSdkReads: Number(failed), documentsReturned,
+          estimatedDocumentReads: failed ? null : Math.max(1, documentsReturned), actualBilledReads: null }));
+      }
+    };
+
     async function sendTrialReminders() {
-      const snap = await db.collection("users").where("subscriptionStatus", "==", "trialing").limit(500).get();
+      const snap = await scan("trials", db.collection("users").where("subscriptionStatus", "==", "trialing").limit(500));
       const tasks = [];
       snap.forEach((docSnap) => {
         const user = docSnap.data() || {};
@@ -3087,11 +3103,10 @@ exports.runLifecycleEmailJobs = onSchedule(
     }
 
     async function sendPendingProgramCompletionEmails() {
-      const snap = await db
+      const snap = await scan("completion", db
         .collectionGroup("programmes")
         .where("completionEmailDueAt", "<=", nowTs)
-        .limit(500)
-        .get();
+        .limit(500));
       const tasks = [];
       snap.forEach((docSnap) => {
         const program = docSnap.data() || {};
@@ -3134,11 +3149,10 @@ exports.runLifecycleEmailJobs = onSchedule(
     }
 
     async function sendInactivityReminders() {
-      const snap = await db
+      const snap = await scan("inactivity", db
         .collectionGroup("programmes")
         .where("inactiveReminderDueAt", "<=", nowTs)
-        .limit(500)
-        .get();
+        .limit(500));
       const tasks = [];
       for (const docSnap of snap.docs) {
         const program = docSnap.data() || {};

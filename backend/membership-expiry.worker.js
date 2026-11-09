@@ -1,5 +1,6 @@
 // Dedicated expiry worker for installations that do not run cron.worker.js.
 require('dotenv').config();
+const { measureJob } = require('./utils/firestoreMetrics');
 const { db } = require('./utils/db');
 const memberships = require('./utils/clubMemberships').createClubMemberships(db);
 let busy = false;
@@ -8,7 +9,7 @@ async function tick() {
   if (busy) return;
   busy = true;
   try {
-    const result = await memberships.expireAll();
+    const result = await measureJob('expiry', () => memberships.expireAll());
     if (firstPass || result.failed) console.log('[MEMBERSHIP-EXPIRY]', new Date().toISOString(), JSON.stringify(result));
     firstPass = false;
   }

@@ -1,4 +1,5 @@
-import { collection, getDoc, getDocs, limit, query, where, doc } from "firebase/firestore";
+import { messagingGetDoc as getDoc, messagingGetDocs as getDocs, messagingQuery as query } from "./firestoreMetrics.js";
+import { collection, limit, where, doc } from "firebase/firestore";
 import { apiFetch } from "./api";
 import { db } from "../firebaseConfig";
 import { resolveClientSnapshotForUser } from "./clientResolver";

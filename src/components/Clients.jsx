@@ -51,17 +51,16 @@ import { clubText } from "../i18n/clubText";
 import { useAuth } from "../AuthContext";
 import {
   collection,
-  getDocs,
-  getDocsFromCache,
   doc,
   serverTimestamp,
-  query,
   where,
   orderBy,
   limit,
   deleteDoc,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { clientsGetDocs as getDocs, clientsGetDocsFromCache as getDocsFromCache, clientsQuery as query } from "../utils/firestoreMetrics.js";
+import { recordMetric } from "../utils/browserMetrics.js";
 import { FiTrash2 } from "react-icons/fi";
 import PageBackButton from "./ui/PageBackButton";
 import PageLoadingStatus from "./ui/PageLoadingStatus";
@@ -642,6 +641,7 @@ const Clients = () => {
       const hasCache = !!(cachedEntry || dashboardOverviewEntry);
       if (dashboardOverviewEntry) hydrateClientsPagePayload(dashboardOverviewEntry.data);
       else if (!cachedEntry) setLoading(true);
+      if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("clients", hasCache ? ((cachedEntry || dashboardOverviewEntry).isStale ? "cache-stale" : "cache-hit") : "cache-miss");
       if (hasCache) load.cache({ clients: (cachedEntry || dashboardOverviewEntry).data.clients?.length || 0 });
 
     const getCachedNutritionCount = (client) => {
@@ -886,6 +886,7 @@ const Clients = () => {
         if (canUseDashboardOverview) {
           writePageDataCache(clientsOverviewCacheKey, { ...nextPayload, clients: enriched.map(client => ({ ...client, programmesAssignes: undefined })), partial: false });
         }
+        if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("clients", "ready");
         load.ready({ clients: filtered.length, assignedPrograms: Object.values(countEntries).reduce((sum, count) => sum + count, 0), reads: readPool.stats.completed });
     } catch (err) {
       if (!load.current()) return;

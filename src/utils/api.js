@@ -1,4 +1,5 @@
 // src/utils/api.js
+import { enabled as metricsEnabled, recordMetric } from './browserMetrics';
 import { getApiBase } from './apiBase';
 import { getAuthHeaders } from './authHeaders';
 import { createRequestCoordinator } from './requestCoordinator.js';
@@ -17,7 +18,12 @@ export async function apiFetch(path, { json = true, timeoutMs = 20000, ...opts }
     Object.entries(authHeaders).forEach(([key, value]) => headers.set(key, value));
   }
 
-  const run = () => performRequest(url, headers, opts, timeoutMs);
+  const activity = metricsEnabled && (path === '/coach-offers' ? 'offers'
+    : path === '/programs/dashboard-templates' ? 'dashboard-templates' : null);
+  const run = () => {
+    if (activity) recordMetric(activity, 'http');
+    return performRequest(url, headers, opts, timeoutMs);
+  };
   const method = String(opts.method || 'GET').toUpperCase();
   if (!['GET', 'HEAD'].includes(method)) return requests.mutate(run);
   // A caller-owned AbortSignal has independent cancellation semantics.
@@ -26,7 +32,7 @@ export async function apiFetch(path, { json = true, timeoutMs = 20000, ...opts }
     ? JSON.stringify([url, [...headers.entries()].sort(), timeoutMs,
         Object.entries(opts).filter(([name]) => name !== 'headers').sort(([a], [b]) => a.localeCompare(b))])
     : null;
-  const result = await requests.read(key, run);
+  const result = await requests.read(key, run, activity ? () => recordMetric(activity, 'joined') : undefined);
   // Callers may enrich their JSON locally; don't share mutable response data.
   return typeof structuredClone === 'function' ? structuredClone(result) : JSON.parse(JSON.stringify(result));
 }
