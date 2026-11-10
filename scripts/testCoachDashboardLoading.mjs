@@ -34,7 +34,7 @@ assert.doesNotMatch(dashboard, /nutritionLoadKeyRef/);
 assert.match(dashboard, /cachedNutrition.clientIdsKey === nutritionClientIdsKey/);
 assert.match(dashboard, /if \(!alive\) return/);
 assert.match(dashboard, /DASHBOARD_DATA_CACHE_VERSION = 10/);
-assert.match(dashboard, /lastKey !== getDashboardDataCacheKey\(coachUid, clubId\)/);
+assert.match(dashboard, /source.roots.fresh\(\) && source.calendar.fresh\(\) && readDashboardDataCache\(cacheScope/);
 assert.doesNotMatch(dashboard, /query\(collection\(db, "clients"\), or\(/);
 assert.ok(dashboard.indexOf('const detailedClientsPromise') < dashboard.indexOf('const pSnap = await programmesSnapPromise'));
 assert.doesNotMatch(dashboard, /DASHBOARD_DATA_CACHE_(?:CLIENT|PROGRAM|SESSION)_LIMIT/);
@@ -148,6 +148,6 @@ assert.deepEqual(mergeCompletedClientRows(cachedRows, new Set(['hidden', 'ready'
 assert.equal(cachedRows[2].value, 'old', 'progressive updates do not mutate cached rows');
 const clientsSource = readFileSync(new URL('../src/components/Clients.jsx', import.meta.url), 'utf8');
 const clientLoad = clientsSource.slice(clientsSource.indexOf('const fetchData'));
-assert.ok(clientLoad.indexOf('const serverClientSnapsPromise') < clientLoad.indexOf('await restorePageDataCacheEntry'));
+assert.ok(clientLoad.includes("await source.roots.read('clients')") && clientLoad.indexOf('await source.roots.read') < clientLoad.indexOf('const cached=readPageDataCacheEntry'));
 const dashboardLoad = dashboard.slice(dashboard.indexOf('const fetchData'));
-assert.ok(dashboardLoad.indexOf('const clientSnapsPromise') < dashboardLoad.indexOf('await readDashboardSnapshot'));
+assert.ok(dashboardLoad.includes('source.roots.read') && dashboardLoad.indexOf('source.roots.read') < dashboardLoad.indexOf('hydrateDashboardData(cachedDashboardData)'));

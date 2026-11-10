@@ -10,6 +10,10 @@ export const DEFAULT_PAGE_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
 export const DEFAULT_PAGE_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const now = () => Date.now();
+const sessionOnly = key => key.startsWith("byl:coach-view:");
+export function clearCoachViewCache() {
+  for (const key of memoryCache.keys()) if (sessionOnly(key)) memoryCache.delete(key);
+}
 
 const defer = (callback) => {
   if (typeof window === "undefined") return;
@@ -51,7 +55,7 @@ export function readPageDataCacheEntry(
 
   let payload = memoryCache.get(key) || null;
 
-  if (!payload && typeof window !== "undefined") {
+  if (!payload && !sessionOnly(key) && typeof window !== "undefined") {
     try {
       payload = JSON.parse(window.localStorage.getItem(key) || "null");
       if (payload) memoryCache.set(key, payload);
@@ -111,7 +115,7 @@ export function writePageDataCache(key, data) {
   const payload = { savedAt: now(), data };
   memoryCache.set(key, payload);
 
-  if (typeof window === "undefined") return;
+  if (sessionOnly(key) || typeof window === "undefined") return;
 
   pendingWrites.set(key, payload);
   scheduleCacheWrites();

@@ -16,7 +16,7 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
 (async () => {
   // Use the ESM SDK consistently with the actual browser operation module.
   const { initializeTestEnvironment, assertSucceeds, assertFails } = await import('@firebase/rules-unit-testing');
-  const { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, Timestamp, serverTimestamp } = await import('firebase/firestore');
+  const { collection, query, where, or, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, Timestamp, serverTimestamp } = await import('firebase/firestore');
   const [emulatorHost, port] = host.split(':');
   const env = await initializeTestEnvironment({ projectId, firestore: { host: emulatorHost, port: Number(port), rules: fs.readFileSync(path.join(__dirname, '../firestore.rules'), 'utf8') } });
   const { createProgramCreationOperation, createProgramAssignmentOperation } = await import('../src/utils/programWriteOperations.js');
@@ -64,6 +64,26 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
     const read = (db, key) => getDoc(doc(db, key));
     const patch = (db, key, value = { title: 'Edited' }) => updateDoc(doc(db, key), value);
 
+    await test('client directory OR preserves owner fields and excludes unrelated accounts and malformed maps',async()=>{
+      const seed={'clients/list-array':{coachIds:['coach-a']},'clients/list-owner':{createdBy:'coach-a'},
+        'clients/list-id':{coachId:'coach-a'},'clients/list-foreign':{coachIds:['coach-b']},
+        'clients/list-map':{coachIds:{'coach-a':true}}};
+      await env.withSecurityRulesDisabled(async ctx=>{for(const [key,data] of Object.entries(seed))await setDoc(doc(ctx.firestore(),key),data);});
+      const lookup=(db,uid)=>getDocs(query(collection(db,'clients'),or(where('createdBy','==',uid),where('coachId','==',uid),where('coachIds','array-contains',uid))));
+      const result=await assertSucceeds(lookup(dbFor('coach-a'),'coach-a'));
+      const ids=result.docs.map(d=>d.id);
+      for(const id of ['list-array','list-owner','list-id'])assert.ok(ids.includes(id));
+      for(const id of ['list-foreign','list-map'])assert.ok(!ids.includes(id));
+      await assertFails(lookup(dbFor('coach-b'),'coach-a'));await assertFails(lookup(dbFor('expired'),'expired'));
+      await assertFails(read(dbFor('coach-a'),'clients/list-map'));
+      await assertFails(getDocs(collection(dbFor('coach-a'),'clients')));
+      const signal='coachPageTemplateRevisions/coach-a';
+      await assertSucceeds(read(dbFor('coach-a'),signal));
+      await assertFails(read(dbFor('coach-b'),signal));
+      await assertFails(setDoc(doc(dbFor('coach-a'),signal),{revision:1}));
+      await assertFails(read(dbFor('coach-a'),'coachPageLists/list-array/coachClientListViews/v1-1-1'));
+      await assertFails(setDoc(doc(dbFor('coach-a'),'coachPageLists/list-array/coachClientListViews/v1-1-1'),{data:{}}));
+    });
     await test('professional thread denies stale aliases, replacement, former coach and revoked writes', async()=>{
       const conversation='conversations/security__coach-a';
       const history=conversation+'/messages/first';

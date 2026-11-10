@@ -2,7 +2,7 @@ const express = require("express");
 const { gzip } = require("node:zlib");
 const { promisify } = require("node:util");
 const admin = require("../firebaseAdmin");
-const { requireFirebaseAuth, hasActiveProfessionalAccess } = require("../utils/firebaseAuth");
+const { requireFirebaseAuth, requireUnrevokedFirebaseAuth, hasActiveProfessionalAccess } = require("../utils/firebaseAuth");
 const programListSummary = require("../utils/programListSummary");
 const compress = promisify(gzip);
 const router = express.Router();
@@ -71,6 +71,57 @@ router.post("/dashboard-templates", requireFirebaseAuth, async (req, res) => {
     console.error("[coach-program-read] failed", error?.message);
     return res.status(500).json({ error: "program-read-failed" });
   }
+});
+
+// Each request is one visible page (or one bounded filter batch). The three
+// ownership forms match the directory query, even for an administrator preview.
+router.post(['/client-list-summary','/dashboard-client-programs'], requireUnrevokedFirebaseAuth, async (req,res)=>{
+  const detailed=req.path==='/dashboard-client-programs';
+  const {coachId,ids,since}=req.body || {};
+  const validId=id=>typeof id==='string' && id.length>0 && id.length<=256 && !id.includes('/');
+  if(!validId(coachId) || !Array.isArray(ids) || !ids.length || ids.length>(detailed?8:25) || !ids.every(validId) || (!detailed && (!Number.isFinite(since) || Math.abs(since-(Date.now()-7*86400000))>86400000)))return res.sendStatus(400);
+  const db=admin.firestore();
+  try {
+    const summaries=await db.runTransaction(async tx=>{
+      await req.auth.assertMessagingSession(tx);
+      const actor=(await tx.get(db.collection('users').doc(req.auth.uid))).data();
+      if(!actor || actor.disabled || actor.disabledByClub || actor.deletedFromClub || ['inactive','disabled','deleted','removed','club_deleted'].includes(actor.status))
+        throw Object.assign(Error('forbidden'),{status:403});
+      const adminView=actor?.role==='admin' && req.auth.token.email_verified===true;
+      if(!adminView && (req.auth.uid!==coachId || actor?.role!=='coach' ||
+        (actor.emailVerificationRequired===true && req.auth.token.email_verified!==true) ||
+        !(actor.hasActiveSubscription===true || ['active','club_active'].includes(actor.subscriptionStatus) ||
+          (actor.subscriptionStatus==='trialing' && actor.trialEndsAt?.toMillis?.()>Date.now()))))throw Object.assign(Error('forbidden'),{status:403});
+      const refs=[...new Set(ids)].map(id=>db.collection('clients').doc(id));
+      const docs=await tx.getAll(...refs);
+      if(!docs.every(doc=>doc.exists && (doc.get('createdBy')===coachId || doc.get('coachId')===coachId ||
+        (Array.isArray(doc.get('coachIds')) && doc.get('coachIds').includes(coachId)))))throw Object.assign(Error('forbidden'),{status:403});
+      if(detailed){
+        const {encode}=require('../utils/coachPageWire');
+        return Object.fromEntries(await Promise.all(refs.map(async ref=>{
+          const snapshot=await tx.get(ref.collection('programmes'));
+          const programs=[];
+          for(const program of snapshot.docs){
+            const history=await tx.get(program.ref.collection('sessionsEffectuees'));
+            programs.push({id:program.id,data:encode(program.data()),history:history.docs.map(d=>({id:d.id,data:encode(d.data())}))});
+          }
+          return [ref.id,programs];
+        })));
+      }
+      const modules=[actor?.modules,actor?.proAccess?.modules].filter(Array.isArray).flat();
+      const nutrition=adminView || actor.subscriptionStatus==='trialing' || modules.some(m=>m==='nutrition'||m==='club') ||
+        [actor.packageKey,actor.proAccess?.packageKey].some(k=>['nutrition','complete','club'].includes(k)) ||
+        actor.nutritionAccess===true || actor.hasNutritionAccess===true || actor.features?.nutrition===true;
+      const {readListSummaries}=require('../utils/coachClientListSummary');
+      return readListSummaries(db,tx,docs,since,{sport:req.body.sport!==false,nutrition},req.body.refreshId);
+
+    });
+    const body=JSON.stringify(detailed ? {clients:summaries} : {summaries});
+    if(detailed && Buffer.byteLength(body)>4*1024*1024)return res.sendStatus(413);
+    res.set('Cache-Control','private, no-store').vary('Accept-Encoding').type('application/json');
+    if(req.acceptsEncodings('gzip'))return res.set('Content-Encoding','gzip').send(await compress(body));
+    return res.send(body);
+  } catch(error){res.status([401,403].includes(error.status)?error.status:503).json({error:'client-list-summary-unavailable'});}
 });
 
 module.exports = router;

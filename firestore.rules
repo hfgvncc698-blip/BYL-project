@@ -733,6 +733,9 @@ service cloud.firestore {
     }
 
     match /clients/{clientId} {
+      // hasAny is an array operation. It proves the same coach membership for
+      // array-contains queries without granting access to a map keyed by UID.
+      allow list: if hasCoachAccess() && resource.data.get("coachIds", []).hasAny([request.auth.uid]);
       allow read: if canAccessClient(clientId, resource.data);
       allow create: if canCreateClient(clientId, request.resource.data);
       allow update: if isAdmin() || (
@@ -903,6 +906,10 @@ service cloud.firestore {
       allow update: if (personalSession(resource.data) && personalSession(request.resource.data)) ||
         isAdmin() || (coachOwnsRecord(resource.data) && canAccessSession(request.resource.data));
       allow delete: if personalSession(resource.data) || isAdmin() || coachOwnsRecord(resource.data);
+    }
+
+    match /coachPageTemplateRevisions/{coachUid} {
+      allow get: if isAdmin() || (hasCoachAccess() && request.auth.uid == coachUid);
     }
 
     match /coachDashboardSummaries/{summaryId} {

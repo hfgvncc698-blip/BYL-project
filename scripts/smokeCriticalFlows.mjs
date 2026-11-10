@@ -562,7 +562,7 @@ check("navigation preloads stay bounded and reuse warm page data", () => {
   });
   assert.ok(
     dashboard.includes("`byl:programs-page:v1:${effectiveCoachUid}`") &&
-      dashboard.includes("`byl:clients-overview:v1:${effectiveCoachUid}`"),
+      dashboard.includes("loadProgramBatches(source,effectiveCoachUid") && read("src/utils/coachListRows.js").includes("source.peek('bundle/'"),
     "Dashboard data must warm the next common coach pages"
   );
   assert.ok(
@@ -576,7 +576,7 @@ check("navigation preloads stay bounded and reuse warm page data", () => {
     "Expired page data must remain available instantly while the network refreshes it"
   );
   assert.ok(
-    clients.includes("await restorePageDataCacheEntry") &&
+    clients.includes("source.roots.current()") && clients.includes("readPageDataCacheEntry(clientsPageCacheKey") &&
       programs.includes("await restorePageDataCacheEntry") &&
       clients.includes("load.cache(") && programs.includes("load.cache(") &&
       !programs.includes("getDocsFromCache"),
@@ -601,22 +601,22 @@ check("coach dashboard paints cached clients before expensive enrichment", () =>
   execFileSync(process.execPath, ["scripts/testCoachDashboardLoading.mjs"], { cwd: root, stdio: "pipe" });
   const dashboard = read("src/components/CoachDashboard.jsx");
   assert.ok(
-    dashboard.includes("readDashboardSnapshot") &&
+    dashboard.includes("readDashboardDataCache(cacheScope") &&
       dashboard.includes("buildQuickDashboardClients") &&
       dashboard.includes("partial: true") &&
       dashboard.includes("data.partial === true"),
     "The dashboard must hydrate a lightweight partial cache while refreshing it in the background"
   );
   assert.ok(
-    dashboard.includes("createDashboardReadPool(24)") &&
+    dashboard.includes("loadProgramBatches(source,effectiveCoachUid,quickDashboardClients)") &&
       dashboard.includes("primaryClientSnapPromise.then") &&
       dashboard.includes("setLoadingData(false)"),
     "The first client query must release the loading state without waiting for every client detail"
   );
   assert.ok(
-    dashboard.includes("const sessionSnapsPromise = Promise.all(") &&
+    dashboard.includes("const sessionSnapsPromise = source.calendar.read(") &&
       dashboard.includes("nutritionClientIdsKey") &&
-      dashboard.includes("dashboardLoadSeqRef.current += 1"),
+      dashboard.includes("dashboardLoadSeqRef.current++"),
     "Dashboard work must stay bounded and nutrition must survive client detail updates"
   );
 });
@@ -636,7 +636,7 @@ check("client profiles hydrate before their background refresh", () => {
   assert.ok(
     dashboard.includes("prefetchedProgrammes: programmesForCard") &&
       dashboard.includes("prefetchedNutritionAssessments: nutritionAssessmentsForCard") &&
-      clients.includes("programmesAssignes: computedProgrammes.map"),
+      clients.includes("programmesAssignes:bundle.programs.docs.map") && clients.includes("prefetchedClient: clientForNavigation(c)"),
     "Coach entry points must pass already-loaded program and nutrition data into client profiles"
   );
   assert.ok(
@@ -1636,7 +1636,7 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
   assert.ok(dashboard.includes("sessionCreateSaving"), "The add button must expose a saving state");
   assert.ok(dashboard.includes("controller.abort()"), "Session creation must have a finite timeout");
   assert.ok(
-    dashboard.includes("const sessionSnapsPromise = Promise.all("),
+    dashboard.includes("const sessionSnapsPromise = source.calendar.read("),
     "Cached dashboard returns must revalidate session widgets in the background"
   );
   assert.ok(
@@ -1914,7 +1914,8 @@ check("action loading preserves write confirmation and client synchronization", 
   assert.match(builder, /createProgramCreationOperation/);
   assert.equal((builder.match(/await syncSavedProgram\(programId\)/g) || []).length, 4, 'including the independent active-weeks save');
   assert.ok(!builder.includes('}, 1200)') && !builder.includes('}, 500)'), 'no artificial navigation delay after confirmed save');
-  assert.match(dashboard, /fetchData\(\{ force: true, silent: true \}\)/);
+  assert.match(dashboard, /source\.purge\(clientId\)/);
+  assert.match(dashboard, /return fetchData\(\{silent:true\}\)/);
   assert.match(dashboard, /mergeConfirmedCalendarEvents\(previous, results.map/);
   assert.match(nutrition, /if \(!hasEmail && !await ensureClientCapacity\(\)\)/);
   assert.match(nutrition, /error\?\.data\?\.error === 'client-limit-reached'/);

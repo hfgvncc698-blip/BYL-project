@@ -59,6 +59,7 @@
     }
   ],
   "fieldOverrides": [
+    {"collectionGroup":"coachClientListViews","fieldPath":"*","indexes":[]},
     {
       "collectionGroup": "privateClients",
       "fieldPath": "exitDate",

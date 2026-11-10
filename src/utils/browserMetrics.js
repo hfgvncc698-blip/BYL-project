@@ -1,14 +1,14 @@
 export const enabled = import.meta.env?.VITE_BYL_FIRESTORE_METRICS === "1";
 const totals = new Map();
 const readsByResource = new Map();
-const resources = new Set(["clients", "sessions", "programmes", "sessionsEffectuees", "nutrition_assessments",
+const resources = new Set(["clients", "sessions", "programmes", "sessionsEffectuees", "nutrition_assessments","nutrition_feedback","coachPageTemplateRevisions",
   "users", "clubs", "appointments", "analytics_daily", "analytics_geo", "analytics_geo_daily", "analytics_geo_hourly", "visitors", "events", "conversations", "goals", "messages", "coachCalendarSubscriptions"]);
 const activities = new Set(["offers", "club-contacts", "club-inbox", "club-directory", "club-messages", "club-read", "club-send",
-  "coach-dashboard", "clients", "messaging-professional", "admin-geo", "dashboard-templates"]);
+  "coach-dashboard", "clients", "messaging-professional", "admin-geo", "dashboard-templates","client-list-summary","dashboard-client-programs"]);
 const events = new Set(["http", "refresh", "server", "default", "cache", "listener-start", "listener-stop",
   "listener-snapshot", "listener-error", "cache-hit", "cache-stale", "cache-miss", "joined", "ready"]);
 const fields = new Set(["calls", "durationMs", "failures", "documentsReturned", "fromCache",
-  "permissionDenied", "unavailable", "pendingWrites", "estimatedDocumentReads", "added", "modified", "removed", "first", "server"]);
+  "permissionDenied", "unavailable", "pendingWrites", "estimatedDocumentReads", "serverChanges","added", "modified", "removed", "first", "server"]);
 
 export const allowedCollection = name => resources.has(name) ? name : "other";
 
@@ -27,6 +27,8 @@ export function recordMetric(activity, event, values = {}, resource) {
     const group = readsByResource.get(groupKey) || { calls: 0, documentsReturned: 0, failures: 0 };
     group.calls++;
     group.documentsReturned += Number.isFinite(values.documentsReturned) ? values.documentsReturned : 0;
+    if(Number.isFinite(values.estimatedDocumentReads))group.estimate=(group.estimate||0)+values.estimatedDocumentReads;
+    if(Number.isFinite(values.serverChanges))group.serverChanges=(group.serverChanges||0)+values.serverChanges;
     group.failures += Number.isFinite(values.failures) ? values.failures : 0;
     readsByResource.set(groupKey, group);
   }

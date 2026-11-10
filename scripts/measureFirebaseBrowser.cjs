@@ -5,7 +5,7 @@ const { spawn, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
 const root = path.resolve(__dirname, '..');
 
-async function browserPages({ directory, revision, app, accounts, projectId, rows, changeSession, offerScenario, messagingScenario, revokeMessagingAccess }) {
+async function browserPages({ directory, revision, app, accounts, projectId, rows, changeSession, writes, coachScenario, changeCoachData, offerScenario, messagingScenario, revokeMessagingAccess }) {
   const folder = path.join(fs.realpathSync(directory), 'web');
   fs.mkdirSync(folder, { recursive: true });
   if (revision) {
@@ -44,6 +44,10 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
     write(file, 'import {forFirestorePage} from "../utils/firestoreMetrics.js";\nconst {' + reads.join(',') +
       '} = forFirestorePage(' + JSON.stringify(activity) + ');\n' + source);
   }
+  if(coachScenario && !revision){
+    const file='src/utils/coachPageSource.js';
+    write(file,fs.readFileSync(path.join(folder,file),'utf8').replaceAll('Date.now()', '(Date.now()+(globalThis.fixtureCoachAge || 0))'));
+  }
   if (offerScenario) {
     const file = 'src/components/offers/OfferPreviewStore.js';
     const notify = "window.dispatchEvent(new Event('fixture-offer-confirmed'));";
@@ -79,26 +83,37 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
       isAuthenticated:true, loading:false, effectiveRole:window.fixtureMember ? 'particulier' : window.fixtureOwner ? 'club' : 'coach'});
     export const AuthProvider = ({children}) => children;
   `);
+  if(coachScenario)write('src/AuthContext.jsx',`
+    import {useSyncExternalStore} from 'react';
+    const coach={uid:'coach',role:'coach',subscriptionStatus:'active',hasActiveSubscription:true,packageKey:'complete',modules:['sport','nutrition']};
+    const owner={uid:'owner',role:'club',accountType:'club_owner',clubId:'sample'};
+    const current=()=>window.fixtureProfile || (window.fixtureOwner?owner:coach);
+    function subscribe(cb){window.addEventListener('fixture-profile',cb);return ()=>window.removeEventListener('fixture-profile',cb);}
+    window.fixtureSetProfile=patch=>{window.fixtureProfile=patch ? {...current(),...patch} : null;window.dispatchEvent(new Event('fixture-profile'));};
+    export function useAuth(){const user=useSyncExternalStore(subscribe,current,current);
+      return {user,isAdmin:false,isCoach:user.role==='coach',effectiveRole:user.role,isAuthenticated:true,loading:false};}
+    export const AuthProvider=({children})=>children;
+  `);
   write('index.html', `<meta charset="utf-8"><div id="root"></div>
     <script>
-    const fail = event => fetch('/fixture-results', {method:'POST',body:JSON.stringify({failure:'page-exception '+(event.error?.name || event.reason?.name || 'unknown')+' line '+(event.lineno || 0)})});
+    const fail = event => fetch('/fixture-results', {method:'POST',body:JSON.stringify({failure:'page-exception '+(event.error?.name || event.reason?.name || 'unknown')+' line '+(event.lineno || 0),diagnostic:{stage:window.fixtureStage||'bootstrap',message:String(event.error?.message||event.reason?.message||'').replace(/[A-Za-z0-9_-]{40,}/g,'[redacted]').slice(0,250)}})});
     window.addEventListener('error', fail); window.addEventListener('unhandledrejection', fail);
     </script><script type="module" src="/entry.jsx"></script>`);
   const appSource = fs.readFileSync(path.join(folder, 'src/App.jsx'), 'utf8');
   const condition = appSource.match(/const showDashboardMessaging = ([\s\S]*?);/)[1];
   // Evaluate the same mount condition used by this revision of App.
   write('clubBubble.js', 'export function onClub(user,location) { return ' + condition + '; }');
-  write('entry.jsx', fs.readFileSync(path.join(__dirname, messagingScenario ? 'fixtures/firebaseMessagingBrowser.jsx' : offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
+  write('entry.jsx', fs.readFileSync(path.join(__dirname, coachScenario ? 'fixtures/coachPagesLot4.jsx' : messagingScenario ? 'fixtures/firebaseMessagingBrowser.jsx' : offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
   const { createServer } = await import('vite');
   const vite = await createServer({ root: folder, configFile: false, envDir: false, publicDir: false,
     cacheDir: path.join(folder, '.vite'), logLevel: 'error',
-    define: { 'globalThis.messagingScenario': JSON.stringify(messagingScenario || null), 'globalThis.offerScenario': JSON.stringify(offerScenario || null), 'import.meta.env.VITE_BYL_FIRESTORE_METRICS': '"1"',
+    define: { 'globalThis.coachScenario': JSON.stringify(coachScenario || null), 'globalThis.messagingScenario': JSON.stringify(messagingScenario || null), 'globalThis.offerScenario': JSON.stringify(offerScenario || null), 'import.meta.env.VITE_BYL_FIRESTORE_METRICS': '"1"',
       'globalThis.fixtureExtended': JSON.stringify(!revision && process.env.BYL_LOT1_EXTENDED === '1') },
-    server: { middlewareMode: true, hmr: false, fs: { allow: [folder, path.join(root, 'node_modules')] } },
+    server: { middlewareMode: true, hmr: coachScenario ? {port:Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1])+16000} : false, fs: { allow: [folder, path.join(root, 'node_modules')] } },
     optimizeDeps: { entries: ['entry.jsx'] } });
   let settle;
   const completed = new Promise(resolve => { settle = resolve; });
-  let start = 0;
+  let start = 0, network,initialWrites=0;
   let offerTransportUnavailable = false;
   const server = require('node:http').createServer((req, res) => {
     // All external connections are disallowed even if a historical page references an external asset.
@@ -106,17 +121,28 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
     if (messagingScenario && revokeMessagingAccess && req.url==='/fixture-revoke' && req.method==='POST') {
       revokeMessagingAccess().then(()=>res.end(),()=>{res.statusCode=500;res.end();});return;
     }
-    if (req.url === '/fixture-start') { start = rows.length; res.end(); return; }
+    if(coachScenario && req.url==='/fixture-checkpoint' && req.method==='POST'){
+      let body='';req.on('data',chunk=>{body+=chunk;});req.on('end',()=>{console.log('SAMPLE',body);res.end();});return;
+    }
+    if(coachScenario && req.method==='POST' && req.url.startsWith('/fixture-mutate/')){
+      changeCoachData(req.url.slice('/fixture-mutate/'.length)).then(()=>res.end(),()=>{res.statusCode=500;res.end();});return;
+    }
+    if (req.url === '/fixture-start') { start = rows.length;initialWrites=writes?.()||0;network?.reset();res.end(); return; }
     if (req.url === '/fixture-stop') {
       const totals = {};
       for (const row of rows.slice(start)) {
         const group = totals[row.activity] ||= { http: 0, reads: 0, documents: 0, bytes: 0 };
-        if (offerScenario || messagingScenario) group.estimate = (group.estimate || 0) + row.estimatedDocumentReads;
+        if (offerScenario || messagingScenario || coachScenario) group.estimate = (group.estimate || 0) + row.estimatedDocumentReads;
         group.http += row.httpRequests;
         group.reads += row.sdkReads;
         group.documents += row.documentsReturned;
         group.bytes += row.responseBytes || 0;
+        if(coachScenario && row.domains)for(const [name,values] of Object.entries(row.domains)){
+          group.domains ||= {};const d=group.domains[name] ||= {reads:0,docs:0,estimate:0};
+          for(const key of Object.keys(d))d[key]+=values[key];
+        }
       }
+      if(coachScenario){totals.network=network?.snapshot() || {};totals.summaryWrites=(writes?.()||0)-initialWrites;}
       res.end(JSON.stringify(totals)); return;
     }
     if (offerScenario && req.method === 'POST' && ['/fixture-offers-offline', '/fixture-offers-online'].includes(req.url)) {
@@ -147,17 +173,19 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const executable = process.env.BYL_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    chrome = spawn(executable, ['--headless=new', '--window-size=' + (offerScenario?.width || messagingScenario?.width || 1440) + ',1000', '--disable-background-networking', '--disable-popup-blocking', '--disable-sync', '--no-first-run',
+    chrome = spawn(executable, ['--headless=new', '--window-size=' + (coachScenario?.width || offerScenario?.width || messagingScenario?.width || 1440) + ',1000', '--disable-background-networking', '--disable-popup-blocking', '--disable-sync', '--no-first-run',...(coachScenario?['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows']:[]),
       '--disable-default-apps', '--disable-component-update', '--no-proxy-server', '--disable-gpu',
-      '--user-data-dir=' + path.join(folder, '.chrome'), 'http://127.0.0.1:' + server.address().port], { stdio: 'ignore' });
+      '--user-data-dir=' + path.join(folder, '.chrome'), ...(coachScenario ? ['--remote-debugging-port=0','about:blank'] : ['http://127.0.0.1:' + server.address().port])], { stdio: 'ignore' });
     chrome.once('error', () => settle({ failure: 'chrome-start' }));
     chrome.once('exit', () => settle({ failure: 'chrome-exit' }));
-    timer = setTimeout(() => settle({ failure: 'browser-timeout' }), 260000);
+    if(coachScenario)network=await require('./fixtures/coachNetworkProbe.cjs')(path.join(folder,'.chrome'),'http://127.0.0.1:'+server.address().port);
+    timer = setTimeout(() => settle({ failure: 'browser-timeout' }), coachScenario ? 1200000 : 260000);
     const result = await completed;
+    if (result.failure && result.diagnostic) console.log('Fixture diagnostics',JSON.stringify(result.diagnostic));
     if (result.failure) throw Error('Browser probe: ' + result.failure);
     return result;
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer);network?.close();
     if (chrome && chrome.exitCode === null && chrome.pid) {
       const closed = once(chrome, 'exit');
       chrome.kill();

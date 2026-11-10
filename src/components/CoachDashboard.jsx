@@ -19,7 +19,7 @@ import {currentCoachProgram} from '../utils/currentCoachProgram';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from
 "react";
 import { useDashboardTiming } from "../hooks/useDashboardTiming.js";
-import { createDashboardReadPool, mergeDashboardClientProgress } from "../utils/coachDashboardLoading.js";
+import { mergeDashboardClientProgress } from "../utils/coachDashboardLoading.js";
 import {
   Box,
   Checkbox,
@@ -96,6 +96,10 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { coachPageScope, coachPageSource, onCoachSessionEnd } from "../utils/coachPageSource";
+import CoachPageAccess from "./dashboard/CoachPageAccess";
+import {useCoachPageViewer} from '../utils/useCoachPageViewer';
+import { coachConfirmedSnapshot, coachServerDocs } from "../utils/firestoreMetrics";
 import { coachGetDoc as getDoc, coachGetDocs as getDocs, coachGetDocFromCache as getDocFromCache, coachOnSnapshot as onSnapshot, coachQuery as query } from "../utils/firestoreMetrics.js";
 import { recordMetric } from "../utils/browserMetrics.js";
 import { resolveStorageUrl } from "../utils/storageUrls";
@@ -121,7 +125,7 @@ import { mergeConfirmedCalendarEvents } from "../utils/confirmedCalendarEvent";
 import { confirmOperation } from "../utils/confirmedOperation";
 import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
 import AssignmentPlacement from './client/AssignmentPlacement';
-import { readDashboardSnapshot, writeDashboardSnapshot } from "../utils/dashboardSnapshotCache.js";
+
 import { findUpcomingCoachHabit } from "../utils/coachScheduleHabits";
 import {
   createDefaultRecurrence,
@@ -359,6 +363,7 @@ const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DASHBOARD_NUTRITION_CACHE_TTL_MS = 10 * 60 * 1000;
 const dashboardDataMemoryCache = new Map();
+onCoachSessionEnd(()=>dashboardDataMemoryCache.clear());
 const rememberDashboardData = (key, entry) => {
   dashboardDataMemoryCache.delete(key);
   dashboardDataMemoryCache.set(key, entry);
@@ -367,11 +372,11 @@ const rememberDashboardData = (key, entry) => {
     dashboardDataMemoryCache.delete(dashboardDataMemoryCache.keys().next().value);
   }
 };
-const DASHBOARD_DATA_LAST_CACHE_KEY = `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:last`;
+
 const getDashboardDataCacheKey = (coachUid = "", clubId = "") =>
-  `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:${coachUid || "coach"}:${clubId || "solo"}`;
+  `byl:coach-view:data:${DASHBOARD_DATA_CACHE_VERSION}:${coachUid || "coach"}:${clubId || "solo"}`;
 const getDashboardNutritionCacheKey = (coachUid = "", clubId = "") =>
-  `byl:coach-dashboard:nutrition:v2:${coachUid || "coach"}:${clubId || "solo"}`;
+  `byl:coach-view:nutrition:${coachUid || "coach"}:${clubId || "solo"}`;
 const reviveDashboardDate = (value) => {
   if (!value) return value;
   const date = value instanceof Date ? value : new Date(value);
@@ -419,7 +424,6 @@ const buildQuickDashboardClients = (rawClients = []) => {
         _quickLoading: true,
       };
     })
-    .filter((client) => client._lastCoachInteractionMs > 0)
     .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
   return quickClients.length ? quickClients : deduped;
 };
@@ -437,18 +441,10 @@ const readDashboardDataCacheEntryByKey = (key, { allowStale = false } = {}) => {
     const clients = Array.isArray(data.clients) ? data.clients : [];
     const sessions = Array.isArray(data.sessions) ? data.sessions : [];
     const programmesBase = Array.isArray(data.programmesBase) ? data.programmesBase : [];
-    return clients.length > 0 || sessions.length > 0 || programmesBase.length > 0;
+    return Array.isArray(data.clients) && Array.isArray(data.sessions) && Array.isArray(data.programmesBase) &&
+      (!data.partial || clients.length>0 || sessions.length>0 || programmesBase.length>0);
   };
   let payload = dashboardDataMemoryCache.get(key) || null;
-  if (!payload && typeof window !== "undefined") {
-    try {
-      const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
-      if (!parsed || parsed.version !== DASHBOARD_DATA_CACHE_VERSION) return null;
-      payload = { savedAt: parsed.savedAt, data: parsed.data };
-    } catch {
-      return null;
-    }
-  }
   if (!payload) return null;
   const savedAt = Number(payload.savedAt || 0);
   const ageMs = Math.max(0, Date.now() - savedAt);
@@ -466,30 +462,20 @@ const readDashboardDataCacheEntryByKey = (key, { allowStale = false } = {}) => {
 };
 const readDashboardDataCacheEntry = (coachUid, clubId, options) =>
   readDashboardDataCacheEntryByKey(getDashboardDataCacheKey(coachUid, clubId), options);
-const readDashboardDataCache = (coachUid, clubId, options) =>
-  readDashboardDataCacheEntry(coachUid, clubId, options)?.data || null;
-const readLastDashboardDataCache = (coachUid, clubId, options) => {
-  if (typeof window === "undefined") return null;
-  try {
-    const lastKey = window.localStorage.getItem(DASHBOARD_DATA_LAST_CACHE_KEY);
-    if (!coachUid || lastKey !== getDashboardDataCacheKey(coachUid, clubId)) return null;
-    return readDashboardDataCacheEntryByKey(lastKey, options)?.data || null;
-  } catch {
-    return null;
-  }
+const readDashboardDataCache = (coachUid,clubId,options,source) => {
+  const data=readDashboardDataCacheEntry(coachUid,clubId,options)?.data;
+  return data && source.allowsRows(data.clients) ? data : null;
 };
 const writeDashboardDataCache = (coachUid, clubId, payload) => {
   const key = getDashboardDataCacheKey(coachUid, clubId);
   const savedAt = Date.now();
-  // Keep complete programs in memory/IndexedDB: actions must never reuse a
+  // Keep complete programs in this session: actions must never reuse a
   // display-only program with its exercises or older sessions stripped out.
   if (!payload.partial || !dashboardDataMemoryCache.has(key)) {
     rememberDashboardData(key, { savedAt, data: payload });
   }
   if (typeof window === "undefined") return;
-  scheduleIdleTask(() => {
-    if (!payload.partial) void writeDashboardSnapshot(key, { savedAt, data: payload });
-  }, 900);
+  // Per-login dashboard views are held in bounded memory only.
 };
 const getMonthKey = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -1873,6 +1859,15 @@ async function deleteClientCalendarEvent({ clientId, eventId }) {
 const DashboardOfferAlerts = React.lazy(() => import("./offers/DashboardOfferAlerts"));
 
 export default function CoachDashboard() {
+  const {user:appUser} = useAuth();
+  const user=useCoachPageViewer(appUser,'coach-dashboard');
+  const params = new URLSearchParams(useLocation().search);
+  const preview = user?.role === 'admin';
+  const target = (preview && params.get('adminCoachId')) || user?.uid;
+  const scope = coachPageScope(user,target,(preview && (params.get('adminClubId') || params.get('clubId'))) || user?.clubId || '',preview ? params.get('adminPlan') || '' : '');
+  return scope ? <CoachDashboardView key={scope} scope={scope} user={user} /> : <CoachPageAccess pending={user===undefined}/>;
+}
+function CoachDashboardView({scope,user}) {
   useCalendarClock();
   const { t } = useTranslation();
   const isMobileDashboard = useBreakpointValue({ base: true, md: false }, { ssr: false }) ?? true;
@@ -1881,7 +1876,7 @@ export default function CoachDashboard() {
     [i18n.resolvedLanguage, i18n.language]
   );
   const calendarFormats = useMemo(() => getCalendarFormats(calendarCulture), [calendarCulture]);
-  const { user, loading, effectiveRole } = useAuth();
+  const { loading, effectiveRole } = useAuth();
   const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
   const location = useLocation();
@@ -1957,6 +1952,9 @@ export default function CoachDashboard() {
     };
   }, [adminPlanPreview, rawCoachContext]);
   const effectiveClubId = adminClubId || coachContext?.clubId || user?.clubId || "";
+  const cacheScope = scope + '.' + encodeURIComponent(effectiveClubId);
+  const source = useMemo(()=>coachPageSource(scope,effectiveCoachUid,isAdmin),[scope,effectiveCoachUid,isAdmin]);
+  const [viewStale,setViewStale] = useState(false);
   const colorMode = useColorModeValue("light", "dark");
   const modeValue = useCallback(
     (lightValue, darkValue) => (colorMode === "light" ? lightValue : darkValue),
@@ -2032,9 +2030,7 @@ end && now < end;
   const birthdayMessageModal = useDisclosure();
   const rationShortcutModal = useDisclosure();
   const initialDashboardCache = useMemo(
-    () =>
-      readDashboardDataCache(effectiveCoachUid, effectiveClubId, { allowStale: true }) ||
-      readLastDashboardDataCache(effectiveCoachUid, effectiveClubId, { allowStale: true }),
+    () => source.roots.fresh() && source.calendar.fresh() && readDashboardDataCache(cacheScope, effectiveClubId, {allowStale:true},source),
     [effectiveClubId, effectiveCoachUid]
   );
   const [clients, setClients] = useState(() => initialDashboardCache?.clients || []);
@@ -2210,7 +2206,7 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
     return hasPlanModule(accessSource, "nutrition");
   }, [adminCoachId, coachContext, isAdmin, user]);
   const initialNutritionDashboardCache = useMemo(
-    () => readPageDataCache(getDashboardNutritionCacheKey(effectiveCoachUid, effectiveClubId), {
+    () => hasNutritionCalendarAccess && source.roots.current() && readPageDataCache(getDashboardNutritionCacheKey(cacheScope, effectiveClubId), {
       ttlMs: DASHBOARD_NUTRITION_CACHE_TTL_MS,
     }),
     [effectiveClubId, effectiveCoachUid]
@@ -2749,10 +2745,14 @@ useState(false);
     () => JSON.stringify([...new Set(clients.map(client => client.id).filter(Boolean))].sort()),
     [clients]
   );
+  const nutritionVersions = useMemo(()=>JSON.stringify(clients.map(c=>[c.id,c.dashboardNutritionRevision || null]).sort((a,b)=>a[0].localeCompare(b[0]))),[clients]);
   useEffect(() => {
     let alive = true;
+    let generation=0;
+    const versions=new Map(JSON.parse(nutritionVersions));
     markDashboardTiming("nutrition", "loading");
     const loadNutritionRows = async () => {
+      const current=++generation;
       if (!effectiveCoachUid || !hasNutritionCalendarAccess) {
         markDashboardTiming("nutrition", "ready", { skipped: true });
         setNutritionRows([]);
@@ -2767,16 +2767,16 @@ useState(false);
         setNutritionFeedbackRows([]);
         return;
       }
-      const nutritionCacheKey = getDashboardNutritionCacheKey(effectiveCoachUid, effectiveClubId);
-      const cachedNutrition = !dashboardPerfFresh && (readPageDataCache(nutritionCacheKey, {
+      const nutritionCacheKey = getDashboardNutritionCacheKey(cacheScope, effectiveClubId);
+      const cachedNutrition = !dashboardPerfFresh && source.roots.current() && readPageDataCache(nutritionCacheKey, {
         ttlMs: DASHBOARD_NUTRITION_CACHE_TTL_MS,
-      }) || (await readDashboardSnapshot(nutritionCacheKey))?.data);
+      });
       if (!alive) return;
       if (cachedNutrition && cachedNutrition.clientIdsKey === nutritionClientIdsKey) {
         const cachedRows = cachedNutrition.rows || [];
         setNutritionRows(cachedRows);
         setNutritionFeedbackRows(cachedNutrition.feedbackRows || []);
-        writePageDataCache(`byl:nutrition-page:v1:${effectiveCoachUid}`, {
+        if(effectiveCoachUid===user?.uid) writePageDataCache(`byl:nutrition-page:v1:${effectiveCoachUid}`, {
           rows: cachedRows,
           clientCount: clientIds.length,
           partial: false,
@@ -2790,12 +2790,19 @@ useState(false);
           clientIds,
           async (clientId) => {
             if (!alive) return { assessments: [], feedback: [] };
-            const snap = await getDocs(collection(db, "clients", clientId, "nutrition_assessments"));
+            const version=JSON.stringify(versions.get(clientId) || undefined);
+            const snap=await source.read('assessments/'+clientId,version,()=>coachServerDocs(collection(db,'clients',clientId,'nutrition_assessments')),clientId);
+            source.seed('nutrition-list/'+clientId,version,{
+              nutritionCount:snap.size,nutritionLast:snap.docs.reduce((last,d)=>{
+                const row=d.data();
+                return Math.max(last,toMillis(row.sharedAt),toMillis(row.createdAt),toMillis(row.updatedAt),toMillis(row.date));
+              },0)
+            },clientId);
             // Read this patient's feedback as soon as their assessments arrive,
             // without waiting for every other patient's request to finish.
-            const feedback = alive && !snap.empty ? await getDocs(
+            const feedback = alive && !snap.empty ? await source.read('feedback/'+clientId,version,()=>coachServerDocs(
               query(collection(db, "clients", clientId, "nutrition_feedback"), orderBy("createdAt", "desc"), limit(5))
-            ).catch(() => ({ docs: [] })) : { docs: [] };
+            ),clientId).catch(() => ({ docs: [] })) : { docs: [] };
             return {
               assessments: snap.docs.map((docSnap) => ({ docSnap, clientId })),
               feedback: feedback.docs.map((docSnap) => ({ docSnap, clientId })),
@@ -2803,8 +2810,8 @@ useState(false);
           },
           12
         );
-        if (!alive) return;
-        const nutritionDocs = nutritionResults.flatMap(result => result.assessments);
+        if (!alive || current!==generation) return;
+        const nutritionDocs=nutritionResults.flatMap(result=>result.assessments);
         const feedbackDocs = nutritionResults.flatMap(result => result.feedback);
         const nextRows = nutritionDocs.map(({ docSnap, clientId }) => ({
             id: docSnap.id,
@@ -2824,21 +2831,15 @@ useState(false);
           rows: nextRows,
           feedbackRows: nextFeedbackRows,
         });
-        const nutritionSnapshotSavedAt = Date.now();
-        scheduleIdleTask(() => {
-          void writeDashboardSnapshot(nutritionCacheKey, {
-            savedAt: nutritionSnapshotSavedAt,
-            data: { clientIdsKey: nutritionClientIdsKey, rows: nextRows, feedbackRows: nextFeedbackRows },
-          });
-        }, 900);
-        writePageDataCache(`byl:nutrition-page:v1:${effectiveCoachUid}`, {
+        if(effectiveCoachUid===user?.uid) writePageDataCache(`byl:nutrition-page:v1:${effectiveCoachUid}`, {
           rows: nextRows,
           clientCount: clientIds.length,
           partial: false,
         });
-      } catch {
-        if (!alive) return;
-        markDashboardTiming("nutrition", "error");
+      } catch(error) {
+        if (!alive || generation!==current) return;
+        if(error.code==="permission-denied"){setNutritionRows([]);setNutritionFeedbackRows([]);}
+        setViewStale(true);markDashboardTiming("nutrition", "error");
         if (alive && !cachedNutrition) {
           setNutritionRows([]);
           setNutritionFeedbackRows([]);
@@ -2847,28 +2848,19 @@ useState(false);
     };
 
     let cancelIdleLoad;
-    const nutritionSubscriptions = [];
-    const loadAndWatch = async () => {
-      await loadNutritionRows();
-      if (!alive || !effectiveCoachUid || !hasNutritionCalendarAccess) return;
-      for (const clientId of JSON.parse(nutritionClientIdsKey)) {
-        nutritionSubscriptions.push(onSnapshot(collection(db, "clients", clientId, "nutrition_assessments"), snapshot => {
-          if (!alive) return;
-          const rows = snapshot.docs.map(row => ({ ...row.data(), id:row.id, clientId }));
-          setNutritionRows(previous => [...previous.filter(row => row.clientId !== clientId), ...rows]);
-        }, error => console.warn("[nutrition] live updates unavailable", error.code)));
-      }
-    };
+    const refresh=()=>{if(document.visibilityState!=='hidden')void loadNutritionRows();};
+    window.addEventListener('online',refresh);window.addEventListener('focus',refresh);
+    const interval=setInterval(refresh,5*60000);
     const delayId = window.setTimeout(() => {
-      cancelIdleLoad = scheduleIdleTask(loadAndWatch, 700);
+      cancelIdleLoad = scheduleIdleTask(loadNutritionRows, 700);
     }, 100);
     return () => {
       alive = false;
       window.clearTimeout(delayId);
       cancelIdleLoad?.();
-      nutritionSubscriptions.forEach(unsubscribe => unsubscribe());
+      clearInterval(interval);window.removeEventListener("focus",refresh);window.removeEventListener("online",refresh);
     };
-  }, [nutritionClientIdsKey, effectiveCoachUid, effectiveClubId, hasNutritionCalendarAccess, dashboardPerfFresh, markDashboardTiming]);
+  }, [nutritionClientIdsKey, effectiveCoachUid, effectiveClubId, nutritionVersions,source,hasNutritionCalendarAccess, dashboardPerfFresh, markDashboardTiming]);
 
 	  const nutritionDashboardStats = useMemo(() => {
     const distinctClients = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean)).size;
@@ -3158,46 +3150,14 @@ sessionIndex = null }) => {
       ...client,
       programmesAssignes: undefined,
     }));
-    const progressMap = {};
-    const sessionsPerWeekMap = {};
-    const lastSessionMap = {};
-    const programmeCountMap = {};
-    const lastInteractionMap = {};
-    cachedClients.forEach((client) => {
-      const assigned = client.programmesAssignes || [];
-      const completed = assigned.reduce((sum, programme) => sum + Number(programme._done || 0), 0);
-      const total = assigned.reduce((sum, programme) => sum + Number(programme._total || 0), 0);
-      const lastMs = Number(client._clientListActivityMs || client._lastInteractionMs || 0);
-      progressMap[client.id] = {
-        completed,
-        total,
-        percent: total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0,
-      };
-      sessionsPerWeekMap[client.id] = 0;
-      lastSessionMap[client.id] = lastMs > 0 ? new Date(lastMs).toISOString() : null;
-      programmeCountMap[client.id] = assigned.length;
-      lastInteractionMap[client.id] = lastMs;
-    });
-    writePageDataCache(`byl:programs-page:v1:${effectiveCoachUid}`, {
+    if(effectiveCoachUid===user?.uid) writePageDataCache(`byl:programs-page:v1:${effectiveCoachUid}`, {
       programmes: cachedPrograms,
       clients: clientsOverview,
       assignedCounts: dashboardData.assignedCounts || {},
       assignedClientsMap: dashboardData.assignedClientsMap || {},
       partial,
     });
-    writePageDataCache(`byl:clients-overview:v1:${effectiveCoachUid}`, {
-      clients: clientsOverview,
-      programmes: cachedPrograms,
-      progressMap,
-      sessionsPerWeekMap,
-      lastSessionMap,
-      programmeCountMap,
-      lastInteractionMap,
-      nutritionAssessmentCountMap: {},
-      nutritionLastFollowMap: {},
-      partial: true,
-    });
-  }, [effectiveCoachUid]);
+  }, [effectiveCoachUid,user?.uid]);
 
   const hydrateDashboardData = useCallback((dashboardData) => {
     if (!dashboardData) return false;
@@ -3401,33 +3361,21 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
      // Fetch the client roots during IndexedDB restoration instead of after it.
-       const primaryClientSnapPromise = getDocs(
-         query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))
-       );
-       const clientSnapsPromise = Promise.all([
-          primaryClientSnapPromise,
-          getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
-          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
-       ]);
+       if (force) source.purge();
+       const batchModule=import('../utils/coachProgramBatch');
+       const primaryClientSnapPromise = source.roots.read('coach-dashboard');
+       const clientSnapsPromise = primaryClientSnapPromise.then(snap => [snap]);
      // The cache can resolve later than a rejected network request.
      void clientSnapsPromise.catch(() => {});
      let hasCachedDashboardData = false;
      let cachedDashboardDataForRefresh = null;
-     if (!force) {
+     if (!force && !silent && source.roots.fresh() && source.calendar.fresh()) {
        let cachedDashboardEntry = readDashboardDataCacheEntry(
-         effectiveCoachUid,
+         cacheScope,
          effectiveClubId,
          { allowStale: true }
        );
-       if (!cachedDashboardEntry || cachedDashboardEntry.data.partial) {
-         const key = getDashboardDataCacheKey(effectiveCoachUid, effectiveClubId);
-         const snapshot = await readDashboardSnapshot(key);
-         if (!isLatestLoad()) return;
-         if (snapshot) {
-           rememberDashboardData(key, snapshot);
-           cachedDashboardEntry = readDashboardDataCacheEntry(effectiveCoachUid, effectiveClubId, { allowStale: true });
-         }
-       }
+       if(cachedDashboardEntry && !source.allowsRows(cachedDashboardEntry.data.clients))cachedDashboardEntry=null;
        const cachedDashboardData = cachedDashboardEntry?.data || null;
        if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("coach-dashboard", cachedDashboardEntry ? (cachedDashboardEntry.isStale ? "cache-stale" : "cache-hit") : "cache-miss");
        cachedDashboardDataForRefresh = cachedDashboardData;
@@ -3452,21 +3400,16 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
           where("createdBy", "==", effectiveCoachUid),
           limit(200)
        );
-       const sessionQueries = [
-         query(collection(db, "sessions"), where("coachId", "==", effectiveCoachUid)),
-         query(collection(db, "sessions"), where("createdBy", "==", effectiveCoachUid)),
-         query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid)),
-       ];
-       const programmesSnapPromise = readDashboardTemplates(effectiveCoachUid, {
+       const programmesSnapPromise = source.read("templates",cacheScope,()=>readDashboardTemplates(effectiveCoachUid, {
          request: apiFetch,
           summaries: true,
          fallback: () => getDocs(progsQ),
-         cachedPrograms: dashboardPerfFresh ? [] : (cachedDashboardDataForRefresh || readDashboardDataCacheEntry(effectiveCoachUid, effectiveClubId, { allowStale: true })?.data)?.programmesBase || [],
-       }).then((snapshot) => {
+         cachedPrograms: dashboardPerfFresh ? [] : (cachedDashboardDataForRefresh || readDashboardDataCacheEntry(cacheScope, effectiveClubId, { allowStale: true })?.data)?.programmesBase || [],
+       })).then((snapshot) => {
          // Templates are independent of client roots and assignment histories.
          // Publish fresh results immediately, including cached-page refreshes.
          if (isLatestLoad()) {
-           const templates = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+           const templates = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
            templates.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
            setProgrammesBase(templates);
          }
@@ -3492,16 +3435,13 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
            setLoadingData(false);
          }).catch(() => {});
        }
-       const sessionSnapsPromise = Promise.all(
-         sessionQueries.map(sessionQuery => getDocs(sessionQuery).catch(error => {
-           console.warn("[coach dashboard] sessions query failed", error);
-           return { docs: [] };
-         }))
-       );
+       const sessionSnapsPromise = source.calendar.read('coach-dashboard').then(snap => [snap]);
+       void sessionSnapsPromise.catch(()=>{});
        const clientSnaps = await clientSnapsPromise;
+       if(!isLatestLoad())return;
        const mergedClientMap = new Map();
        clientSnaps.forEach((snap) => {
-          snap.docs.forEach((d) => mergedClientMap.set(d.id, { id: d.id, ...d.data() }));
+          snap.docs.forEach((d) => mergedClientMap.set(d.id, { ...d.data(), id: d.id }));
        });
        let mergedClients = [...mergedClientMap.values()];
        const quickClients = buildQuickDashboardClients(mergedClients);
@@ -3515,7 +3455,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
         const quickRootSessionsById = new Map();
         quickSessionSnaps.forEach((snap) => {
           snap.docs.forEach((d) => {
-            quickRootSessionsById.set(d.id, { id: d.id, ...d.data() });
+            quickRootSessionsById.set(d.id, { ...d.data(), id: d.id });
           });
         });
         const quickClientIdSet = new Set(
@@ -3617,13 +3557,18 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
       })();
       // Start every client read before waiting for the large program templates.
       if (!backgroundRefresh && isLatestLoad()) setClients(quickDashboardClients);
-      const detailReadPool = createDashboardReadPool(24);
+      let lastProgressPaint=0;
+      if(!isLatestLoad())return;
+      const {loadProgramBatches}=await batchModule;
+      if(!isLatestLoad())return;
+      const bundles=loadProgramBatches(source,effectiveCoachUid,quickDashboardClients);
       const detailedClientsPromise = Promise.all(quickDashboardClients.map(async (client) => {
           if (!isLatestLoad()) return client;
-          const subSnap = await detailReadPool.run(() => isLatestLoad() ? getDocs(collection(db, "clients", client.id, "programmes")) : { docs: [] });
+          const bundle=await bundles.get(client.id);
+          const subSnap=bundle.programs;
           let latestAssignMs = 0;
           const progsWithSessions = await Promise.all(subSnap.docs.map(async (d) => {
-              if (!isLatestLoad()) return { id: d.id, ...d.data() };
+              if (!isLatestLoad()) return { ...d.data(), id: d.id };
               const prog = d.data();
               const totalPrevues = getTotalSessionsFromProgrammeDoc(prog);
                 const assignMs =
@@ -3635,9 +3580,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
                      0;
                    if (isCoachAssignedProgramme(prog, effectiveCoachUid) && assignMs > latestAssignMs) latestAssignMs =
 assignMs;
-                const sessSnap = await detailReadPool.run(() => isLatestLoad() ? getDocs(
-                  collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees")
-                ) : { docs: [] }, { priority: 1 });
+                const sessSnap=bundle.histories.get(d.id);
                 const sessionsEffectuees = dedupeCalendarCompletions(sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() })));
                 const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
                 const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
@@ -3742,7 +3685,9 @@ assignMs;
             const _lastInteractionMs = Math.max(latestSessionMs, latestAssignMs, lastClientUpdate);
             const completedClient = { ...client, programmesAssignes:
 progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
-            if (isLatestLoad()) setClients(previous => mergeDashboardClientProgress(previous, completedClient));
+            if (isLatestLoad() && performance.now()-lastProgressPaint>100) {
+              lastProgressPaint=performance.now();setClients(previous=>mergeDashboardClientProgress(previous,completedClient));
+            }
             return completedClient;
          })).then(value => ({ value }), error => ({ error }));
        const pSnap = await programmesSnapPromise;
@@ -3768,7 +3713,8 @@ toMillis(a.createdAt));
            });
          });
        });
-       writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+       if (!isLatestLoad()) return;
+       writeDashboardDataCache(cacheScope, effectiveClubId, {
          clients: quickDashboardClients,
          programmesBase: progs,
          sessions: cachedDashboardDataForRefresh?.sessions || [],
@@ -3785,44 +3731,13 @@ toMillis(a.createdAt));
        // Dès que les collections racines sont disponibles, les destinations
        // les plus fréquentes peuvent s'afficher sans attendre l'enrichissement
        // client -> programmes -> séances effectué plus bas.
-       const quickClientRows = quickDashboardClients.map((client) => ({
-         ...client,
-         programmesAssignes: undefined,
-       }));
-       const quickProgrammeCountMap = {};
-       const quickLastInteractionMap = {};
-       const quickLastSessionMap = {};
-       quickDashboardClients.forEach((client) => {
-         const lastMs = Number(client._lastInteractionMs || client._lastCoachInteractionMs || 0);
-         quickProgrammeCountMap[client.id] = (client.programmesAssignes || []).length;
-         quickLastInteractionMap[client.id] = lastMs;
-         quickLastSessionMap[client.id] = lastMs > 0 ? new Date(lastMs).toISOString() : null;
-       });
-       writePageDataCache(`byl:programs-page:v1:${effectiveCoachUid}`, {
-         programmes: progs,
-         clients: quickClientRows,
-         assignedCounts: quickCounts,
-         assignedClientsMap: quickAssignedMap,
-         partial: true,
-       });
-       writePageDataCache(`byl:clients-overview:v1:${effectiveCoachUid}`, {
-         clients: quickClientRows,
-         programmes: progs,
-         progressMap: {},
-         sessionsPerWeekMap: {},
-         lastSessionMap: quickLastSessionMap,
-         programmeCountMap: quickProgrammeCountMap,
-         lastInteractionMap: quickLastInteractionMap,
-         nutritionAssessmentCountMap: {},
-         nutritionLastFollowMap: {},
-         partial: true,
-       });
+       primeCoachDestinationCaches({clients:quickDashboardClients,programmesBase:progs,assignedCounts:quickCounts,assignedClientsMap:quickAssignedMap},{partial:true});
       await quickCalendarPromise;
       const detailResult = await detailedClientsPromise;
       if (!isLatestLoad()) return;
       if (detailResult.error) throw detailResult.error;
       const detailedClients = detailResult.value;
-      markDashboardTiming("details", "ready", { ...detailReadPool.stats });
+      markDashboardTiming("details","ready",{clients:detailedClients.length});
       const detailedClientsById = new Map(detailedClients.map((client) => [client.id, client]));
       const clientsWithProgs = quickDashboardClients.map(
         (client) => detailedClientsById.get(client.id) || client
@@ -3870,7 +3785,7 @@ c.id));
       const rootSessionsById = new Map();
       sessionSnaps.forEach((snap) => {
         snap.docs.forEach((d) => {
-          rootSessionsById.set(d.id, { id: d.id, ...d.data() });
+          rootSessionsById.set(d.id, { ...d.data(), id: d.id });
         });
       });
       const allRootSessions = Array.from(rootSessionsById.values()).sort(
@@ -4069,12 +3984,12 @@ t("dashboard.session_completed", "Séance effectuée"),
       const coachClubId = effectiveClubId;
       if (coachClubId && effectiveCoachUid) {
         try {
-          const clubAppointmentSnap = await getDocs(
+          const clubAppointmentSnap = await source.read("appointments",cacheScope,()=>coachServerDocs(
             query(
               collection(db, "clubs", coachClubId, "appointments"),
               where("coachUid", "==", effectiveCoachUid)
             )
-          );
+          ));
           // Private notes come only from club documents readable by this coach.
           for (const appointmentDoc of clubAppointmentSnap.docs) {
             const appointment = appointmentDoc.data() || {};
@@ -4336,58 +4251,21 @@ plannedEvt._sessionTitle,
         assignedClientsMap: map,
       };
       if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1" && isLatestLoad()) recordMetric("coach-dashboard", "ready");
-      if (isLatestLoad()) markDashboardTiming("core", "ready", { clients: clientsForCoachDashboard.length, detailedClients: detailedClients.length, programs: progs.length, sessions: merged.length, snapshotChars: dashboardPerfEnabled ? JSON.stringify(dashboardPayload).length : undefined });
-      writeDashboardDataCache(effectiveCoachUid, effectiveClubId, dashboardPayload);
-      // Les deux destinations les plus fréquentes peuvent réutiliser ce que le
-      // dashboard vient déjà de charger, sans nouvelle attente réseau.
-      writePageDataCache(`byl:programs-page:v1:${effectiveCoachUid}`, {
-        programmes: progs,
-        clients: clientsForCoachDashboard.map((client) => ({
-          ...client,
-          programmesAssignes: undefined,
-        })),
-        assignedCounts: counts,
-        assignedClientsMap: map,
-        partial: false,
-      });
-      const clientsOverview = clientsForCoachDashboard.map((client) => ({
-        ...client,
-        programmesAssignes: undefined,
-      }));
-      const clientsProgressMap = {};
-      const clientsSessionsPerWeekMap = {};
-      const clientsLastSessionMap = {};
-      const clientsProgrammeCountMap = {};
-      const clientsLastInteractionMap = {};
-      clientsForCoachDashboard.forEach((client) => {
-        const assigned = client.programmesAssignes || [];
-        const completed = assigned.reduce((sum, programme) => sum + Number(programme._done || 0), 0);
-        const total = assigned.reduce((sum, programme) => sum + Number(programme._total || 0), 0);
-        const lastMs = Number(client._clientListActivityMs || client._lastInteractionMs || 0);
-        clientsProgressMap[client.id] = {
-          completed,
-          total,
-          percent: total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0,
-        };
-        clientsSessionsPerWeekMap[client.id] = 0;
-        clientsLastSessionMap[client.id] = lastMs > 0 ? new Date(lastMs).toISOString() : null;
-        clientsProgrammeCountMap[client.id] = assigned.length;
-        clientsLastInteractionMap[client.id] = lastMs;
-      });
-      writePageDataCache(`byl:clients-overview:v1:${effectiveCoachUid}`, {
-        clients: clientsOverview,
-        programmes: progs,
-        progressMap: clientsProgressMap,
-        sessionsPerWeekMap: clientsSessionsPerWeekMap,
-        lastSessionMap: clientsLastSessionMap,
-        programmeCountMap: clientsProgrammeCountMap,
-        lastInteractionMap: clientsLastInteractionMap,
-        nutritionAssessmentCountMap: {},
-        nutritionLastFollowMap: {},
-        partial: true,
-      });
+      if (isLatestLoad()) markDashboardTiming("core", "ready", { ...(dashboardPerfEnabled ? {
+        completed:clientsForCoachDashboard.reduce((sum,c)=>sum+c.programmesAssignes.reduce((n,p)=>n+p._done,0),0),
+        planned:clientsForCoachDashboard.reduce((sum,c)=>sum+c.programmesAssignes.reduce((n,p)=>n+p._total,0),0)
+      } : {}), clients: clientsForCoachDashboard.length, detailedClients: detailedClients.length, programs: progs.length, sessions: merged.length, snapshotChars: dashboardPerfEnabled ? JSON.stringify(dashboardPayload).length : undefined });
+      const confirmed=source.roots.fresh() && source.calendar.fresh() && navigator.onLine;
+      setViewStale(!confirmed);
+      if(!confirmed)return;
+      writeDashboardDataCache(cacheScope, effectiveClubId, dashboardPayload);
+      primeCoachDestinationCaches(dashboardPayload);
     } catch (error) {
-      if (isLatestLoad()) markDashboardTiming("core", "error");
+      if(isLatestLoad() && (error.status===401 || error.status===403 || error.code==='permission-denied')){
+        source.purge();dashboardDataMemoryCache.clear();setClients([]);setSessions([]);setProgrammesBase([]);
+        setAssignedCounts({});setAssignedClientsMap({});setNutritionRows([]);setNutritionFeedbackRows([]);setSelectedEvent(null);
+      }
+      if (isLatestLoad()) { setViewStale(true); markDashboardTiming("core", "error"); }
       console.error(error);
       if (!backgroundRefresh && isLatestLoad()) notify(toast, "dataLoadError");
     } finally {
@@ -4395,59 +4273,66 @@ plannedEvt._sessionTitle,
     }
   }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
 effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming]);
-  const refreshDashboardData = useCallback(() => fetchData({ force: true, silent: true }), [fetchData]);
+  const refreshDashboardData = useCallback((clientId, templates=false) => {
+    if(typeof clientId==='string' && clientId)source.purge(clientId);
+    if(templates)source.invalidate('templates');
+    source.invalidate('appointments');
+    return fetchData({silent:true});
+  }, [source,fetchData]);
   useEffect(() => {
-    if (!effectiveCoachUid) return;
-    let stopped = false, busy = false, pending = false;
     let timer;
-    const refresh = async () => {
-      if (stopped) return;
-      if (busy) { pending = true; return; }
-      if (document.visibilityState === "hidden") { pending = true; return; }
-      busy = true;
-      pending = false;
-      try { await refreshDashboardData(); }
-      finally {
-        busy = false;
-        if (pending && !stopped && document.visibilityState !== "hidden") schedule();
+    const refresh = () => {
+      clearTimeout(timer);
+      timer=setTimeout(()=>fetchData({silent:true}),100);
+    };
+    const stale=()=>setViewStale(true);
+    const denied=()=>{
+      dashboardLoadSeqRef.current++;
+      source.purge();
+      dashboardDataMemoryCache.clear();
+      setClients([]); setSessions([]); setProgrammesBase([]); setAssignedCounts({}); setAssignedClientsMap({});
+      setNutritionRows([]);setNutritionFeedbackRows([]);setSelectedEvent(null);
+      setViewStale(true);setLoadingData(false);
+    };
+    const detachTemplates=coachConfirmedSnapshot(doc(db,'coachPageTemplateRevisions',effectiveCoachUid),snap=>{
+      if(!snap.metadata.fromCache && source.templatesChanged(JSON.stringify(snap.data()?.revision || null))){dashboardLoadSeqRef.current++;refresh();}
+    },error=>{if(error.code==='permission-denied')denied();else stale();});
+    const detachRoots=source.roots.watch('coach-dashboard',{stale,error:denied,partial:(docs,reslicing)=>{
+      if(reslicing){dashboardLoadSeqRef.current++;setSelectedEvent(null);setAssignedClientsMap({});setAssignedCounts({});}
+      const rows=buildQuickDashboardClients(docs.map(d=>({...d.data(),id:d.id})));
+      const ids=new Set(rows.map(c=>c.id));
+      setClients(rows);setSessions(prev=>prev.filter(e=>!e.clientId || ids.has(e.clientId)));
+      setNutritionRows(prev=>prev.filter(r=>ids.has(r.clientId)));setNutritionFeedbackRows(prev=>prev.filter(r=>ids.has(r.clientId)));
+      setLoadingData(false);
+    },changed:(snap,changes)=>{
+      dashboardLoadSeqRef.current++;
+      if(changes.some(change=>change.type==='removed')) {
+        const ids=new Set(snap.docs.map(d=>d.id));
+        setClients(old=>old.filter(c=>ids.has(c.id)));setSessions(old=>old.filter(e=>!e.clientId || ids.has(e.clientId)));
+        setNutritionRows(old=>old.filter(r=>ids.has(r.clientId)));setNutritionFeedbackRows(old=>old.filter(r=>ids.has(r.clientId)));
+        setSelectedClient("");setSelectedEvent(null);dashboardDataMemoryCache.clear();
       }
+      refresh();
+    }});
+    const detachCalendar=source.calendar.watch('coach-dashboard',{stale,error:denied,changed:(_snap,changes,affected)=>{
+      dashboardLoadSeqRef.current++;
+      invalidateOfferCredits(effectiveCoachUid,changes);
+      for(const id of affected) if(id) source.purgeSport(id);
+      source.invalidate("appointments");
+      refresh();
+    }});
+    const foreground=()=>{if(document.visibilityState!=='hidden') refresh();};
+    const reconcile=setInterval(foreground,5*60000);
+    window.addEventListener('focus',foreground);window.addEventListener('online',foreground);
+    window.addEventListener('offline',stale);document.addEventListener('visibilitychange',foreground);
+    fetchData();
+    return ()=>{
+      dashboardLoadSeqRef.current++;
+      clearTimeout(timer);clearInterval(reconcile);detachRoots();detachCalendar();detachTemplates();
+      window.removeEventListener('focus',foreground);window.removeEventListener('online',foreground);
+      window.removeEventListener('offline',stale);document.removeEventListener('visibilitychange',foreground);
     };
-    const schedule = () => {
-      if (stopped) return;
-      clearTimeout(timer);
-      timer = setTimeout(() => { void refresh().catch(console.error); }, 750);
-    };
-    // Observe only the current coach's events; all three legacy ownership
-    // fields are also used by fetchData. Coalesce notifications across queries.
-    const unsubscribers = ["coachId", "createdBy", "ownerId"].map(field => {
-      let initialized = false;
-      return onSnapshot(query(collection(db, "sessions"), where(field, "==", effectiveCoachUid)), snapshot => {
-        if (!initialized) { initialized = true; return; }
-        const changes = snapshot.docChanges();
-        if (changes.length) {
-          invalidateOfferCredits(effectiveCoachUid, changes);
-          schedule();
-        }
-      }, error => console.warn("[calendar] live updates unavailable", error.code));
-    });
-    window.addEventListener("focus", schedule);
-    window.addEventListener("online", schedule);
-    document.addEventListener("visibilitychange", schedule);
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-      unsubscribers.forEach(unsubscribe => unsubscribe());
-      window.removeEventListener("focus", schedule);
-      window.removeEventListener("online", schedule);
-      document.removeEventListener("visibilitychange", schedule);
-    };
-  }, [effectiveCoachUid, refreshDashboardData]);
-  useEffect(() => {
-     fetchData();
-     return () => {
-       dashboardLoadSeqRef.current += 1;
-     };
-  }, [fetchData]);
+  },[source,fetchData,effectiveCoachUid]);
   const getClubAppointmentIdFromEvent = useCallback((event) => {
     if (!event) return "";
     if (event.clubAppointmentId) return event.clubAppointmentId;
@@ -4515,7 +4400,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
        notify(toast, "programAssigned");
        assignModal.onClose();
        setSelectedProgramme("");
-       void refreshDashboardData();
+       void refreshDashboardData(selectedClient);
      } catch (error) {
        console.error(error);
        notify(toast, "programAssignError", { description: error?.message, ...(error?.code === "write-previous-confirmed" ? { status: "info", title: "Opération précédente confirmée" } : {}) });
@@ -4533,7 +4418,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
        await assignProgramToClient(selectedAssignedClientId, selectedAssignedBaseProgramId);
        notify(toast, "programAssigned");
        setSelectedAssignedClientId("");
-       void refreshDashboardData();
+       void refreshDashboardData(selectedAssignedClientId);
      } catch (error) {
        console.error(error);
        notify(toast, "programAssignError", { description: error?.message, ...(error?.code === "write-previous-confirmed" ? { status: "info", title: "Opération précédente confirmée" } : {}) });
@@ -4546,14 +4431,14 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
      if (!clientToDelete) return;
      await deleteDoc(doc(db, "clients", clientToDelete));
      confirmClientModal.onClose();
-     refreshDashboardData();
+     refreshDashboardData(clientToDelete);
   };
   const handleDeleteProgram = async () => {
      if (!programToDelete) return;
      await deleteDoc(doc(db, "programmes", programToDelete));
      confirmProgramModal.onClose();
 
-    refreshDashboardData();
+    refreshDashboardData(null,true);
   };
   const handleDuplicateProgram = async (prog) => {
      try {
@@ -4577,7 +4462,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
          clubName: data.clubName || user?.clubName || null,
        });
        notify(toast, "programDuplicated");
-       refreshDashboardData();
+       refreshDashboardData(null,true);
      } catch (error) {
        console.error(error);
        notify(toast, "saveError", {
@@ -4743,7 +4628,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
                 }),
               }
             : undefined);
-        void refreshDashboardData().catch((refreshError) => {
+        void refreshDashboardData(newSession.clientId).catch((refreshError) => {
           console.warn("[coach dashboard] refresh after session creation failed", refreshError);
         });
       } catch (error) {
@@ -4758,7 +4643,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
               total: error.requestedCount,
             }),
           });
-          void refreshDashboardData().catch(() => {});
+          void refreshDashboardData(newSession.clientId).catch(() => {});
           return;
         }
         notify(toast, "saveError", {
@@ -4811,11 +4696,11 @@ selectedEvent.id.replace("planned__", "");
     const nextSessions = sessions.map(event => event._sourceId === sourceId ? { ...event, status } : event);
     setSessions(nextSessions);
     setSelectedEvent(event => event ? { ...event, status } : event);
-    writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+    writeDashboardDataCache(cacheScope, effectiveClubId, {
       clients, programmesBase, sessions: nextSessions, assignedCounts, assignedClientsMap,
     });
     eventModal.onClose();
-    refreshDashboardData();
+    refreshDashboardData(selectedEvent?.clientId);
   };
   const openEventEdit = () => {
     if (!selectedEvent || selectedEvent?._kind === "completed") return;
@@ -5057,7 +4942,7 @@ selectedEvent.id.replace("planned__", "");
           : event
       );
       setSessions(nextSessions);
-      writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+      writeDashboardDataCache(cacheScope, effectiveClubId, {
         clients,
         programmesBase,
         sessions: nextSessions,
@@ -5072,10 +4957,10 @@ selectedEvent.id.replace("planned__", "");
           : "Modification enregistrée. Synchronisation en arrière-plan…",
       });
       if (saveAck.confirmed) {
-        void refreshDashboardData();
+        void refreshDashboardData(selectedEvent?.clientId);
       } else {
         void savePromise
-          .then(() => refreshDashboardData())
+          .then(() => refreshDashboardData(selectedEvent?.clientId))
           .catch((backgroundSaveError) => {
             console.error("[calendar] background edit sync failed", backgroundSaveError);
             notify(toast, "saveError", {
@@ -5113,7 +4998,7 @@ selectedEvent.id.replace("planned__", "");
          await deleteDoc(doc(db, "clubs", effectiveClubId, "appointments", appointmentId));
        }
        eventModal.onClose();
-       refreshDashboardData();
+       refreshDashboardData(clientId);
        return;
      }
      if(!effectiveClubId){
@@ -5121,7 +5006,7 @@ selectedEvent.id.replace("planned__", "");
          await apiFetch(`/coach-sessions/${sourceId}`, { method: 'DELETE' });
          offerBookingConfirmed(effectiveCoachUid, clientId);
          eventModal.onClose();
-         refreshDashboardData();
+         refreshDashboardData(clientId);
        }
        catch(e){notify(toast,'saveError',{title:'Suppression impossible',description:e.data?.error||'Réessayez.'});}
        return;
@@ -5144,7 +5029,7 @@ selectedEvent.id.replace("planned__", "");
        }
      }
 	     eventModal.onClose();
-	     refreshDashboardData();
+	     refreshDashboardData(clientId);
 	  };
 
   const handleMoveCalendarEvent = async ({ event, start, end }, notifyClient = false) => {
@@ -5172,7 +5057,7 @@ selectedEvent.id.replace("planned__", "");
         ? { ...item, start: safeStart, end: safeEnd, durationMin: Math.round((safeEnd - safeStart) / 60000) } : item);
       setSessions(nextSessions);
       setSelectedEvent(item => item?._sourceId === sourceId ? { ...item, start: safeStart, end: safeEnd, durationMin: Math.round((safeEnd - safeStart) / 60000) } : item);
-      writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+      writeDashboardDataCache(cacheScope, effectiveClubId, {
         clients, programmesBase, sessions: nextSessions, assignedCounts, assignedClientsMap,
       });
     } catch (error) {
@@ -8033,7 +7918,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
     <Box data-tour-page="coach-dashboard" minH="100vh" bg={pageBg} color={textColor}
 position="relative" overflow="clip">
       {dashboardPerfEnabled && <Box as="output" data-testid="coach-dashboard-timing" display="block" position="relative" zIndex={1} p={2} fontSize="xs" whiteSpace="pre-wrap">{JSON.stringify(dashboardTiming)}</Box>}
-      {dashboardFromCache && (dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error") && (
+      {(viewStale || (dashboardFromCache && (dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error"))) && (
         <Text role="status" fontSize="xs" color="gray.500">
           {t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")}
         </Text>
@@ -11338,7 +11223,7 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
            <ModalBody>
              <React.Suspense fallback={<HStack py={4} justify="center"><Spinner size="sm" /><Text>{t("common.loading", "Chargement...")}</Text></HStack>}>
                <ClientCreation onClose={clientModal.onClose}
-onCreated={refreshDashboardData} />
+onCreated={()=>refreshDashboardData(null,true)} />
              </React.Suspense>
            </ModalBody>
         </ModalContent>

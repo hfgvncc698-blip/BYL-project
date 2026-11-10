@@ -34,12 +34,16 @@ export function forFirestorePage(activity) {
   }
   // The instrumented pages use the (query, next, error) listener overload.
   function listen(query, next, error, options) {
-    let first = true;
+    let first = true, serverSeen=false;
     recordMetric(activity, "listener-start");
     const stop = onSnapshot(query, ...(options ? [options] : []), snapshot => {
       const changes = { added: 0, modified: 0, removed: 0 };
       for (const change of snapshot.docChanges?.() || []) changes[change.type]++;
-      recordMetric(activity, "listener-snapshot", { ...changes, documentsReturned: snapshot.size ?? Number(snapshot.exists()),
+      const confirmed=!snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites;
+      const returned=confirmed ? (serverSeen ? changes.added+changes.modified+changes.removed : snapshot.size ?? Number(snapshot.exists())) : 0;
+      const estimate=confirmed && !serverSeen ? Math.max(1,returned) : returned;
+      if(confirmed)serverSeen=true;
+      recordMetric(activity, "listener-snapshot", { ...changes, serverChanges:returned, estimatedDocumentReads:estimate, documentsReturned: snapshot.size ?? Number(snapshot.exists()),
         first: Number(first), fromCache: Number(snapshot.metadata.fromCache),
         server: Number(!snapshot.metadata.fromCache), pendingWrites: Number(snapshot.metadata.hasPendingWrites) }, collectionOf(query));
       first = false;
@@ -81,3 +85,7 @@ export const messagingOnSnapshot = enabled ? messaging.onSnapshot : onSnapshot;
 export const messagingServerDoc = enabled ? messaging.getDocFromServer : getDocFromServer;
 export const messagingServerDocs = enabled ? messaging.getDocsFromServer : getDocsFromServer;
 export const messagingThreadSnapshot = (ref,next,error) => enabled ? messaging.onSnapshot(ref,next,error,{includeMetadataChanges:true}) : onSnapshot(ref,{includeMetadataChanges:true},next,error);
+
+export const coachConfirmedSnapshot = (ref,next,error) => enabled ? coach.onSnapshot(ref,next,error,{includeMetadataChanges:true}) : onSnapshot(ref,{includeMetadataChanges:true},next,error);
+export const clientsConfirmedSnapshot = (ref,next,error) => enabled ? clients.onSnapshot(ref,next,error,{includeMetadataChanges:true}) : onSnapshot(ref,{includeMetadataChanges:true},next,error);
+export const coachServerDocs = enabled ? coach.getDocsFromServer : getDocsFromServer;

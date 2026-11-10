@@ -166,6 +166,7 @@ if (require.main === module) (async () => {
     await replay(git('rev-parse', 'HEAD').trim() + '+working-tree', path.join(root, 'backend'), temporary);
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
+    if(process.env.BYL_MEASURE_BROWSER==='1')await new Promise(resolve=>setTimeout(resolve,2000));
     await db.terminate();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

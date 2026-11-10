@@ -18,6 +18,8 @@ const routes = new Map([
   ['/api/messaging/club/send', 'club-send'],
   ['/api/analytics/admin/geo', 'admin-geo'],
   ['/api/programs/dashboard-templates', 'dashboard-templates'],
+  ['/api/programs/client-list-summary','client-list-summary'],
+  ['/api/programs/dashboard-client-programs','dashboard-client-programs'],
 ]);
 const jobs = new Set(['expiry', 'cycles', 'trials', 'monthly']);
 const patched = new WeakSet();
@@ -29,6 +31,20 @@ function totals(scope, activity) {
   return { scope, activity, sample: randomUUID(), httpRequests: 0, sdkReads: 0,
     documentsReturned: 0, estimatedDocumentReads: 0, aggregates: 0, failedReads: 0,
     actualBilledReads: null, transactionAttempts: 0, operations: {} };
+}
+
+// Only fixed collection labels are exported. Neither the document path nor
+// the query, credentials, or contents enter metrics.
+const coachReadDomains=new Set(['clients','users','programmes','sessionsEffectuees','nutrition_assessments','nutrition_feedback','coachClientListViews','messagingRevocations']);
+function listDomain(row,ref,result) {
+  if(!['dashboard-templates','client-list-summary','dashboard-client-programs'].includes(row.activity))return;
+  const reference=Array.isArray(result)?result[0]?.ref:result.ref;
+  const name=reference?.parent?.id || result.docs?.[0]?.ref.parent.id || ref?._queryOptions?.collectionId || ref?.id;
+  const key=coachReadDomains.has(name)?name:'other';
+  row.domains ||= {};
+  const bucket=row.domains[key] ||= {reads:0,docs:0,estimate:0};
+  const count=Array.isArray(result)?result.filter(d=>d.exists).length:result.size ?? Number(result.exists);
+  bucket.reads++;bucket.docs+=count;bucket.estimate+=Array.isArray(result)?result.length:Math.max(1,count);
 }
 
 function wrap(prototype, method, kind) {
@@ -52,6 +68,7 @@ function wrap(prototype, method, kind) {
           row.documentsReturned += count;
           row.estimatedDocumentReads += Math.max(1, count);
         } else row.aggregates++; // e.g. transaction.get(AggregateQuery)
+        listDomain(row,kind.startsWith('transaction') || kind==='getAll' ? args[0] : this,result);
         return result;
       } catch (error) {
         row.failedReads++;

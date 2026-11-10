@@ -21,7 +21,7 @@ const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentDeleted, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
@@ -4009,3 +4009,32 @@ exports.calendarFeed = onRequest(
     }
   }
 );
+
+const { invalidateCoachPage } = require('./coachPageRevision');
+for (const [name, document, domain] of [
+  ['onCoachListProgramChanged','clients/{clientId}/programmes/{programId}','dashboardProgramRevision'],
+  ['onCoachListProgressChanged','clients/{clientId}/programmes/{programId}/sessionsEffectuees/{sessionId}','dashboardProgramRevision'],
+  ['onCoachListFeedbackChanged','clients/{clientId}/nutrition_feedback/{feedbackId}','dashboardNutritionRevision'],
+  ['onCoachListNutritionChanged','clients/{clientId}/nutrition_assessments/{assessmentId}','dashboardNutritionRevision'],
+]) {
+  exports[name] = onDocumentWritten({region:'europe-west1',document,retry:true}, event=>
+    invalidateCoachPage(db,admin.firestore.FieldValue,event.params.clientId,domain));
+}
+
+// Deletion events may arrive after a dossier has been recreated with the same ID.
+exports.onCoachListClientDeleted = onDocumentDeleted({region:'europe-west1',document:'clients/{clientId}',retry:true}, event=>
+  db.runTransaction(async tx=>{
+    const id=event.params.clientId;
+    if((await tx.get(db.collection('clients').doc(id))).exists)return;
+    const views=db.collection('coachPageLists').doc(id).collection('coachClientListViews');
+    const rows=await tx.get(views);
+    for(const row of rows.docs)tx.delete(row.ref);
+  }));
+
+exports.onCoachPageTemplateChanged = onDocumentWritten({region:'europe-west1',document:'programmes/{programId}',retry:true}, async event=>{
+  const owners=new Set([event.data.before.data()?.createdBy,event.data.after.data()?.createdBy]);
+  const batch=db.batch();
+  for(const uid of owners) if(typeof uid==='string' && uid && !uid.includes('/'))
+    batch.set(db.collection('coachPageTemplateRevisions').doc(uid),{revision:admin.firestore.FieldValue.serverTimestamp()});
+  await batch.commit();
+});

@@ -33,7 +33,7 @@ async function sample(name, Page, route, warm, run = 1) {
       if ((state.core?.status || state.status) === 'ready') break;
       if ((state.core?.status || state.status) === 'error') throw Error(name + '-load-error');
     }
-    if ((state?.core?.status || state?.status) !== 'ready') throw Error(name + '-timeout');
+    if ((state?.core?.status || state?.status) !== 'ready') {window.fixtureDiagnostic={state,metrics:window.bylFirestoreMetrics.snapshot()};throw Error(name + '-timeout');}
     const coreReadyMs = Math.round(performance.now() - mounted);
     await wait(500);
     result[name + (warm ? '-warm' : '-cold') + (run === 1 ? '' : '-' + run)] = { coreReadyMs,
@@ -137,4 +137,4 @@ async function sampleAdmin() {
   root.unmount();
   if (globalThis.fixtureExtended) await sampleAdmin();
   await publish(result);
-})().catch(error => publish({failure: /^(clients|coach)-(load-error|timeout)$/.test(error.message) ? error.message : 'browser-error'}));
+})().catch(error => publish({diagnostic:window.fixtureDiagnostic,failure: /^(clients|coach)-(load-error|timeout)$/.test(error.message) ? error.message : 'browser-error'}));
