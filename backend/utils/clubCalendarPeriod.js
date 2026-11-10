@@ -4,6 +4,8 @@ const {createHash} = require('node:crypto');
 const {Timestamp} = require('../firebaseAdmin').firestore;
 const {clubAppointmentStatus} = require('./clubAppointmentStatus');
 
+const {visibleAppointmentSession, validLink} = require('./clubAppointmentSession');
+
 const periods = new Map();
 const sources = new Map();
 const graceMs = 4000;
@@ -82,15 +84,13 @@ function subscribe(key,ref,consume,fail) {
   };
 }
 
-function eventRow(id,event,linked,clubId) {
-  const session=linked && (!linked.clubId || linked.clubId===clubId) &&
-    (linked.clubAppointmentId===id || (event.clientId && [linked.clientDocId,linked.clientId].includes(event.clientId))) ? linked:null;
+function eventRow(id,event,session) {
   const completed=session && (session.validatedAt || session.completedAt ||
     ['validée','validee','done','completed','terminée','terminee'].includes(String(session.status||'').toLowerCase()));
   const startsAt=millis(event.startsAt);
   const row={id,startsAt,durationMin:Number(event.durationMin)||60,
     status:completed?'validée':clubAppointmentStatus({...event,startsAt}),
-    difficultyRating:session?.difficultyRating??session?.rating??event.difficultyRating??null};
+    difficultyRating:session?.difficultyRating??session?.rating??(event.linkedSessionId ? null : event.difficultyRating)??null};
   for(const field of eventFields)if(event[field]!=null)row[field]=event[field];
   row.title ||= 'Rendez-vous';
   row.createdAt=millis(event.createdAt)||0;
@@ -104,8 +104,9 @@ function watchPeriod(db,clubId,from,to,upcoming=false) {
   let state=periods.get(key);
   if(!state) {
     const refs=queries(db.collection('clubs').doc(clubId).collection('appointments'),from,to,upcoming);
-    const snapshots=new Map(),links=new Map(),listeners=new Set();
+    const snapshots=new Map(),links=new Map(),clients=new Map(),listeners=new Set();
     let serialized='[]',revision=digest(serialized),ready=false,rows=[],failure,closed=false;
+    let enriched = new Map();
     const notify=()=>{for(const fn of [...listeners])fn();};
     function fail(error){failure=error;if(periods.get(key)===state)periods.delete(key);notify();}
     function rebuild(){
@@ -115,34 +116,70 @@ function watchPeriod(db,clubId,from,to,upcoming=false) {
         const event=doc.data();
         if(inPeriod(event,from,upcoming?Infinity:to))events.set(doc.id,event);
       }
-      const ids=new Set([...events.values()].map(e=>e.linkedSessionId).filter(id=>typeof id==='string' && id && !id.includes('/')));
-      for(const [id,entry] of links)if(!ids.has(id)){entry.stop();links.delete(id);}
-      for(const id of ids)if(!links.has(id)){
-        const entry={};links.set(id,entry);
-        entry.stop=subscribe(JSON.stringify([clubId,'linked',id]),db.collection('sessions').doc(id),snap=>{
-          if(links.get(id)===entry){entry.snapshot=snap;rebuild();}
-        },fail);
+      function watchDocuments(collection, entries, ids) {
+        for (const [id, entry] of entries) if (!ids.has(id)) { entry.stop(); entries.delete(id); }
+        for (const id of ids) if (!entries.has(id)) {
+          const entry = {};
+          entries.set(id, entry);
+          entry.stop = subscribe(JSON.stringify([clubId, collection, id]), db.collection(collection).doc(id), snap => {
+            if (entries.get(id) === entry) { entry.snapshot = snap; rebuild(); }
+          }, fail);
+        }
       }
-      ready=[...links.values()].every(entry=>entry.snapshot);
-      if(!ready)return;
-      const next=[...events].map(([id,event])=>eventRow(id,event,links.get(event.linkedSessionId)?.snapshot?.data(),clubId))
+      const linkedEvents = [...events.values()].filter(event => validLink(event.linkedSessionId) && validLink(event.clientId));
+      watchDocuments('sessions', links, new Set(linkedEvents.map(event => event.linkedSessionId)));
+      watchDocuments('clients', clients, new Set(linkedEvents.map(event => event.clientId)));
+      ready = [...links.values(), ...clients.values()].every(entry => entry.snapshot);
+      if (!ready) return;
+      enriched = new Map();
+      const next = [...events].map(([id,event]) => {
+        const session = links.get(event.linkedSessionId)?.snapshot?.data();
+        const client = clients.get(event.clientId)?.snapshot?.data();
+        const visible = visibleAppointmentSession(clubId,id,event,session,client);
+        if (visible) enriched.set(id,event);
+        return eventRow(id,event,visible ? session : null);
+      })
         .sort((a,b)=>a.startsAt-b.startsAt||a.id.localeCompare(b.id));
       const nextSerialized=JSON.stringify(next);
       if(serialized!==nextSerialized){rows=next;serialized=nextSerialized;revision=digest(serialized);}
       notify();
     }
+    // A cached listener can lag a just-committed transfer. Revalidate only
+    // enriched rows actually sent; idle unchanged responses carry no private rows.
+    async function confirmRows(page) {
+      if (!page.appointments || !enriched.size) return page;
+      const candidates = new Map(enriched);
+      const refs = new Map();
+      for (const [id,event] of candidates) {
+        for (const ref of [db.collection('clubs').doc(clubId).collection('appointments').doc(id), db.collection('sessions').doc(event.linkedSessionId), db.collection('clients').doc(event.clientId)]) {
+          refs.set(ref.path, ref);
+        }
+      }
+      const snaps = await db.getAll(...refs.values());
+      const records = new Map(snaps.map(snap => [snap.ref.path, snap.data()]));
+      const confirmed = page.appointments.flatMap(row => {
+        const cached = candidates.get(row.id);
+        if (!cached) return [row];
+        const event = records.get('clubs/' + clubId + '/appointments/' + row.id);
+        if (!event || !inPeriod(event,from,upcoming ? Infinity : to)) return [];
+        const session = records.get('sessions/' + event.linkedSessionId);
+        const client = records.get('clients/' + event.clientId);
+        return [eventRow(row.id,event,visibleAppointmentSession(clubId,row.id,event,session,client) ? session : null)];
+      });
+      return {appointments:confirmed, revision:digest(JSON.stringify(confirmed))};
+    }
     const stops=refs.map((ref,i)=>{
       const sourceKey=JSON.stringify(i<2?[clubId,i,from,upcoming?'future':to]:[clubId,i]);
       return subscribe(sourceKey,ref,snap=>{snapshots.set(i,snap);rebuild();},fail);
     });
-    state={users:0,close(){closed=true;for(const stop of stops)stop();for(const entry of links.values())entry.stop();},
+    state={users:0,close(){closed=true;for(const stop of stops)stop();for(const entry of [...links.values(),...clients.values()])entry.stop();},
       wait(known,signal,immediate=false){return new Promise((resolve,reject)=>{
         let timer;
         function finish(error,value){clearTimeout(timer);listeners.delete(check);signal?.removeEventListener('abort',abort);if(error)reject(error);else resolve(value);}
         function abort(){finish(Error('aborted'));}
         function check(expired=false){
           if(failure)return finish(failure);
-          if(ready && (known!==revision || expired || immediate))return finish(null,{revision,...(known===revision?{unchanged:true}:{appointments:rows})});
+          if(ready && (known!==revision || expired || immediate))return finish(null,confirmRows({revision,...(known===revision?{unchanged:true}:{appointments:rows})}));
           if(expired)finish(Error('calendar-timeout'));
         }
         timer=setTimeout(()=>check(true),waitMs);

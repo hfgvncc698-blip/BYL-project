@@ -42,7 +42,7 @@ async function fixture() {
   put('users/administrator', { role: 'admin' });
   put('users/coach', { role: 'coach', subscriptionStatus: 'active', hasActiveSubscription: true, packageKey: 'complete', clubId: null });
   put('users/owner', { role: 'club', accountType: 'club_owner', clubId: 'sample' });
-  put('clubs/sample', { name: 'Fixture' });
+  put('clubs/sample', { name: 'Fixture', ownerUid: 'owner' });
   for (let n = 0; n < 12; n++) {
     put('sessions/s' + n, { coachId: 'coach', createdBy: 'coach', ownerId: 'coach' });
     put('clients/c' + n, { createdBy: 'coach', coachId: 'coach', coachIds: ['coach'],

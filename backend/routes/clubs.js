@@ -1,3 +1,4 @@
+const {visibleClubSession, visibleAppointmentSession, readAppointmentSession} = require('../utils/clubAppointmentSession');
 const { batchedFieldReads } = require("../utils/batchedFieldReads");
 const { classEmailChanges, notifyClassParticipants, classEmailSubject } = require('../utils/clubClassEmail');
 const { emailCopy, normalizeLanguage } = require('../utils/clubEmailCopy');
@@ -689,9 +690,10 @@ function nutritionShareEmailCopy(lang, { clientName, coachName, link, requiresPa
   return { ...effectiveCopy, text, html };
 }
 
-async function getRequester(uid) {
-  const snap = await db.collection("users").doc(uid).get();
-  return snap.exists ? { id: snap.id, ...snap.data() } : null;
+async function getRequester(uid, reader) {
+  const ref = db.collection("users").doc(uid);
+  const snap = reader ? await reader.get(ref) : await ref.get();
+  return snap.exists ? { ...snap.data(), id: snap.id } : null;
 }
 
 function isProfessionalUser(user) {
@@ -753,7 +755,6 @@ async function findUserProfileByEmail(email) {
 function isAdminRequester(req, user) {
   return req?.auth?.token?.email_verified === true && (
     user?.role === "admin" ||
-    user?.isAdmin === true ||
     req?.auth?.token?.role === "admin" ||
     req?.auth?.token?.admin === true
   );
@@ -770,15 +771,22 @@ function isClubOwner(req, user) {
   );
 }
 
+async function ownsClubRecord(uid, clubId, reader) {
+  if (!validDocId(clubId)) return false;
+  const ref = db.collection("clubs").doc(clubId);
+  const club = reader ? await reader.get(ref) : await ref.get();
+  return club.exists && (Object.hasOwn(club.data(), "ownerUid") ? club.get("ownerUid") : club.id) === uid;
+}
+
 async function assertClubOwner(req, res, next) {
   try {
     const user = await getRequester(req.auth?.uid);
     if (!user) return res.status(404).json({ error: "user-not-found" });
     const adminRequester = isAdminRequester(req, user);
-    if (!isClubOwner(req, user)) {
+    if (!activeMessagingProfile(user) || !isClubOwner(req, user)) {
       return res.status(403).json({ error: "club-owner-required" });
     }
-    if (!user.clubId && !adminRequester) {
+    if (!adminRequester && !(await ownsClubRecord(req.auth.uid, user.clubId))) {
       return res.status(403).json({ error: "club-owner-required" });
     }
     req.clubUser = user;
@@ -810,7 +818,7 @@ async function getClubScope(clubId) {
   ]);
 
   const memberMap = new Map();
-  membersSnap.forEach((doc) => memberMap.set(doc.id, { uid: doc.id, ...doc.data() }));
+  membersSnap.forEach((doc) => memberMap.set(doc.id, { ...doc.data(), uid: doc.id }));
   directUsersSnap.forEach((doc) => {
     const data = doc.data() || {};
     memberMap.set(doc.id, {
@@ -889,11 +897,11 @@ router.get('/client-imports/:id/rows', requireFirebaseAuth, billingRoute(async r
   return {rows:rows.docs.map(d=>({index:Number(d.id),...d.data().result,invitation:d.data().invitation||''}))};
 }));
 
-async function confirmCalendarReader(req) {
-  const actor=await getRequester(req.auth.uid);
-  if(!activeMessagingProfile(actor) || !isClubOwner(req,actor) || (!isAdminRequester(req,actor) && actor.clubId!==req.clubId))
+async function confirmCalendarReader(req, reader) {
+  const actor=await getRequester(req.auth.uid, reader);
+  if(!activeMessagingProfile(actor) || !isClubOwner(req,actor) || (!isAdminRequester(req,actor) && (actor.clubId!==req.clubId || !(await ownsClubRecord(req.auth.uid, req.clubId, reader)))))
     throw Object.assign(Error('club-access-revoked'),{status:403});
-  await req.auth.assertMessagingSession({get:ref=>ref.get()});
+  await req.auth.assertMessagingSession(reader || {get:ref=>ref.get()});
 }
 
 router.get('/calendar-period',requireUnrevokedFirebaseAuth,assertClubOwner,async(req,res)=>{
@@ -922,7 +930,7 @@ router.get("/summary", requireUnrevokedFirebaseAuth, assertClubOwner, async (req
     if(!calendarOnly)await memberships.expireClub(req.clubId);
     const includeNutrition=req.query.view!=='form';
     const { club, members } = await getClubScope(req.clubId);
-    const ownerUid = req.clubUser.uid || req.clubUser.id || req.auth.uid;
+    const ownerUid = club.ownerUid || req.auth.uid;
     const activeMembers = members.filter((member) => member.status !== "deleted");
     const proIds = activeMembers
       .filter((member) => member.uid && member.role !== "owner")
@@ -963,12 +971,12 @@ router.get("/summary", requireUnrevokedFirebaseAuth, assertClubOwner, async (req
     ]);
 
     const clients = new Map();
-    otherClubClients.forEach(doc => clients.set(doc.id, { id: doc.id, ...doc.data() }));
-    clubClientsSnap?.forEach((doc) => clients.set(doc.id, { id: doc.id, ...doc.data() }));
+    otherClubClients.forEach(doc => clients.set(doc.id, { ...doc.data(), id: doc.id }));
+    clubClientsSnap?.forEach((doc) => clients.set(doc.id, { ...doc.data(), id: doc.id }));
     clientsByCoach.filter((doc) => belongsToClub(doc, req.clubId)).forEach((doc) => clients.set(doc.id, doc));
 
     const programs = new Map();
-    clubProgramsSnap?.forEach((doc) => programs.set(doc.id, { id: doc.id, ...doc.data() }));
+    clubProgramsSnap?.forEach((doc) => programs.set(doc.id, { ...doc.data(), id: doc.id }));
     programsByCoach.filter((doc) => belongsToClub(doc, req.clubId)).forEach((doc) => programs.set(doc.id, doc));
 
     const clientList = [...clients.values()];
@@ -1134,7 +1142,7 @@ router.get("/summary", requireUnrevokedFirebaseAuth, assertClubOwner, async (req
     const sessionMap = new Map();
     [...sessionsByClientId, ...sessionsByClientDocId].forEach((session) => sessionMap.set(session.id, session));
     const completedSessionPayloads = [...sessionMap.values()]
-      .filter((session) => isCompletedSession(session))
+      .filter((session) => visibleClubSession(req.clubId, session, clients.get(session.clientDocId || session.clientId)) && isCompletedSession(session))
       .filter((session) => String(session.eventType || session.type || "") !== "club_appointment")
       .map((session) => {
         const clientId = session.clientDocId || session.clientId || "";
@@ -1206,11 +1214,14 @@ router.get("/summary", requireUnrevokedFirebaseAuth, assertClubOwner, async (req
     ) : [];
     const nutritionPayloads = nutritionRowsNested.flat().sort((a, b) => b.activityAt - a.activityAt);
     const appointmentPayloads = [];
-    appointmentsSnap?.forEach((doc) => {
+    for (const doc of appointmentsSnap?.docs || []) {
       const data = doc.data() || {};
       const startsAt = toMillis(data.startsAt);
-      if (!startsAt) return;
-      const linkedSession = data.linkedSessionId ? sessionMap.get(data.linkedSessionId) : null;
+      if (!startsAt) continue;
+      const candidate = sessionMap.get(data.linkedSessionId);
+      const linkedSession = !candidate || !clients.has(data.clientId)
+        ? await readAppointmentSession(db, req.clubId, doc.id, data)
+        : visibleAppointmentSession(req.clubId, doc.id, data, candidate, clients.get(data.clientId)) ? candidate : null;
       const resolvedStatus = linkedSession && isCompletedSession(linkedSession) ? "validée" : clubAppointmentStatus(data);
       appointmentPayloads.push({
         id: doc.id,
@@ -1233,7 +1244,7 @@ router.get("/summary", requireUnrevokedFirebaseAuth, assertClubOwner, async (req
         cancellationReason: data.cancellationReason || '',
         excuseReviewNote: data.excuseReviewNote || '',
         excuseReviewedAt: data.excuseReviewedAt || null,
-        difficultyRating: linkedSession?.difficultyRating ?? linkedSession?.rating ?? data.difficultyRating ?? null,
+        difficultyRating: linkedSession?.difficultyRating ?? linkedSession?.rating ?? (data.linkedSessionId ? null : data.difficultyRating) ?? null,
         durationMin: Number(data.durationMin || 60) || 60,
         programId: data.programId || "",
         programTitle: data.programTitle || "",
@@ -1242,7 +1253,7 @@ router.get("/summary", requireUnrevokedFirebaseAuth, assertClubOwner, async (req
         startsAt,
         createdAt: toMillis(data.createdAt),
       });
-    });
+    }
     appointmentPayloads.sort((a, b) => a.startsAt - b.startsAt);
 
     const enrichedCoaches = coaches.map((coach) => ({
@@ -2806,23 +2817,31 @@ async function assertAppointmentManager(req,res,next) {
 }
 
 // Fetch only the requested event, without rebuilding the entire dashboard.
-router.get("/appointments/:appointmentId", requireFirebaseAuth, assertAppointmentManager, async (req, res) => {
+router.get("/appointments/:appointmentId", requireUnrevokedFirebaseAuth, assertAppointmentManager, async (req, res) => {
   try {
     const id = req.params.appointmentId;
     if (!id || id.includes('/') || id.length > 160) return res.status(400).json({ error: "appointment-id-required" });
     const snap = await db.collection("clubs").doc(req.clubId).collection("appointments").doc(id).get();
     if (!snap.exists) return res.status(404).json({ error: "Ce rendez-vous n’est plus disponible." });
     const data = snap.data();
-    const linked = data.linkedSessionId ? (await db.collection("sessions").doc(data.linkedSessionId).get()).data() : null;
-    res.json({ appointment: { ...data, id: snap.id, startsAt: toMillis(data.startsAt),
+    const linked = await readAppointmentSession(db, req.clubId, id, data);
+    await confirmAppointmentManager(req,id);
+    res.json({ appointment: { ...data, ...(data.linkedSessionId ? {difficultyRating:linked?.difficultyRating ?? linked?.rating ?? null, rating:linked?.rating ?? null} : {}),
+      id: snap.id, startsAt: toMillis(data.startsAt),
       createdAt: toMillis(data.createdAt), status: linked && isCompletedSession(linked) ? "validée" : clubAppointmentStatus(data) } });
   } catch (err) {
     console.error("[club appointment detail]", err);
-    res.status(500).json({ error: "Impossible de charger le rendez-vous." });
+    res.status(err.status || 500).json({ error: "Impossible de charger le rendez-vous." });
   }
 });
 
-router.patch("/appointments/:appointmentId", requireFirebaseAuth, assertAppointmentManager, async (req, res) => {
+async function confirmAppointmentManager(req, appointmentId, tx) {
+  if (!req.assignedGroupCoach) return confirmCalendarReader(req, tx);
+  await assertAssignedGroupCoach(db, req.auth.uid, req.clubId, appointmentId, tx);
+  await req.auth.assertMessagingSession(tx || {get:ref=>ref.get()});
+}
+
+router.patch("/appointments/:appointmentId", requireUnrevokedFirebaseAuth, assertAppointmentManager, async (req, res) => {
   try {
     const appointmentId = cleanText(req.params.appointmentId, 160);
     if (!appointmentId) return res.status(400).json({ error: "appointment-id-required" });
@@ -2860,7 +2879,7 @@ router.patch("/appointments/:appointmentId", requireFirebaseAuth, assertAppointm
         patch.registrationMode = req.body.registrationMode;
       }
       const notification = await db.runTransaction(async tx => {
-        if (req.assignedGroupCoach) await assertAssignedGroupCoach(db,req.auth.uid,req.clubId,appointmentId,tx);
+        await confirmAppointmentManager(req,appointmentId,tx);
         const fresh = (await tx.get(appointmentRef)).data();
         if (!fresh) throw Object.assign(new Error("Cours introuvable."), { status: 404 });
         if (req.body.participantIds !== undefined || req.body.waitlistIds !== undefined) {
@@ -2920,34 +2939,36 @@ router.patch("/appointments/:appointmentId", requireFirebaseAuth, assertAppointm
       return res.json({ ok: true, emailDelivery });
     }
     await db.runTransaction(async batch=>{
+      await confirmAppointmentManager(req,appointmentId,batch);
       const fresh=(await batch.get(appointmentRef)).data();
       if(!fresh)throw Object.assign(new Error('Rendez-vous introuvable.'),{status:404});
       if(fresh.type==='sport'&&fresh.clientId&&nextStartsAt.getTime()>Date.now()&&nextStatus!=='annulée'&&(patch.startsAt||patch.title||(patch.status==='à venir'&&fresh.status==='annulée')))
         await sessionPacks.assertCredit(req.clubId,fresh.clientId,{...fresh,...patch,id:appointmentId},batch);
+    const writableSession = await readAppointmentSession(db, req.clubId, appointmentId, fresh, batch);
     batch.set(appointmentRef, patch, { merge: true });
 
-    if (current.linkedSessionId) {
+    if (writableSession) {
       const sessionPatch = {
         title: nextTitle,
         start: admin.firestore.Timestamp.fromDate(nextStartsAt),
         end: admin.firestore.Timestamp.fromDate(nextEndAt),
         status: nextStatus,
         durationMin: nextDurationMin,
-        description: current.programTitle || nextTitle,
+        description: fresh.programTitle || nextTitle,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
-      batch.set(db.collection("sessions").doc(current.linkedSessionId), sessionPatch, { merge: true });
-      if (current.clientId) {
+      batch.set(db.collection("sessions").doc(fresh.linkedSessionId), sessionPatch, { merge: true });
+      if (fresh.clientId) {
         batch.set(
-          db.collection("clients").doc(current.clientId).collection("calendarEvents").doc(current.linkedSessionId),
+          db.collection("clients").doc(fresh.clientId).collection("calendarEvents").doc(fresh.linkedSessionId),
           {
-            title: current.eventType === "nutrition_appointment" ? nextTitle : `${current.sessionTitle || nextTitle}${current.programTitle ? ` - ${current.programTitle}` : ""}`,
+            title: fresh.eventType === "nutrition_appointment" ? nextTitle : `${fresh.sessionTitle || nextTitle}${fresh.programTitle ? ` - ${fresh.programTitle}` : ""}`,
             start: admin.firestore.Timestamp.fromDate(nextStartsAt),
             end: admin.firestore.Timestamp.fromDate(nextEndAt),
             startAt: admin.firestore.Timestamp.fromDate(nextStartsAt),
             endAt: admin.firestore.Timestamp.fromDate(nextEndAt),
             status: calendarStatus(nextStatus),
-            description: current.programTitle || nextTitle,
+            description: fresh.programTitle || nextTitle,
             durationMin: nextDurationMin,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
@@ -2964,18 +2985,20 @@ router.patch("/appointments/:appointmentId", requireFirebaseAuth, assertAppointm
   }
 });
 
-router.delete("/appointments/:appointmentId", requireFirebaseAuth, assertAppointmentManager, async (req, res) => {
+router.delete("/appointments/:appointmentId", requireUnrevokedFirebaseAuth, assertAppointmentManager, async (req, res) => {
   try {
     const appointmentId = cleanText(req.params.appointmentId, 160);
     if (!appointmentId) return res.status(400).json({ error: "appointment-id-required" });
     const appointmentRef = db.collection("clubs").doc(req.clubId).collection("appointments").doc(appointmentId);
     const appointmentSnap = await appointmentRef.get();
     if (!appointmentSnap.exists) return res.status(404).json({ error: "appointment-not-found" });
-    const current = appointmentSnap.data() || {};
     await db.runTransaction(async batch => {
-    if(req.assignedGroupCoach) await assertAssignedGroupCoach(db,req.auth.uid,req.clubId,appointmentId,batch);
+    const current = (await batch.get(appointmentRef)).data();
+    if (!current) return;
+    await confirmAppointmentManager(req,appointmentId,batch);
+    const writableSession = await readAppointmentSession(db, req.clubId, appointmentId, current, batch);
     batch.delete(appointmentRef);
-    if (current.linkedSessionId) {
+    if (writableSession) {
       batch.delete(db.collection("sessions").doc(current.linkedSessionId));
       if (current.clientId) {
         batch.delete(db.collection("clients").doc(current.clientId).collection("calendarEvents").doc(current.linkedSessionId));
@@ -3170,7 +3193,7 @@ router.post("/nutrition-share-email", requireFirebaseAuth, async (req, res) => {
 
     const client = clientSnap.data() || {};
     const assessment = assessmentSnap.data() || {};
-    const isAdmin = requester.role === "admin" || requester.isAdmin === true;
+    const isAdmin = isAdminRequester(req, requester);
     const requesterClubId = requester.clubId || "";
     const sameClub =
       requesterClubId &&

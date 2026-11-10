@@ -9,7 +9,7 @@ async function batchedFieldReads(db, collectionName, field, values) {
     while (next < groups.length) {
       const index = next++;
       const snap = await db.collection(collectionName).where(field, 'in', groups[index]).limit(500).get();
-      results[index] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      results[index] = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
     }
   }));
   return results.flat();

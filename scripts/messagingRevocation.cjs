@@ -22,7 +22,7 @@ async function inspect(auth, ref, uid) {
 
 async function run() {
   const [projectId, uid, operation] = process.argv.slice(2);
-  const operations = ['inspect', 'disable', 'reactivate', 'reconcile', 'revoke', 'prepare-delete'];
+  const operations = ['inspect', 'disable', 'reactivate', 'reconcile', 'revoke', 'prepare-disable', 'prepare-delete'];
   if (!projectId || !uid || uid.includes('/') || !operations.includes(operation)) {
     throw Error('Usage: node scripts/messagingRevocation.cjs PROJECT UID ' + operations.join('|'));
   }
@@ -51,10 +51,12 @@ async function run() {
       case 'revoke':
         await revokeSessions(db, auth, uid);
         break;
+      case 'prepare-disable':
       case 'disable': {
         const batch = db.batch();
         block(batch, db, uid);
         await batch.commit();
+        if (operation === 'prepare-disable') break;
         await auth.updateUser(uid, { disabled: true });
         await auth.revokeRefreshTokens(uid);
         break;

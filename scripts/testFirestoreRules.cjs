@@ -30,6 +30,11 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
         'sessions/club-planned': {clientId:'patient', clubId:'club-one', start:1, end:2},
         'sessions/personal': {clientId:'patient', createdBy:'patient', start:1, end:2},
         'users/coach-a': coach(null), 'users/coach-b': coach(null),
+        'clubs/club-one': {ownerUid:'club-owner'},
+        'clubs/club-one/members/club-a': {role:'pro',status:'active'},
+        'clubs/club-one/members/club-b': {role:'pro',status:'active'},
+        'clubs/club-two': {ownerUid:'other-owner'},
+        'clubs/club-two/members/club-other': {role:'pro',status:'active'},
         'users/empty-a': coach(''), 'users/club-a': coach('club-one'), 'users/club-b': coach('club-one'),
         'users/club-other': coach('club-two'),
         'users/patient': ownProfile({ linkedClientId: 'owned-client' }),
@@ -152,6 +157,13 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
     await test('independent coach cannot update another null-club client', () => assertFails(patch(dbFor('coach-a'), 'clients/foreign')));
     await test('empty club identifiers never confer membership', () => assertFails(read(dbFor('empty-a'), 'clients/empty-club')));
     await test('same nonempty club retains client access', () => assertSucceeds(read(dbFor('club-a'), 'clients/club-client')));
+    await test('profile club alone cannot retain SDK access after membership revocation', async () => {
+      const setFixture=(key,data)=>env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),key),data,{merge:true}));
+      await setFixture('clubs/club-one/members/club-a',{status:'removed'});
+      await assertFails(read(dbFor('club-a'),'clients/club-client'));
+      await setFixture('clubs/club-one/members/club-a',{status:'active'});
+      await assertSucceeds(read(dbFor('club-a'),'clients/club-client'));
+    });
     await test('different clubs remain isolated', () => assertFails(read(dbFor('club-other'), 'clients/club-client')));
     await test('owner coach retains access to independent client', () => assertSucceeds(read(dbFor('coach-a'), 'clients/owned-client')));
     await test('owner coach can update independent client', () => assertSucceeds(patch(dbFor('coach-a'), 'clients/owned-client', { notes: 'updated' })));

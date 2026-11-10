@@ -98,6 +98,17 @@ async function run(){
     }
     await manage('active');
     for(const t of [one,two]){await check(t,false,'old after reactivation');await apiCheck(t,false);}
+    await wait(1100);
+    const prior=await login();
+    require('node:child_process').execFileSync(process.execPath,
+      [path.join(__dirname,'messagingRevocation.cjs'),projectId,'member0','prepare-disable']);
+    assert.equal((await admin.auth().getUser('member0')).disabled,false);
+    await check(prior,false,'marked before console operation');
+    await apiCheck(prior,false);
+    await admin.auth().updateUser('member0',{disabled:true});
+    await check(prior,false,'console operation with pre-existing marker');
+    console.log('PASS prepare-disable blocks old SDK/API tokens before Auth mutation');
+    await reactivate(db,admin.auth(),'member0',await ref.get());
     await wait(1100);const fresh=await login();await check(fresh,true,'fresh login');await apiCheck(fresh,true);
     await admin.auth().updateUser('member0',{disabled:true});
     await check(fresh,true,'external/Auth-only before reconciliation');

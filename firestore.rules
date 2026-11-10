@@ -103,12 +103,21 @@ service cloud.firestore {
       );
     }
 
+    function activeClubProfile(user) {
+      return user.get("disabled", false) != true && user.get("disabledByClub", false) != true &&
+        user.get("deletedFromClub", false) != true &&
+        !(user.get("status", "") in ["deleted", "inactive", "removed", "disabled", "club_deleted"]) &&
+        !(user.get("subscriptionStatus", "") in ["club_disabled", "club_deleted"]);
+    }
+
     function isClubOwner(clubId) {
       return signedIn() && (
         isAdmin() ||
         (
           currentUser().role == "coach" &&
           currentUser().clubId == clubId &&
+          activeClubProfile(currentUser()) &&
+          get(/databases/$(database)/documents/clubs/$(clubId)).data.get("ownerUid", clubId) == request.auth.uid &&
           hasCoachAccess() &&
           (
             currentUser().accountType == "club_owner" ||
@@ -118,19 +127,30 @@ service cloud.firestore {
       );
     }
 
+    function isActiveClubMember(clubId) {
+      let path = /databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid);
+      return isCoach() && currentUser().clubId == clubId && activeClubProfile(currentUser()) &&
+        exists(path) && activeClubProfile(get(path).data);
+    }
+
     function isOwnUser(uid) {
       return signedIn() && request.auth.uid == uid;
     }
 
     function isSameClub(data) {
-      return signedIn() &&
-        currentUser().keys().hasAny(["clubId"]) &&
-        data.keys().hasAny(["clubId"]) &&
-        currentUser().clubId is string &&
-        currentUser().clubId.size() > 0 &&
-        data.clubId is string &&
-        data.clubId.size() > 0 &&
-        currentUser().clubId == data.clubId;
+      let user = currentUser();
+      let clubId = data.get("clubId", "");
+      let membership = /databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid);
+      let club = /databases/$(database)/documents/clubs/$(clubId);
+      return signedIn() && clubId is string && clubId.size() > 0 &&
+        user.get("clubId", "") == clubId && activeClubProfile(user) &&
+        (
+          (exists(membership) && activeClubProfile(get(membership).data)) ||
+          (
+            (user.get("accountType", "") == "club_owner" || user.get("clubRole", "") == "owner") &&
+            exists(club) && get(club).data.get("ownerUid", clubId) == request.auth.uid
+          )
+        );
     }
 
     function uidInList(data, field) {
@@ -671,11 +691,12 @@ service cloud.firestore {
         request.resource.data.role == "particulier" &&
         request.resource.data.linkedClientId == uid &&
         request.resource.data.hasActiveSubscription != true &&
-        !request.resource.data.keys().hasAny(["stripeCustomerId", "stripeSubscriptionId", "stripeSubscriptionCreatedAt"]) &&
-        !(
-          request.resource.data.keys().hasAny(["subscriptionStatus"]) &&
-          request.resource.data.subscriptionStatus in ["active", "trialing"]
-        )
+        request.resource.data.keys().hasOnly([
+          "role", "linkedClientId", "hasActiveSubscription", "subscriptionStatus",
+          "email", "emailLower", "firstName", "lastName", "displayName",
+          "preferredLang", "createdAt", "updatedAt"
+        ]) &&
+        request.resource.data.get("subscriptionStatus", "free") == "free"
       );
       allow get: if isOwnUser(uid) || isAdmin() || (
         signedIn() && resource.data.role == "coach"
@@ -902,9 +923,13 @@ service cloud.firestore {
     }
     match /sessions/{sessionId} {
       allow read: if canAccessSession(resource.data);
-      allow create: if personalSession(request.resource.data) || isAdmin() || coachOwnsRecord(request.resource.data);
+      allow create: if isAdmin() || (request.resource.data.get("clubAppointmentId", "") in ["", null] &&
+        (personalSession(request.resource.data) || coachOwnsRecord(request.resource.data)));
       allow update: if (personalSession(resource.data) && personalSession(request.resource.data)) ||
-        isAdmin() || (coachOwnsRecord(resource.data) && canAccessSession(request.resource.data));
+        isAdmin() || (coachOwnsRecord(resource.data) && canAccessSession(request.resource.data) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(["clubAppointmentId"]) &&
+          (resource.data.get("clubAppointmentId", "") in ["", null] ||
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(["clubId", "clientId", "clientDocId"])));
       allow delete: if personalSession(resource.data) || isAdmin() || coachOwnsRecord(resource.data);
     }
 
@@ -963,9 +988,9 @@ service cloud.firestore {
     }
 
     match /clubs/{clubId} {
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if isClubOwner(clubId) || (isCoach() && currentUser().clubId == clubId);
-      allow update: if isClubOwner(clubId);
+      allow create: if isOwnUser(clubId) && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if isClubOwner(clubId) || isActiveClubMember(clubId);
+      allow update: if isClubOwner(clubId) && request.resource.data.get("ownerUid", clubId) == resource.data.get("ownerUid", clubId);
       allow delete: if isAdmin();
 
       match /members/{memberId} {
@@ -974,7 +999,7 @@ service cloud.firestore {
           clubId == request.auth.uid &&
           request.resource.data.role == "owner"
         );
-        allow read: if isClubOwner(clubId) || (isCoach() && currentUser().clubId == clubId);
+        allow read: if isClubOwner(clubId) || isActiveClubMember(clubId);
         allow update, delete: if isClubOwner(clubId);
       }
 
@@ -988,10 +1013,12 @@ service cloud.firestore {
       }
 
       match /appointments/{appointmentId} {
-        allow create, update, delete: if isClubOwner(clubId);
+        allow create: if isClubOwner(clubId) && request.resource.data.get("linkedSessionId", "") in ["", null];
+        allow update: if isClubOwner(clubId) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(["linkedSessionId", "clientId"]);
+        allow delete: if isClubOwner(clubId);
         allow read: if isClubOwner(clubId) || (
-          isCoach() &&
-          currentUser().clubId == clubId &&
+          isActiveClubMember(clubId) &&
           resource.data.coachUid == request.auth.uid
         );
       }
