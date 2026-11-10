@@ -1,3 +1,4 @@
+import {formatLocalDateKey,sameCalendarDay} from '../utils/calendarWindow.mjs';
 import PlanInclusionBadge from "./PlanInclusionBadge";
 import { conversationIdForClient } from "../utils/messaging";
 import { nutritionCalendarHistory } from "../utils/nutritionCalendarHistory";
@@ -245,12 +246,7 @@ const MAX_DISPLAY = 5;
 const DAYS_ACTIVE_CUTOFF = 30;
 const FORCE_SESSION_DURATION_MIN = 60;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const formatLocalDateKey = (value) => {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (num) => String(num).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-};
+
 const RADAR_SESSION_ADJUSTMENT_DECISION = {
   action: "coach_radar_reduce",
   direction: -1,
@@ -1462,14 +1458,7 @@ const isAutoProgramme = (p) => {
    const o = String(p?.origine || "").toLowerCase();
    return o.includes("auto");
 };
-const sameCalendarDay = (a, b) => {
-   if (!a || !b) return false;
-   return (
-      a.getFullYear() === b.getFullYear() &&
-      a.getMonth() === b.getMonth() &&
-      a.getDate() === b.getDate()
-   );
-};
+
 const normalizeLooseText = (s = "") =>
    String(s || "")
       .normalize("NFD")
@@ -3451,7 +3440,8 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
       const quickCalendarPromise = (async () => {
       let quickEvents = [];
       try {
-        const quickSessionSnaps = await sessionSnapsPromise;
+        const firstWeek=await source.calendar.firstWeek('coach-dashboard');
+        const quickSessionSnaps=[source.calendar.current() || firstWeek];
         const quickRootSessionsById = new Map();
         quickSessionSnaps.forEach((snap) => {
           snap.docs.forEach((d) => {
@@ -3984,12 +3974,7 @@ t("dashboard.session_completed", "Séance effectuée"),
       const coachClubId = effectiveClubId;
       if (coachClubId && effectiveCoachUid) {
         try {
-          const clubAppointmentSnap = await source.read("appointments",cacheScope,()=>coachServerDocs(
-            query(
-              collection(db, "clubs", coachClubId, "appointments"),
-              where("coachUid", "==", effectiveCoachUid)
-            )
-          ));
+          const clubAppointmentSnap=await source.appointments(coachClubId).read('coach-dashboard');
           // Private notes come only from club documents readable by this coach.
           for (const appointmentDoc of clubAppointmentSnap.docs) {
             const appointment = appointmentDoc.data() || {};
@@ -4276,7 +4261,6 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
   const refreshDashboardData = useCallback((clientId, templates=false) => {
     if(typeof clientId==='string' && clientId)source.purge(clientId);
     if(templates)source.invalidate('templates');
-    source.invalidate('appointments');
     return fetchData({silent:true});
   }, [source,fetchData]);
   useEffect(() => {
@@ -4314,11 +4298,11 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
       }
       refresh();
     }});
+    const detachAppointments=effectiveClubId ? source.appointments(effectiveClubId).watch('coach-dashboard',{stale,error:()=>{dashboardLoadSeqRef.current++;setSelectedEvent(null);setSessions([]);stale();},changed:refresh}) : null;
     const detachCalendar=source.calendar.watch('coach-dashboard',{stale,error:denied,changed:(_snap,changes,affected)=>{
       dashboardLoadSeqRef.current++;
       invalidateOfferCredits(effectiveCoachUid,changes);
-      for(const id of affected) if(id) source.purgeSport(id);
-      source.invalidate("appointments");
+      // Program and completion revisions invalidate their own bundles.
       refresh();
     }});
     const foreground=()=>{if(document.visibilityState!=='hidden') refresh();};
@@ -4328,7 +4312,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
     fetchData();
     return ()=>{
       dashboardLoadSeqRef.current++;
-      clearTimeout(timer);clearInterval(reconcile);detachRoots();detachCalendar();detachTemplates();
+      clearTimeout(timer);clearInterval(reconcile);detachRoots();detachCalendar();detachTemplates();detachAppointments?.();
       window.removeEventListener('focus',foreground);window.removeEventListener('online',foreground);
       window.removeEventListener('offline',stale);document.removeEventListener('visibilitychange',foreground);
     };

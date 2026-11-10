@@ -123,7 +123,7 @@ router.get('/client-administration/:clientId/session-packs/:id/history', require
 router.patch('/client-administration/:clientId/session-packs/:id', requireFirebaseAuth, billingRoute(req=>sessionPacks.update(req.auth.uid,req.params.clientId,req.params.id,req.body,requestedClubId(req))));
 router.delete('/client-administration/:clientId/session-packs/:id', requireFirebaseAuth, billingRoute(req=>sessionPacks.remove(req.auth.uid,req.params.clientId,req.params.id,req.body,requestedClubId(req))));
 router.post('/client-administration/:clientId/session-packs/:id/cancel', requireFirebaseAuth, billingRoute(req=>sessionPacks.cancel(req.auth.uid,req.params.clientId,req.params.id,requestedClubId(req))));
-router.get('/payment-dues', requireFirebaseAuth, billingRoute(async req=>({dues:await subscriptions.pending(req.auth.uid)})));
+router.get('/payment-dues', requireFirebaseAuth, billingRoute(async req=>{const countOnly=req.query.count==='1';const dues=await subscriptions.pending(req.auth.uid,countOnly);return countOnly?{count:dues.length}:{dues};}));
 router.get('/client-administration/:clientId/subscriptions', requireFirebaseAuth, billingRoute(req=>subscriptions.get(req.auth.uid,req.params.clientId)));
 router.post('/client-administration/:clientId/subscriptions/:id/preview', requireFirebaseAuth, billingRoute(req=>subscriptions.updateContract(req.auth.uid,req.params.clientId,req.params.id,req.body,true)));
 router.patch('/client-administration/:clientId/subscriptions/:id', requireFirebaseAuth, billingRoute(req=>subscriptions.updateContract(req.auth.uid,req.params.clientId,req.params.id,req.body)));
@@ -162,7 +162,15 @@ router.post('/former-clients/:uid/reactivate', requireFirebaseAuth, assertClubOw
 
 const clientClassBooking = createClubClassBooking(db);
 router.get('/my-group-classes', requireFirebaseAuth, async (req, res) => {
-  try { res.json({ classes: await clientClassBooking.list(req.auth.uid) }); }
+  try {
+    let windows;
+    if(req.query.from!=null){
+      const a=[Number(req.query.from),Number(req.query.to)], b=[Number(req.query.weekFrom),Number(req.query.weekTo)];
+      const {bounds}=require('../utils/clubCalendarPeriod');bounds(...a);bounds(...b);
+      windows=a[0]<=b[0] && a[1]>=b[1]?[a]:[a,b];
+    }
+    res.json({ classes: await clientClassBooking.list(req.auth.uid,windows) });
+  }
   catch (error) { res.status(error.status || 500).json({ error: 'Impossible de charger les cours du club.' }); }
 });
 router.post('/my-group-classes/:clubId/:eventId', requireFirebaseAuth, async (req, res) => {
@@ -881,10 +889,38 @@ router.get('/client-imports/:id/rows', requireFirebaseAuth, billingRoute(async r
   return {rows:rows.docs.map(d=>({index:Number(d.id),...d.data().result,invitation:d.data().invitation||''}))};
 }));
 
-router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) => {
+async function confirmCalendarReader(req) {
+  const actor=await getRequester(req.auth.uid);
+  if(!activeMessagingProfile(actor) || !isClubOwner(req,actor) || (!isAdminRequester(req,actor) && actor.clubId!==req.clubId))
+    throw Object.assign(Error('club-access-revoked'),{status:403});
+  await req.auth.assertMessagingSession({get:ref=>ref.get()});
+}
+
+router.get('/calendar-period',requireUnrevokedFirebaseAuth,assertClubOwner,async(req,res)=>{
+  let lease;
+  const controller=new AbortController();
+  const abort=()=>controller.abort();
+  res.on('close',abort);
   try {
-    await memberships.expireClub(req.clubId);
-    const includeNutrition = true;
+    if(!activeMessagingProfile(req.clubUser))return res.sendStatus(403);
+    const clubId=req.clubId;
+    const from=Number(req.query.from),upcoming=req.query.upcoming==='1';
+    if(upcoming && Math.abs(Date.now()-from)>2*86400000)return res.sendStatus(400);
+    lease=require('../utils/clubCalendarPeriod').watchPeriod(db,clubId,from,Number(req.query.to),upcoming);
+    const page=await lease.wait(req.query.revision,controller.signal,req.query.immediate==='1');
+    await confirmCalendarReader(req);
+    res.set('Cache-Control','private, no-store').json(page);
+  }catch(error){if(!controller.signal.aborted)res.status(error.status||503).json({error:'calendar-period-unavailable'});}
+  finally{res.off('close',abort);lease?.release();}
+});
+
+router.get("/summary", requireUnrevokedFirebaseAuth, assertClubOwner, async (req, res) => {
+  try {
+    if(!activeMessagingProfile(req.clubUser))return res.sendStatus(403);
+    const calendarOnly=req.query.view==='calendar';
+    const compact=['overview','form'].includes(req.query.view);
+    if(!calendarOnly)await memberships.expireClub(req.clubId);
+    const includeNutrition=req.query.view!=='form';
     const { club, members } = await getClubScope(req.clubId);
     const ownerUid = req.clubUser.uid || req.clubUser.id || req.auth.uid;
     const activeMembers = members.filter((member) => member.status !== "deleted");
@@ -892,15 +928,37 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
       .filter((member) => member.uid && member.role !== "owner")
       .map((member) => member.uid);
     const allCoachIds = [...new Set([ownerUid, ...proIds])].filter(Boolean);
+    if(calendarOnly){
+      await confirmCalendarReader(req);
+      return res.set('Cache-Control','private, no-store').json({ok:true,club,
+      coaches:activeMembers.filter(m=>m.role!=='owner').map(({uid,firstName,lastName,email,status,proType,specialty})=>({uid,firstName,lastName,email,status,proType,specialty}))});
+    }
 
+
+    const overview=req.query.view==='overview';
+    const programFields=['clubId','clubIds','club','createdBy','coachId','clientId','clientUid','assignedClientId','assignedTo',
+      'clientIds','assignedClientIds','clients','nomProgramme','title','name','updatedAt','assignedAt','createdAt','assignedBy'];
+    function projection(ref,name){return overview && name==='programmes'?ref.select(...programFields):ref;}
+    function directClubRecords(name){
+      const ref=db.collection(name).where('clubId','==',req.clubId);
+      return compact?projection(ref,name).get():ref.limit(1000).get().catch(()=>null);
+    }
+    async function historicalClubRecords(name){
+      if(!compact)return getDocsByField(name,'createdBy',allCoachIds).catch(()=>[]);
+      const {Filter}=require('firebase-admin/firestore');
+      const nested=Filter.where('club.id','==',req.clubId);
+      const filter=name==='clients'?nested:Filter.or(nested,Filter.where('clubIds','array-contains',req.clubId));
+      const snap=await projection(db.collection(name).where(filter),name).get();
+      return snap.docs.filter(d=>allCoachIds.includes(d.get('createdBy'))).map(d=>({...d.data(),id:d.id}));
+    }
     const currentGoalMonth = monthKey();
     const [clubClientsSnap, clubProgramsSnap, appointmentsSnap, goalsSnap, clientsByCoach, programsByCoach, otherClubClients] = await Promise.all([
-      db.collection("clients").where("clubId", "==", req.clubId).limit(1000).get().catch(() => null),
-      db.collection("programmes").where("clubId", "==", req.clubId).limit(1000).get().catch(() => null),
-      db.collection("clubs").doc(req.clubId).collection("appointments").get().catch(() => null),
-      db.collection("clubs").doc(req.clubId).collection("goals").doc(currentGoalMonth).get().catch(() => null),
-      getDocsByField("clients", "createdBy", allCoachIds).catch(() => []),
-      getDocsByField("programmes", "createdBy", allCoachIds).catch(() => []),
+      directClubRecords('clients'),
+      directClubRecords('programmes'),
+      compact ? null : db.collection("clubs").doc(req.clubId).collection("appointments").get().catch(() => null),
+      compact ? null : db.collection("clubs").doc(req.clubId).collection("goals").doc(currentGoalMonth).get().catch(() => null),
+      historicalClubRecords('clients'),
+      historicalClubRecords('programmes'),
       db.collection("clients").where("clubIds", "array-contains", req.clubId).get(),
     ]);
 
@@ -921,12 +979,8 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
     const assignedProgramRowsNested = await Promise.all(
       clientList.slice(0, 200).map(async (client) => {
         try {
-          const snap = await db
-            .collection("clients")
-            .doc(client.id)
-            .collection("programmes")
-            .limit(50)
-            .get();
+          const assignments=db.collection('clients').doc(client.id).collection('programmes').limit(50);
+          const snap=await projection(assignments,'programmes').get();
           const rows = [];
           snap.forEach((doc) => {
             const data = doc.data() || {};
@@ -1026,7 +1080,7 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
       })
       .sort((a, b) => b.activityAt - a.activityAt);
     const clientDirectory = clientPayloads.map(client => ({ ...client }));
-    if (!isAdminRequester(req, req.clubUser)) {
+    if ((!compact || !clientList.length && req.query.view==="overview") && !isAdminRequester(req, req.clubUser)) {
       const clubRef = db.collection('clubs').doc(req.clubId);
       const [privateDocs, formerDocs] = await Promise.all([
         clubRef.collection('privateClients').get(),
@@ -1073,7 +1127,7 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
         ]).filter(Boolean)
       ),
     ];
-    const [sessionsByClientId, sessionsByClientDocId] = await Promise.all([
+    const [sessionsByClientId, sessionsByClientDocId] = compact ? [[],[]] : await Promise.all([
       getDocsByField("sessions", "clientId", clientCalendarIds).catch(() => []),
       getDocsByField("sessions", "clientDocId", clientPayloads.map((client) => client.id)).catch(() => []),
     ]);
@@ -1200,7 +1254,7 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
     }));
     const goalTargetsByPeriod = {};
     await Promise.all(
-      ["week", "month", "year"].map(async (period) => {
+      (compact ? [] : ["week", "month", "year"]).map(async (period) => {
         const key = goalPeriodKey(period);
         const snap = period === "month"
           ? goalsSnap
@@ -1214,6 +1268,7 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
       })
     );
 
+    await confirmCalendarReader(req);
     return res.json({
       ok: true,
       club,
@@ -1252,7 +1307,7 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
     });
   } catch (error) {
     console.error("[clubs] summary failed:", error);
-    return res.status(500).json({ error: error?.message || "club-summary-failed" });
+    return res.status(error.status||500).json({ error: error?.message || "club-summary-failed" });
   }
 });
 
@@ -2549,7 +2604,22 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
   }
 });
 
-router.get("/group-class-clients", requireFirebaseAuth, assertClubOwner, async (req, res) => {
+router.post('/calendar-participants',requireUnrevokedFirebaseAuth,assertClubOwner,async(req,res)=>{
+  if(!activeMessagingProfile(req.clubUser))return res.sendStatus(403);
+  const ids=req.body?.ids;
+  if(!Array.isArray(ids) || ids.length>40 || !ids.every(id=>typeof id==='string' && id.length && id.length<=1500 && !id.includes('/')))return res.sendStatus(400);
+  try {
+    const docs=ids.length?await db.getAll(...[...new Set(ids)].map(id=>db.collection('clients').doc(id))):[];
+    const clients=docs.filter(doc=>{
+      const c=doc.data();
+      return c && (c.clubId===req.clubId || (Array.isArray(c.clubIds) && c.clubIds.includes(req.clubId))) && !c.deletedFromClub && !['deleted','removed'].includes(c.status);
+    }).map(doc=>({id:doc.id,name:fullName(doc.data(),doc.data().email || 'Client')}));
+    const balances=await sessionPacks.directoryBalances(req.clubId,clients.map(c=>c.id));
+    await confirmCalendarReader(req);
+    res.set('Cache-Control','private, no-store').json({clients:clients.map(c=>({...c,packs:balances[c.id]||[]}))});
+  }catch(e){res.sendStatus(e.status||503);}
+});
+router.get("/group-class-clients", requireUnrevokedFirebaseAuth, assertClubOwner, async (req, res) => {
   try {
     const snaps = await Promise.all([
       db.collection("clients").where("clubId", "==", req.clubId).get(),
@@ -2563,8 +2633,9 @@ router.get("/group-class-clients", requireFirebaseAuth, assertClubOwner, async (
       }
     }));
     const balances = await sessionPacks.directoryBalances(req.clubId, [...clients.keys()]);
+    await confirmCalendarReader(req);
     res.json({ clients: [...clients.values()].map(client => ({ ...client, packs: balances[client.id] || [] })) });
-  } catch (_error) { res.status(500).json({ error: "Impossible de charger les clients du club." }); }
+  } catch (error) { res.status(error.status||500).json({ error: "Impossible de charger les clients du club." }); }
 });
 
 async function validateGroupParticipants(ids, clubId, reader = ref => ref.get()) {

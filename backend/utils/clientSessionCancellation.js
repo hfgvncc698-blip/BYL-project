@@ -70,9 +70,13 @@ function createClientSessionCancellation(db){
   const requests=await Promise.all([...ids].map(id=>db.collection('sessionCancellationRequests').where('clientId','==',id).get()));
   return {requests:requests.flatMap(s=>s.docs.filter(d=>{const r=d.data();return history||r.decision==='pending'||r.clientReadBy?.[uid]==null||r.clientReadBy?.[uid]!== (r.reviewedAt||r.createdAt);}).map(d=>{const r=d.data();return {id:d.id,clubId:r.clubId||'',title:r.title,startsAt:r.startsAt,reason:r.reason,reviewNote:r.reviewNote||'',decision:r.decision,createdAt:r.createdAt,reviewedAt:r.reviewedAt||null};})).sort((a,b)=>(b.reviewedAt||b.createdAt)-(a.reviewedAt||a.createdAt))};
  },
- list:async(uid,history=false,token={})=>{
+ list:async(uid,history=false,token={},countOnly=false)=>{
   const u=await userScope(uid,{get:r=>r.get()},token);
-  const snap=await db.collection('sessionCancellationRequests').where(u.owner?'clubId':'coachId','==',u.owner?u.clubId:uid).get();
+  const scope=db.collection('sessionCancellationRequests').where(u.owner?'clubId':'coachId','==',u.owner?u.clubId:uid);
+  if(countOnly && u.owner && !history){
+    return {count:(await scope.where('decision','==','pending').count().get()).data().count};
+  }
+  const snap=await scope.get();
   return {requests:snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>(history||d.decision==='pending')&&(d.clubId||'')===u.clubId).sort((a,b)=>b.createdAt-a.createdAt)};
  },
  review:async(uid,id,input,token={})=>{

@@ -27,9 +27,9 @@ export async function apiFetch(path, { json = true, timeoutMs = 20000, ...opts }
     return performRequest(url, headers, opts, timeoutMs);
   };
   const method = String(opts.method || 'GET').toUpperCase();
-  // These two listing POSTs already share work in the scoped page source.
+  // These listing POSTs only read scoped page data.
   // They do not constitute a mutation barrier for unrelated GET requests.
-  if (method==='POST' && ['/programs/client-list-summary','/programs/dashboard-client-programs'].includes(path))return run();
+  if (method==='POST' && ['/programs/client-list-summary','/programs/dashboard-client-programs','/clubs/calendar-participants'].includes(path.split('?')[0]))return run();
   if (!['GET', 'HEAD'].includes(method)) return requests.mutate(run);
   // A caller-owned AbortSignal has independent cancellation semantics.
   // Include authentication and every request option to keep scopes isolated.

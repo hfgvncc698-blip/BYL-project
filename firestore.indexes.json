@@ -1,5 +1,11 @@
 {
   "indexes": [
+    {"collectionGroup":"sessions","queryScope":"COLLECTION","fields":[{"fieldPath":"clientId","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}]},
+    {"collectionGroup":"sessions","queryScope":"COLLECTION","fields":[{"fieldPath":"userId","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}]},
+    {"collectionGroup":"sessions","queryScope":"COLLECTION","fields":[{"fieldPath":"clientDocId","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}]},
+    {"collectionGroup":"sessions","queryScope":"COLLECTION","fields":[{"fieldPath":"coachId","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}]},
+    {"collectionGroup":"sessions","queryScope":"COLLECTION","fields":[{"fieldPath":"createdBy","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}]},
+    {"collectionGroup":"sessions","queryScope":"COLLECTION","fields":[{"fieldPath":"ownerId","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}]},
     {"collectionGroup":"users","queryScope":"COLLECTION","fields":[{"fieldPath":"subscriptionStatus","order":"ASCENDING"},{"fieldPath":"trialEnd","order":"ASCENDING"}]},
     {"collectionGroup":"users","queryScope":"COLLECTION","fields":[{"fieldPath":"subscriptionStatus","order":"ASCENDING"},{"fieldPath":"trialEndsAt","order":"ASCENDING"}]},
     {"collectionGroup":"subscription_cycle_jobs","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"leaseUntil","order":"ASCENDING"}]},

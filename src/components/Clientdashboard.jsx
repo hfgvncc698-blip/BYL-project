@@ -1,3 +1,4 @@
+import {formatLocalDateKey} from '../utils/calendarWindow.mjs';
 import { buildSharedNutritionSummary, sortSharedNutrition } from "../utils/sharedNutritionSummary";
 import CalendarCancellationDetails from './calendar/CalendarCancellationDetails';
 import {followupColor} from '../utils/followupColor';
@@ -338,11 +339,7 @@ const isTouchDevice = () =>
 
 const pad2 = (value) => String(value).padStart(2, '0');
 
-const formatLocalDateKey = (value) => {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-};
+
 
 const formatDateTimeLocalValue = (value) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -782,7 +779,10 @@ function ClientDashboardBody({adminPreview, accessScope}) {
   const previewMode = Boolean(adminPreview && isAdmin && previewClientIdParam);
   const [previewUser, setPreviewUser] = useState(null);
   const user = previewMode ? previewUser : authenticatedUser;
-  const clubClasses = useClientClubClasses(authenticatedUser?.uid, !previewMode);
+  const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
+  const [classDate,setClassDate]=useState(()=>new Date());
+  const [classView,setClassView]=useState('week');
+  const clubClasses = useClientClubClasses(authenticatedUser?.uid,!previewMode,classDate,classView,calendarWeekOffset);
   const [clubClassFilter, setClubClassFilter] = useState("all");
   const colorMode = useColorModeValue("light", "dark");
   const modeValue = useCallback(
@@ -924,7 +924,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
   const [loadAttempt,setLoadAttempt]=useState(0);
   const [loadingPremium, setLoadingPremium] = useState(true);
   const [dayClock, setDayClock] = useState(() => new Date());
-  const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
+
   const [calendarSelectedDayKey, setCalendarSelectedDayKey] = useState(null);
   const [quickMealOpenRequest, setQuickMealOpenRequest] = useState({ id: 0, mealKey: "" });
   const [dashboardNutritionMealKeys, setDashboardNutritionMealKeys] = useState(null);
@@ -1191,8 +1191,6 @@ function ClientDashboardBody({adminPreview, accessScope}) {
     // 2) Client + programmes + calendrier (en live)
     let unsubPrograms = null;
     let unsubSessA = null;
-    let unsubSessB = null;
-    let unsubSessUser = null;
     let unsubNutrition = null;
     let unsubNutritionLogs = null;
 
@@ -1203,7 +1201,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
       setDashboardNutritionMealKeys(null);
       setNutritionMealHabits({});
 
-      const clientDoc = await resolveClientRef(user);
+      const [clientDoc,{watchClientCalendar,mapClientCalendarRows}]=await Promise.all([resolveClientRef(user),import('../utils/clientCalendarFeed')]);
       if (!active) return;
       if (!clientDoc) {
         setClientId(null);
@@ -1275,91 +1273,17 @@ function ClientDashboardBody({adminPreview, accessScope}) {
       unsubNutrition = () => nutritionUnsubs.forEach((unsubscribe) => unsubscribe());
       publishNutrition();
 
-      // ✅ sessions (calendar) EN LIVE : deux listeners + merge
-      const mergeSessions = (a = [], b = [], c = []) => {
-        const map = new Map();
-        [...a, ...b, ...c].forEach(s => map.set(s.id, s));
-        return Array.from(map.values())
-          .filter(s => !hiddenDossierIds.has(s.clientDocId||s.clientId) && !s.supersededBy && (!s.visibility || s.visibility === 'client' || s.visibility === 'both'))
-          .map(s => {
-            const start = s.start?.toDate ? s.start.toDate() : new Date(s.start);
-            const end   = s.end?.toDate ? s.end.toDate()   : new Date(s.end);
-
-            const sessionIndex =
-              typeof s.sessionIndex === "number"
-                ? s.sessionIndex
-                : Number.isFinite(Number(s.sessionIndex))
-                ? Number(s.sessionIndex)
-                : null;
-
-            return {
-              id: s.id,
-              clientDocId: s.clientDocId || s.clientId,
-              title: s.title,
-              start,
-              end,
-              status: s.status,
-              difficultyRating: s.difficultyRating ?? s.rating ?? null,
-              validated: s.validated === true || Boolean(s.validatedAt) || Boolean(s.completedAt),
-              managedByCoach: Boolean(s.coachUid || s.coachId || s.clubId || s.clubAppointmentId || s.coachIds?.length || [s.createdBy, s.ownerUid, s.assignedBy].some(uid => uid && uid !== user.uid)),
-              coachUid: s.coachUid || s.coachId,
-              coachName: s.coachName,
-              clubId:s.clubId,clubAppointmentId:s.clubAppointmentId,excuseDecision:s.excuseDecision, cancellationReason:s.cancellationReason, excuseReviewNote:s.excuseReviewNote, excuseReviewedAt:s.excuseReviewedAt,
-              visibility: s.visibility || 'client',
-              dedupeKey: s.dedupeKey,
-              programmeId: s.programmeId || s.programId || s.programID || null,
-              sessionIndex,
-            };
-          });
-      };
-
-      let cacheA = [];
-      let cacheB = [];
-      let cacheUser = [];
-      const qA = query(collection(db, 'sessions'), where('clientId', '==', user.uid));
-      // Assigned/offline client documents are linked through `clientDocId`.
-      // Querying `clientId == cId` cannot be authorized for a distinct auth UID
-      // and caused a permanent rejected listener on the client dashboard.
-
-
-      unsubSessA = onSnapshot(
-        qA,
-        (snap) => {
-          cacheA = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
-        },
-        () => {
-          cacheA = [];
-          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
-        }
-      );
-
-      const sessionCaches = new Map();
-      const sessionUnsubs = dossierIds.map(id=>onSnapshot(query(collection(db,'sessions'),where('clientDocId','==',id)),snap=>{
-        sessionCaches.set(id,snap.docs.map(d=>({id:d.id,...d.data()})));cacheB=[...sessionCaches.values()].flat();setSessionsRaw(mergeSessions(cacheA,cacheB,cacheUser));
-      },()=>{}));
-      unsubSessB=()=>sessionUnsubs.forEach(unsubscribe=>unsubscribe());
-
-      // Appointments belong to the person, even when another follow-up dossier
-      // is selected. The userId query is authorized by canAccessSession.
-      unsubSessUser = onSnapshot(
-        query(collection(db, 'sessions'), where('userId', '==', user.uid)),
-        snap => {
-          cacheUser = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
-        },
-        () => {
-          cacheUser = [];
-          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
-        }
-      );
+      const personalCalendar=watchClientCalendar(user,dossierIds,rows=>{
+        if(active)setSessionsRaw(mapClientCalendarRows(rows,hiddenDossierIds,user.uid));
+      },accessScope);
+      unsubSessA=personalCalendar.stop;
 
       // ✅ programmes (mes programmes)
       const programCaches = new Map();
       const publishPrograms=(id,items)=>{programCaches.set(id,items);const all=[...programCaches.values()].flat();setProgrammes(all.sort((a,b)=>(b._lastOrAssignedMs||0)-(a._lastOrAssignedMs||0)));setHasPremiumOwned(all.some(p=>p.isPremiumOnly||String(p.origine||'').includes('premium')));};
       const directories=new Map();
       const loadingDossiers=new Set(dossierIds);
-      const syncCalendar=calendarCompletionSync(clientDoc.id);
+      const syncCalendar=calendarCompletionSync(clientDoc.id,personalCalendar);
       const programUnsubs = dossierIds.map(cId => {
         function compute(p, sessDoneSnap, coachDisplay, difficultyMap) {
             const rawAssignTs =
@@ -1511,8 +1435,6 @@ function ClientDashboardBody({adminPreview, accessScope}) {
       window.removeEventListener('online',retryAdmission);
       if (unsubPrograms) unsubPrograms();
       if (unsubSessA) unsubSessA();
-      if (unsubSessB) unsubSessB();
-      if (unsubSessUser) unsubSessUser();
       if (unsubNutrition) unsubNutrition();
       if (unsubNutritionLogs) unsubNutritionLogs();
     };
@@ -1521,28 +1443,8 @@ function ClientDashboardBody({adminPreview, accessScope}) {
   }, [user?.uid, user?.linkedClientId, user?.email, user?.role, i18n.language, previewMode,loadAttempt]);
 
   /* ====== Auto ajout au calendrier quand séance validée ====== */
-  function calendarCompletionSync(clientId) {
-    const knownCalendarKeys = new Set();
+  function calendarCompletionSync(clientId,calendar) {
     const pendingCalendarKeys = new Set();
-    let loadingKeys;
-    const loadKnownCalendarKeys = () => loadingKeys ||= Promise.all([
-      getDocs(query(collection(db, 'sessions'), where('clientId', '==', user.uid))),
-      getDocs(query(collection(db, 'sessions'), where('clientDocId', '==', clientId))),
-    ])
-      .then((snapshots) => {
-        snapshots.forEach((snapshot) => {
-          snapshot.docs.forEach((sessionDoc) => {
-            const dedupeKey = String(sessionDoc.data()?.dedupeKey || '').trim();
-            if (dedupeKey) knownCalendarKeys.add(dedupeKey);
-          });
-        });
-      })
-      .catch((error) => {
-        // The live calendar remains usable even if legacy events cannot be
-        // inspected. New writes are still protected by the in-memory lock.
-        console.warn('[ClientDashboard] calendar dedupe history unavailable', error);
-      });
-
     return async (p,snap,reconcile,live) => {
         if (previewMode || !clientId || !user?.uid) return;
         try {
@@ -1555,7 +1457,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
             if (!isSessionValidatedRecord(s)) continue;
             // The player already linked this completion to its planned event.
             if (s.calendarEventId) continue;
-            await loadKnownCalendarKeys();
+            const knownCalendarKeys=await calendar.ready;
             if (!live()) return;
 
             const startDate =
@@ -1591,6 +1493,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
             const canonicalDedupeKey = keys[0];
 
             try {
+              if(await calendar.existing([...new Set(keys)]) || !live())continue;
               const newRef = await addDoc(collection(db, 'sessions'), {
                 clientId: user.uid,
                 clientDocId: p.clientDocId||clientId,
@@ -4386,6 +4289,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
             <ClientDashboardCalendar
               culture={calendarCulture}
               formats={calendarFormats}
+              onNavigate={setClassDate} onView={setClassView}
               events={planningSessions}
               startAccessor="start"
               endAccessor="end"

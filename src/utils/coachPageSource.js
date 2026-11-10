@@ -1,10 +1,11 @@
 // Shared for the lifetime of the authenticated tab. Firebase multiplexes the same
 // queries across tabs when persistentMultipleTabManager is available.
-import { collection, or, where } from 'firebase/firestore';
+import { collection, or, where, getDocsFromServer, snapshotEqual } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
 import { coachConfirmedSnapshot, clientsConfirmedSnapshot, coachQuery, clientsQuery } from './firestoreMetrics';
 
+import {calendarSlices} from './calendarBootstrap';
 import {coachDirectoryFeed} from './coachDirectoryFeed';
 import {clearCoachViewCache} from './pageDataCache';
 const sources = new Map();
@@ -22,9 +23,9 @@ export function coachPageScope(user, target, club = '', preview = '') {
     user.trialEndsAt,user.trialEnd,user.nutritionAccess,user.hasNutritionAccess,user.features,user.packageKey, user.proAccess, user.modules, user.disabled, user.disabledByClub, user.emailVerificationRequired, account.emailVerified]));
 }
 
-function calendarFeed(target, purge, admin) {
+function calendarFeed(target, purge, admin, clubId='') {
   let unsubscribe, closeTimer, current, pending, resolve, reject;
-  let prior = new Map(), confirmed=false;
+  let prior = new Map(), confirmed=false, skipped=false, calendarQuery, priority;
   const observers = new Set();
   function start(page) {
     if (unsubscribe) return;
@@ -33,15 +34,28 @@ function calendarFeed(target, purge, admin) {
     const q = page === 'clients' ? clientsQuery : coachQuery;
     const listen = page === 'clients' ? clientsConfirmedSnapshot : coachConfirmedSnapshot;
     const clauses = (admin ? ['coachId','createdBy','ownerId'] : ['coachId','createdBy']).map(field=>where(field,'==',target));
-    unsubscribe = listen(q(collection(db,'sessions'),or(...clauses)), snap => {
+    const ref=clubId ? q(collection(db,'clubs',clubId,'appointments'),where('coachUid','==',target)) : q(collection(db,'sessions'),or(...clauses));
+    calendarQuery=ref;
+    unsubscribe = listen(ref, snap => {
       if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) {
         confirmed=false;
+        if(snap.docChanges().length)skipped=true;
         for (const o of observers) o.stale?.();
         return;
       }
       confirmed=true;
       const initial = !current;
-      const changes = snap.docChanges();
+      let changes = snap.docChanges();
+      if(skipped && current){
+        const before=new Map(current.docs.map(d=>[d.id,d]));
+        changes=[];
+        for(const doc of snap.docs){
+          const old=before.get(doc.id);before.delete(doc.id);
+          if(!old || !snapshotEqual(old,doc))changes.push({type:old?'modified':'added',doc});
+        }
+        for(const doc of before.values())changes.push({type:'removed',doc});
+      }
+      skipped=false;
       const affected = new Set();
       for (const change of changes) {
         affected.add(prior.get(change.doc.id));
@@ -55,7 +69,7 @@ function calendarFeed(target, purge, admin) {
         else o.confirmed?.(snap);
       }
     }, error => {
-      current = null; confirmed=false; clearCoachViewCache(); purge();
+      current = null; confirmed=false;priority=null; clearCoachViewCache(); purge();
       reject(error);
       for (const o of observers) o.error?.(error);
       unsubscribe?.(); unsubscribe = null;
@@ -63,11 +77,25 @@ function calendarFeed(target, purge, admin) {
   }
   function close() {
     unsubscribe?.(); unsubscribe=null; current=null;confirmed=false; prior.clear();
-    reject?.(new Error('feed-closed'));
+    priority=null;reject?.(new Error('feed-closed'));
   }
   return {
     current:()=>current, fresh:()=>confirmed, active:()=>observers.size>0,
     read(page) { start(page); return current ? Promise.resolve(current) : pending; },
+    firstWeek(page) {
+      start(page);
+      if(current)return Promise.resolve(current);
+      // Small calendars already arrive in one snapshot. A slow cold load can
+      // paint the visible week while the full metrics/credit stream catches up.
+      if(!priority){
+        const full=pending;
+        priority=new Promise((yes,no)=>{
+          const timer=setTimeout(()=>getDocsFromServer(calendarSlices(calendarQuery)[0]).then(yes,()=>{}),180);
+          full.then(s=>{clearTimeout(timer);yes(s);},e=>{clearTimeout(timer);no(e);});
+        });
+      }
+      return priority;
+    },
     watch(page, observer) {
       clearTimeout(closeTimer); observers.add(observer); start(page);
       return () => { observers.delete(observer); if (!observers.size) closeTimer=setTimeout(close,1000); };
@@ -83,9 +111,14 @@ export function coachPageSource(scope, target, admin=false) {
     for (const [key,entry] of values) if (!id || entry.client === id) values.delete(key);
   }
   const roots = coachDirectoryFeed(target,purge), calendar = calendarFeed(target,purge,admin);
+  const clubFeeds=new Map();
   const controller=new AbortController();
   const source = {
     account:auth.currentUser,roots, calendar, purge,
+    appointments(clubId) {
+      if(!clubFeeds.has(clubId))clubFeeds.set(clubId,calendarFeed(target,purge,admin,clubId));
+      return clubFeeds.get(clubId);
+    },
     purgeSport(id) {
       for(const key of ['bundle/'+id,'list/true/'+id])values.delete(key);
     }, signal:controller.signal, invalidate:key=>values.delete(key),
@@ -121,7 +154,7 @@ export function coachPageSource(scope, target, admin=false) {
       values.set(key,entry);
       return entry.promise;
     },
-    close() {controller.abort();roots.close();calendar.close();values.clear();}
+    close() {controller.abort();roots.close();calendar.close();for(const feed of clubFeeds.values())feed.close();values.clear();}
   };
   for(const [key,old] of sources) if(sources.size>=3 && !old.roots.active() && !old.calendar.active()){old.close();sources.delete(key);}
   sources.set(scope,source);

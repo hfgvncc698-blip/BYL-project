@@ -94,6 +94,20 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
       return {user,isAdmin:false,isCoach:user.role==='coach',effectiveRole:user.role,isAuthenticated:true,loading:false};}
     export const AuthProvider=({children})=>children;
   `);
+  if(coachScenario?.personalCalendar)require('./fixtures/personalCalendarProbe.cjs')(folder,coachScenario.role);
+  if(coachScenario?.clubCalendar){
+    write('src/AuthContext.jsx', `const user={uid:'coach',role:'coach',accountType:'club_owner',clubRole:'owner',clubId:'sample',subscriptionStatus:'active',hasActiveSubscription:true};export const useAuth=()=>({user,isAdmin:false,isCoach:true,isAuthenticated:true});export const AuthProvider=({children})=>children;`);
+    const file='src/pages/ClubDashboard.jsx';
+    let page=fs.readFileSync(path.join(folder,file),'utf8');
+    const marker='  const planningDownload =';
+    if(!page.includes(marker))throw Error('missing calendar probe');
+    page=page.replace(marker, `  useEffect(()=>{window.calendarProbe={loading,error,pending:${revision ? "false" : "period.loading"},count:clubAppointments.length,
+      sample:clubAppointments.some(e=>e.title==='Fixture current'),remote:clubAppointments.some(e=>e.title==='Remote edit'),
+      todayStatus:clubAppointments.find(e=>e.title==='Remote edit')?.status,
+      move:delta=>setCalendarDate(d=>{const next=new Date(d);next.setDate(next.getDate()+delta);return next;}),view:setCalendarView};},[loading,error,clubAppointments${revision ? "" : ",period.loading"}]);
+`+marker);
+    write(file,page);
+  }
   if(coachScenario?.clientProgress){
     require('./fixtures/clientProgressProbe.cjs')(folder);
     write('src/AuthContext.jsx', `const patient={uid:'coach',role:'particulier',linkedClientId:'client'};
@@ -110,7 +124,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
   const condition = appSource.match(/const showDashboardMessaging = ([\s\S]*?);/)[1];
   // Evaluate the same mount condition used by this revision of App.
   write('clubBubble.js', 'export function onClub(user,location) { return ' + condition + '; }');
-  write('entry.jsx', fs.readFileSync(path.join(__dirname, coachScenario?.clientProgress ? 'fixtures/clientProgressLot5.jsx' : coachScenario ? 'fixtures/coachPagesLot4.jsx' : messagingScenario ? 'fixtures/firebaseMessagingBrowser.jsx' : offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
+  write('entry.jsx', fs.readFileSync(path.join(__dirname, coachScenario?.personalCalendar ? 'fixtures/personalCalendarLot6.jsx' : coachScenario?.clubCalendar ? 'fixtures/calendarLot6.jsx' : coachScenario?.clientProgress ? 'fixtures/clientProgressLot5.jsx' : coachScenario ? 'fixtures/coachPagesLot4.jsx' : messagingScenario ? 'fixtures/firebaseMessagingBrowser.jsx' : offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
   const { createServer } = await import('vite');
   const vite = await createServer({ root: folder, configFile: false, envDir: false, publicDir: false,
     cacheDir: path.join(folder, '.vite'), logLevel: 'error',
@@ -149,6 +163,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
           for(const key of Object.keys(d))d[key]+=values[key];
         }
       }
+      if(coachScenario?.clubCalendar || coachScenario?.personalCalendar)totals.serverHeapMiB=Math.round(process.memoryUsage().heapUsed/1048576);
       if(coachScenario){totals.network=network?.snapshot() || {};totals.summaryWrites=(writes?.()||0)-initialWrites;}
       res.end(JSON.stringify(totals)); return;
     }

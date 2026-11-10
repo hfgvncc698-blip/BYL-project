@@ -3,7 +3,7 @@ import { Box, Image, useColorModeValue } from "@chakra-ui/react";
 
 export default function ClubLogo({ src, alt, imageProps, adaptiveSize, ...props }) {
   const [dimensions, setDimensions] = useState(null);
-  const ratio = dimensions?.src === src ? dimensions.ratio : 1;
+  const ratio = dimensions && dimensions.src === src ? dimensions.ratio : 1;
   const resize = (size, axis) => {
     const height = Number(size) / Math.max(1, ratio / 2);
     return `${axis === "w" ? height * ratio : height}px`;

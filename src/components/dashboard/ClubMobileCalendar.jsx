@@ -1,18 +1,22 @@
+import {sameCalendarDay as sameDay} from '../../utils/calendarWindow.mjs';
 import LastPackSessionBadge from "../calendar/LastPackSessionBadge";
 import CalendarValidationMark from "../calendar/CalendarValidationMark";
 import { calendarEventAppearance, calendarEventStatusKey } from "../../utils/calendarEventAppearance.mjs";
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Badge, Box, Button, Circle, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../styles/appTheme';
 import { clubCoachKey } from '../../utils/clubCalendarColors.mjs';
 
-const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const onDay=(event,date)=>{
+  const start=new Date(date);start.setHours(0,0,0,0);const end=new Date(start);end.setDate(end.getDate()+1);
+  return event.start<end && event.end>start;
+};
 
-export default function ClubMobileCalendar({ events, colors, onSelectEvent }) {
+
+export default function ClubMobileCalendar({ events, colors, onSelectEvent, selected, setSelected }) {
   const { t, i18n } = useTranslation();
   const theme = useAppTheme();
-  const [selected, setSelected] = useState(() => new Date());
   const days = useMemo(() => {
     const monday = new Date(selected);
     monday.setHours(0, 0, 0, 0);
@@ -25,7 +29,7 @@ export default function ClubMobileCalendar({ events, colors, onSelectEvent }) {
   }, [selected]);
   const locale = i18n.language || i18n.resolvedLanguage || 'fr';
   const format = (date, options) => date.toLocaleDateString(locale, options);
-  const appointments = events.filter(event => sameDay(event.start, selected)).sort((a, b) => a.start - b.start);
+  const appointments = events.filter(event => onDay(event,selected)).sort((a, b) => a.start - b.start);
   const moveWeek = amount => setSelected(current => {
     const next = new Date(current);
     next.setDate(next.getDate() + amount * 7);
@@ -43,7 +47,7 @@ export default function ClubMobileCalendar({ events, colors, onSelectEvent }) {
     <SimpleGrid columns={7} spacing={1} mb={4}>
       {days.map(date => {
         const active = sameDay(date, selected);
-        const dayEvents = events.filter(event => sameDay(event.start, date));
+        const dayEvents = events.filter(event => onDay(event,date));
         const dayColors = [...new Set(dayEvents.map(event => calendarEventAppearance(event,colors.get(clubCoachKey(event)) || '#475569').backgroundColor))];
         return <Box as="button" type="button" key={date.toISOString()} aria-pressed={active} aria-label={format(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           border="1px solid" borderColor={active ? theme.accentBlue : theme.borderColor} borderRadius="14px" py={2} px={0.5} minW={0}

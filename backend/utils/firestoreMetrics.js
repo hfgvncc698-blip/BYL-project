@@ -6,6 +6,10 @@ const { randomUUID } = require('node:crypto');
 const enabled = process.env.BYL_FIRESTORE_METRICS === '1';
 const context = new AsyncLocalStorage();
 const routes = new Map([
+  ['/api/clubs/summary','club-summary'], ['/api/clubs/calendar-period','club-calendar'],
+  ['/api/clubs/calendar-participants','calendar-participants'], ['/api/clubs/group-class-clients','class-directory'],
+  ['/api/clubs/my-group-classes','member-classes'], ['/api/clubs/payment-dues','payment-dues'],
+  ['/api/coach-sessions/cancellation-requests','cancellation-requests'],
   ['/api/messaging/inbox','professional-inbox'],
   ['/api/messaging/send','professional-send'],
   ['/api/messaging/read','professional-read'],

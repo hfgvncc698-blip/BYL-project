@@ -1,3 +1,4 @@
+import {useClubCalendarPeriod} from "../utils/useClubCalendarPeriod";
 import SessionCancellationRequests from '../components/dashboard/SessionCancellationRequests';
 import TutorialSettingsPanel from '../components/TutorialSettingsPanel';
 const ClubClientImport = React.lazy(() => import("../components/dashboard/ClubClientImport"));
@@ -21,6 +22,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   AlertIcon,
+  useBreakpointValue,
   Badge,
   Box,
   Button,
@@ -328,6 +330,12 @@ function getTrialEndMs(user) {
 }
 
 export default function ClubDashboard() {
+  const {user,isAdmin}=useAuth();
+  const location=useLocation();
+  const params=new URLSearchParams(location.search);
+  return <ClubDashboardBody key={JSON.stringify([user?.uid,user?.clubId,user?.role,user?.accountType,user?.clubRole,isAdmin,params.get('adminClubId') || params.get('clubId')])}/>;
+}
+function ClubDashboardBody() {
   const { t, i18n: translationI18n } = useTranslation("common");
   const { user, resetPassword, isAdmin } = useAuth();
   const calendarCulture = useMemo(
@@ -390,21 +398,43 @@ export default function ClubDashboard() {
     },
     [adminClubId]
   );
+  const pageKind = useMemo(() => {
+    if (location.pathname === "/club-dashboard/create") return "dashboard";
+    if (location.pathname === "/club-dashboard/team") return "team";
+    if (location.pathname === "/club-dashboard/calendrier") return "calendar";
+    if (location.pathname === "/club-dashboard/offres") return "offers";
+    if (location.pathname === "/club-dashboard/settings") return "settings";
+    if (location.pathname === "/club-dashboard/alertes") return "bulk";
+    if (location.pathname === "/club-dashboard/journal") return "log";
+    if (location.pathname === "/club-dashboard/audit") return "bulk";
+    if (location.pathname === "/club-dashboard/objectifs") return "goals";
+    if (location.pathname === "/club-dashboard/exports") return "exports";
+    if (location.pathname === "/club-dashboard/actions-groupees") return "bulk";
+    if (Object.prototype.hasOwnProperty.call(VIEW_BY_PATH, location.pathname)) return "activity";
+    const params = new URLSearchParams(location.search);
+    const section = params.get("section");
+    if (section === "create") return "create";
+    if (section === "team") return "team";
+    if (section === "activity") return "activity";
+    if (section === "settings") return "settings";
+    return "dashboard";
+  }, [location.pathname, location.search]);
   const appointmentDetailModal = useDisclosure();
   const inviteProModal = useDisclosure();
   const proLimitModal = useDisclosure();
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
   const [proLimitModalDismissed, setProLimitModalDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [accessLost,setAccessLost]=useState(false);
   const [cancellationCount,setCancellationCount]=useState(0);
   const [paymentDueCount, setPaymentDueCount] = useState(0);
   useEffect(() => {
-    if (isAdmin) return;
+    if (accessLost || isAdmin || pageKind!=="dashboard") return;
     let active = true;
-    const load = () => {apiFetch("/clubs/payment-dues").then(data => { if (active) setPaymentDueCount(data.dues.length); }).catch(() => {});apiFetch("/coach-sessions/cancellation-requests").then(data=>{if(active)setCancellationCount(data.requests.length);}).catch(()=>{});};
+    const load = () => {apiFetch("/clubs/payment-dues?count=1").then(data => { if (active) setPaymentDueCount(data.count ?? data.dues?.length ?? 0); }).catch(() => {});apiFetch("/coach-sessions/cancellation-requests?count=1").then(data=>{if(active)setCancellationCount(data.count ?? data.requests?.length ?? 0);}).catch(()=>{});};
     load(); const timer = setInterval(load, 60000); window.addEventListener("focus", load);
     return () => { active = false; clearInterval(timer); window.removeEventListener("focus", load); };
-  }, [isAdmin]);
+  }, [accessLost,isAdmin,pageKind,user?.uid,user?.clubId]);
   const [saving, setSaving] = useState(false);
   const [actionSaving, setActionSaving] = useState("");
   const [auditRepairCoach, setAuditRepairCoach] = useState({});
@@ -497,23 +527,6 @@ export default function ClubDashboard() {
   useEffect(() => {
     if (!appointmentDetailModal.isOpen) appointmentDetailRequest.current = null;
   }, [appointmentDetailModal.isOpen]);
-  const needsGroupClients = appointmentForm.type === "group" || selectedAppointment?.type === "group" || (summary?.appointments || summary?.upcomingAppointments || []).length > 0;
-  useEffect(() => {
-    if (!needsGroupClients) return;
-    let active = true;
-    setGroupClientsLoading(true);
-    setGroupClientsError("");
-    const load = () => apiFetch(withAdminClub("/clubs/group-class-clients")).then(data => {
-      if (active) { setGroupClients(data.clients || []); setGroupClientsError(""); }
-    }).catch(() => {
-      if (active) setGroupClientsError(t("clubDashboard.group.loadError", "Impossible de charger les participants."));
-    }).finally(() => { if (active) setGroupClientsLoading(false); });
-    load();
-    const timer = setInterval(load, 60000);
-    window.addEventListener('focus', load);
-    return () => { active = false; clearInterval(timer); window.removeEventListener('focus', load); };
-  }, [needsGroupClients, summary, withAdminClub, t, appointmentDetailModal.isOpen]);
-
   const [appointmentEditForm, setAppointmentEditForm] = useState({
     title: "",
     startsAt: "",
@@ -536,19 +549,63 @@ export default function ClubDashboard() {
   const clubPrograms = useMemo(() => summary?.recentPrograms || [], [summary]);
   const clubNutrition = useMemo(() => summary?.recentNutrition || [], [summary]);
   const clubSessions = useMemo(() => summary?.recentSessions || [], [summary]);
-  const clubAppointments = useMemo(() => summary?.appointments || summary?.upcomingAppointments || [], [summary]);
+  const calendarEnabled=!accessLost && Boolean(loadedClubId || isAdmin && summary) && ['calendar','dashboard'].includes(pageKind);
+  const calendarScope=JSON.stringify([user?.uid,user?.role,user?.clubId,actionClubId]);
+  const mobileCalendar=useBreakpointValue({base:true,md:false},{ssr:false});
+  const period=useClubCalendarPeriod(calendarEnabled,withAdminClub,calendarDate,mobileCalendar?'week':calendarView,calendarScope);
+  const overview=useClubCalendarPeriod(calendarEnabled && pageKind==='dashboard',withAdminClub,new Date(),'upcoming',calendarScope);
+  useEffect(()=>{
+    if(period.denied || overview.denied){
+      setAccessLost(true);summaryLoadVersion.current++;setSummary(null);setGroupClients([]);setSelectedAppointment(null);
+    }
+  },[period.denied,overview.denied]);
+  const clubAppointments=useMemo(()=>calendarEnabled?Array.from(new Map([...overview.appointments,...period.appointments].map(e=>[e.id,e])).values()):summary?.appointments || [],[calendarEnabled,period.appointments,overview.appointments,summary]);
+  const formDirectory=appointmentDetailModal.isOpen && selectedAppointment?.type==='group';
+  const visibleIds=useMemo(()=>[...new Set(period.appointments.flatMap(e=>[e.clientId,...(e.participantIds||[]),...(e.waitlistIds||[])].filter(Boolean)))].sort(),[period.appointments]);
+  const rosterKey=JSON.stringify(visibleIds);
+  useEffect(()=>{
+    if(!formDirectory && !visibleIds.length){setGroupClients([]);return;}
+    let active=true,seq=0;
+    const load=async()=>{
+      const version=++seq;setGroupClientsLoading(true);
+      try {
+        let clients=[];
+        if(formDirectory)clients=(await apiFetch(withAdminClub('/clubs/group-class-clients'))).clients;
+        else for(let i=0;i<visibleIds.length;i+=40){
+          const data=await apiFetch(withAdminClub('/clubs/calendar-participants'),{method:'POST',body:JSON.stringify({ids:visibleIds.slice(i,i+40)})});
+          clients.push(...data.clients);
+        }
+        if(active && version===seq){setGroupClients(clients);setGroupClientsError('');}
+      }catch{if(active && version===seq){setGroupClients([]);setGroupClientsError(t('clubDashboard.group.loadError','Impossible de charger les participants.'));}}
+      finally{if(active && version===seq)setGroupClientsLoading(false);}
+    };
+    load();
+    const focus=()=>{if(document.visibilityState!=='hidden')load();};
+    window.addEventListener('focus',focus);const timer=formDirectory?null:setInterval(focus,60000);
+    return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',focus);};
+  },[formDirectory,rosterKey,formDirectory?null:period.revision,withAdminClub,calendarScope,t]);
+  const [formData,setFormData]=useState(null);
+  const needsFormData=['calendar','dashboard'].includes(pageKind) && isAddAppointmentModalOpen && ['sport','nutrition'].includes(appointmentForm.type);
+  useEffect(()=>{
+    let active=true;
+    if(needsFormData)apiFetch(withAdminClub('/clubs/summary?view=form')).then(data=>{if(active)setFormData(data);}).catch(e=>{if(active){setFormData(null);setError(friendlyError(e));}});
+    else setFormData(null);
+    return ()=>{active=false;};
+  },[needsFormData,withAdminClub,calendarScope]);
+  const formClients=formData?.recentClients || clubClients;
+  const formPrograms=formData?.recentPrograms || clubPrograms;
   const appointmentClientOptions = useMemo(() => {
     if (!appointmentForm.coachUid) return [];
-    return clubClients.filter((client) => client.coachUid === appointmentForm.coachUid);
-  }, [appointmentForm.coachUid, clubClients]);
+    return formClients.filter((client) => client.coachUid === appointmentForm.coachUid);
+  }, [appointmentForm.coachUid, formClients]);
   const appointmentProgramOptions = useMemo(() => {
     if (!appointmentForm.clientId) return [];
-    return clubPrograms.filter((program) => {
+    return formPrograms.filter((program) => {
       const matchesClient = program.clientId === appointmentForm.clientId;
       const matchesCoach = !appointmentForm.coachUid || program.coachUid === appointmentForm.coachUid;
       return matchesClient && matchesCoach && getProgramSessions(program).length > 0;
     });
-  }, [appointmentForm.clientId, appointmentForm.coachUid, clubPrograms]);
+  }, [appointmentForm.clientId, appointmentForm.coachUid, formPrograms]);
   const appointmentSessionOptions = useMemo(() => {
     const program = appointmentProgramOptions.find((item) => (item.programId || item.id) === appointmentForm.programId);
     return getProgramSessions(program);
@@ -767,27 +824,6 @@ export default function ClubDashboard() {
       minutes: Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000)),
     };
   }, [isClubTrial, now, trialEndMs]);
-  const pageKind = useMemo(() => {
-    if (location.pathname === "/club-dashboard/create") return "dashboard";
-    if (location.pathname === "/club-dashboard/team") return "team";
-    if (location.pathname === "/club-dashboard/calendrier") return "calendar";
-    if (location.pathname === "/club-dashboard/offres") return "offers";
-    if (location.pathname === "/club-dashboard/settings") return "settings";
-    if (location.pathname === "/club-dashboard/alertes") return "bulk";
-    if (location.pathname === "/club-dashboard/journal") return "log";
-    if (location.pathname === "/club-dashboard/audit") return "bulk";
-    if (location.pathname === "/club-dashboard/objectifs") return "goals";
-    if (location.pathname === "/club-dashboard/exports") return "exports";
-    if (location.pathname === "/club-dashboard/actions-groupees") return "bulk";
-    if (Object.prototype.hasOwnProperty.call(VIEW_BY_PATH, location.pathname)) return "activity";
-    const params = new URLSearchParams(location.search);
-    const section = params.get("section");
-    if (section === "create") return "create";
-    if (section === "team") return "team";
-    if (section === "activity") return "activity";
-    if (section === "settings") return "settings";
-    return "dashboard";
-  }, [location.pathname, location.search]);
   useEffect(() => {
     if (["/club-dashboard/alertes", "/club-dashboard/audit"].includes(location.pathname)) {
       navigate({ pathname: "/club-dashboard/actions-groupees", search: location.search, hash: location.hash }, { replace: true });
@@ -901,7 +937,7 @@ export default function ClubDashboard() {
       {(calendarCoachFilter.length > 0 || calendarCourseSearch) && <Button size="sm" variant="ghost" onClick={() => { setCalendarCoachFilter([]); setCalendarCourseSearch(""); setCalendarCoachSearch(""); }}>{t("auto.ClubDashboard.voir_tout_le_club", "Voir tout le club")}</Button>}
     </HStack>
   );
-  const planningDownload = <ClubPlanningDownload appointments={clubAppointments} coaches={calendarCoaches} clubName={summary?.club?.name} clubLogoUrl={summary?.club?.logoUrl || "/logo-byl.png?v=palm-20261027"} calendarDate={calendarDate} selectedCoaches={calendarCoachFilter} />;
+  const planningDownload = <ClubPlanningDownload scope={calendarScope} urlFor={withAdminClub} appointments={clubAppointments} coaches={calendarCoaches} clubName={summary?.club?.name} clubLogoUrl={summary?.club?.logoUrl || "/logo-byl.png?v=palm-20261027"} calendarDate={calendarDate} selectedCoaches={calendarCoachFilter} />;
   const calendarEvents = useMemo(
     () =>
       clubAppointments.map((appointment) => {
@@ -948,6 +984,10 @@ export default function ClubDashboard() {
     const selected = new Set(calendarCoachFilter);
     return calendarEvents.filter(event => (!selected.size || selected.has(event.coachUid)) && (!calendarCourseSearch || (event.type === "group" && normalizeSearch(event.title).includes(normalizeSearch(calendarCourseSearch)))));
   }, [calendarCoachFilter, calendarCourseSearch, calendarEvents]);
+  const periodEvents=useMemo(()=>{
+    const ids=new Set(period.appointments.map(e=>e.id));
+    return filteredCalendarEvents.filter(e=>ids.has(e.id));
+  },[period.appointments,filteredCalendarEvents]);
   const upcomingFilteredAppointments = useMemo(
     () =>
       filteredCalendarEvents
@@ -1125,11 +1165,12 @@ export default function ClubDashboard() {
   );
   
 
+  const summaryView=pageKind==='calendar'?'calendar':pageKind==='dashboard'?'overview':'full';
   const loadSummary = useCallback(async () => {
     const version = ++summaryLoadVersion.current;
     setError("");
     try {
-      const data = await apiFetch(withAdminClub("/clubs/summary"));
+      const data = await apiFetch(withAdminClub("/clubs/summary?view="+summaryView));
       if (version !== summaryLoadVersion.current) return;
       setSummary(data);
       setIdentityForm({
@@ -1141,7 +1182,7 @@ export default function ClubDashboard() {
     } finally {
       if (version === summaryLoadVersion.current) setLoading(false);
     }
-  }, [withAdminClub, user?.uid, user?.clubId]);
+  }, [withAdminClub, user?.uid, user?.clubId,summaryView]);
 
   useEffect(() => {
     // Blank only when changing identity/club, not after every saved action.
@@ -1543,7 +1584,7 @@ export default function ClubDashboard() {
       toast({ title: creation.createdCount ? t("clubDashboard.recurrence.created", { defaultValue: "{{count}} séances ajoutées au calendrier", count: creation.createdCount }) : t("auto.ClubDashboard.rendez_vous_ajoute_au_calendrier_club", "Rendez-vous ajouté au calendrier club"), status: "success", duration: 3500, isClosable: true });
       setAppointmentForm({ coachUid: "", clientId: "", type: "sport", capacity: 10, participantIds: [], programId: "", sessionIndex: "", appointmentKind: "suivi", durationMin: 60, title: "", startsAt: "", note: "" });
       setIsAddAppointmentModalOpen(false);
-      await loadSummary();
+      if (!calendarEnabled) await loadSummary();
     } catch (err) {
       setError(friendlyError(err) || clubText("Création du rendez-vous impossible."));
       toast({ title: err?.data?.error || friendlyError(err) || clubText("Création du rendez-vous impossible."), status: "error", isClosable: true });
@@ -1609,11 +1650,11 @@ export default function ClubDashboard() {
       });
       if (patch.notifyParticipants) toast({status:result.emailDelivery?.failed ? 'warning':'info', title:clubText('Inscription enregistrée'), description:t('calendar.email_delivery_result', '{{sent}} envoyé(s) · {{skipped}} non envoyé(s) (préférences ou adresse) · {{failed}} échec(s)', {sent:result.emailDelivery?.sent || 0, skipped:result.emailDelivery?.skipped || 0, failed:result.emailDelivery?.failed || 0})});
       if (close) appointmentDetailModal.onClose();
-      if (refresh) await loadSummary();
+      if (refresh && !calendarEnabled) await loadSummary();
     } catch (err) {
       setError(friendlyError(err) || clubText("Mise à jour du rendez-vous impossible."));
       toast({ title: err?.data?.error || friendlyError(err) || clubText("Mise à jour du rendez-vous impossible."), status: "error", isClosable: true });
-      if (refresh) await loadSummary();
+      if (refresh && !calendarEnabled) await loadSummary();
     } finally {
       setActionSaving("");
     }
@@ -1645,7 +1686,7 @@ export default function ClubDashboard() {
         method: "DELETE",
       });
       appointmentDetailModal.onClose();
-      await loadSummary();
+      if (!calendarEnabled) await loadSummary();
     } catch (err) {
       setError(friendlyError(err) || clubText("Suppression du rendez-vous impossible."));
     } finally {
@@ -1854,12 +1895,15 @@ export default function ClubDashboard() {
     }
   };
 
+  if(accessLost)return <Text role="alert">{clubText("Vous n’avez plus accès à ce club.")}</Text>;
   if (loading) return <AppLoading label={t("auto.ClubDashboard.chargement_de_l_espace_club", "Chargement de l’espace club...")} />;
 
   return (
     <Box data-tour-page="club-dashboard" bg={theme.pageBg} color={theme.textColor} minH="100vh" position="relative" overflow="clip"
       py={{ base: 3, md: 3.5, xl: 4 }} px={{ base: 2.5, md: 3.5, xl: 4.5 }}
       sx={{ "& .chakra-button": { borderRadius: "14px" }, "& th": { color: theme.mutedText }, "& .chakra-heading": { letterSpacing: "-0.025em" } }}>
+      {period.loading && <Text role="status">{t("common.loading","Chargement…")}</Text>}
+      {(period.error || overview.error) && <Text role="alert">{clubText('Synchronisation du calendrier indisponible.')}</Text>}
       <ClubCalendarSlotHint ref={calendarSlotHintRef} formatTime={formatCalendarSlotTime} disabled={isAddAppointmentModalOpen || appointmentDetailModal.isOpen || !["week", "day"].includes(calendarView)} />
       <Box aria-hidden="true" position="absolute" top="-140px" right="-100px" w="420px" h="420px" borderRadius="full" bg="rgba(59,130,246,0.10)" filter="blur(90px)" pointerEvents="none" />
       <Portal>
@@ -1992,7 +2036,7 @@ export default function ClubDashboard() {
               <Box display="grid" gridTemplateColumns={{ base: "minmax(0, 1fr)", lg: "minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr)" }} gap={3} alignItems="stretch">
                 <Box {...theme.cardProps} p={4} minW={0} borderTopWidth="3px" borderTopColor="blue.400">
                   <Heading size="sm" mb={3}>{t("clubDashboard.clarity.next", "Prochain rendez-vous")}</Heading>
-                  {(todayAppointmentSummary.next || upcomingFilteredAppointments[0]) ? (() => {
+                  {overview.loading ? <Text>{t("common.loading","Chargement…")}</Text> : (todayAppointmentSummary.next || upcomingFilteredAppointments[0]) ? (() => {
                     const event = todayAppointmentSummary.next || upcomingFilteredAppointments[0];
                     return <>
                       <Text fontSize="lg" fontWeight="800">{event.start.toLocaleTimeString(calendarCulture, { hour: "2-digit", minute: "2-digit" })}</Text>
@@ -2056,7 +2100,7 @@ export default function ClubDashboard() {
                 <Flex justify="space-between" align="center" flexWrap="wrap" gap={3} mb={3}>
                   {coachLegend}
                 </Flex>
-                <ClubMobileCalendar events={filteredCalendarEvents} colors={coachColors} onSelectEvent={openAppointmentDetail} />
+                {mobileCalendar && <ClubMobileCalendar selected={calendarDate} setSelected={setCalendarDate} events={periodEvents} colors={coachColors} onSelectEvent={openAppointmentDetail} />}
                 <Box
                   display={{ base: "none", md: "block" }}
                   sx={{
@@ -2124,7 +2168,7 @@ export default function ClubDashboard() {
                     },
                   }}
                 >
-                  <DnDCalendar
+                  {!mobileCalendar && <DnDCalendar
                     key={calendarCulture}
                     date={calendarDate}
                     onNavigate={setCalendarDate}
@@ -2143,7 +2187,7 @@ export default function ClubDashboard() {
                     components={calendarComponents}
                     componentIdentity={calendarComponents}
                     tooltipAccessor={() => null}
-                    events={filteredCalendarEvents}
+                    events={periodEvents}
                     startAccessor="start"
                     endAccessor="end"
                     style={{ height: 430, borderRadius: 12 }}
@@ -2169,7 +2213,7 @@ export default function ClubDashboard() {
                       noEventsInRange: t("calendar.no_events_in_range", "Aucun rendez-vous sur cette période."),
                       showMore: (total) => t("calendar.show_more", { count: total, defaultValue: `+${total}` }),
                     }}
-                  />
+                  />}
                 </Box>
               </Box>
 
@@ -2680,7 +2724,7 @@ export default function ClubDashboard() {
                 {coachLegend}
                 <Box marginInlineStart="auto">{calendarCoachSelector}</Box>
               </Flex>
-              <ClubMobileCalendar events={filteredCalendarEvents} colors={coachColors} onSelectEvent={openAppointmentDetail} />
+              {mobileCalendar && <ClubMobileCalendar selected={calendarDate} setSelected={setCalendarDate} events={periodEvents} colors={coachColors} onSelectEvent={openAppointmentDetail} />}
               <Box display={{ base: "none", md: "block" }}
                 sx={{
                   ".rbc-calendar": { background: "transparent", color: "inherit", borderRadius: "18px", overflow: "hidden" },
@@ -2747,7 +2791,7 @@ export default function ClubDashboard() {
                   },
                 }}
               >
-                  <DnDCalendar
+                  {!mobileCalendar && <DnDCalendar
                     key={calendarCulture}
                     date={calendarDate}
                     onNavigate={setCalendarDate}
@@ -2766,7 +2810,7 @@ export default function ClubDashboard() {
                   components={calendarComponents}
                     componentIdentity={calendarComponents}
                   tooltipAccessor={() => null}
-                  events={filteredCalendarEvents}
+                  events={periodEvents}
                   startAccessor="start"
                   endAccessor="end"
                   style={{ height: 620, borderRadius: 12 }}
@@ -2792,7 +2836,7 @@ export default function ClubDashboard() {
                     noEventsInRange: t("calendar.no_events_in_range", "Aucun rendez-vous sur cette période."),
                     showMore: (total) => t("calendar.show_more", { count: total, defaultValue: `+${total}` }),
                   }}
-                />
+                />}
               </Box>
             </Box>
           )}
@@ -3438,10 +3482,10 @@ export default function ClubDashboard() {
 	                    {...theme.inputProps}
                     value={appointmentForm.clientId}
                     onChange={(e) => setAppointmentForm((current) => ({ ...current, clientId: e.target.value, programId: "", sessionIndex: "" }))}
-                    isDisabled={!appointmentForm.coachUid}
+                    isDisabled={!appointmentForm.coachUid || needsFormData && !formData}
                   >
                     <option value="">
-                      {appointmentForm.coachUid
+                      {needsFormData && !formData ? t("common.loading","Chargement…") : appointmentForm.coachUid
                         ? t("clubDashboard.calendar.noClient", "Aucun client, évènement interne")
                         : t("clubDashboard.calendar.selectProFirst", "Sélectionnez d’abord un pro")}
                     </option>
@@ -3586,7 +3630,7 @@ export default function ClubDashboard() {
               <Button type="button" variant="ghost" onClick={closeCalendarAppointmentModal}>
                 {t("exerciseCard.cancel", "Fermer")}
               </Button>
-              <Button type="submit" {...theme.primaryButtonProps} isLoading={actionSaving === "appointment"}>{t("exerciseCard.add", "Ajouter")}</Button>
+              <Button type="submit" {...theme.primaryButtonProps} isDisabled={needsFormData && !formData} isLoading={actionSaving === "appointment"}>{t("exerciseCard.add", "Ajouter")}</Button>
             </ModalFooter>
           </Box>
         </ModalContent>

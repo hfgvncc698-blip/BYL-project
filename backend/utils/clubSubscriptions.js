@@ -113,8 +113,8 @@ function createClubSubscriptions(db, sendEmail) {
     return db.collection('clubs').doc(u.clubId);
   }
   async function dossier(uid,clientId) { if(typeof clientId !== 'string' || !/^[^/]{1,160}$/.test(clientId)) fail('Client invalide.'); const club=await owner(uid); return administration.scope(uid,clientId,club.id); }
-  async function read(s) {
-    const [contracts,checks]=await Promise.all([s.ref.collection('subscriptions').get(),s.ref.collection('paymentChecks').get()]);
+  async function read(s,knownContracts) {
+    const [contracts,checks]=await Promise.all([knownContracts || s.ref.collection('subscriptions').get(),s.ref.collection('paymentChecks').get()]);
     const statuses=new Map(checks.docs.map(d=>[d.id,{...d.data(),...(staleEmail(d.data()) ? {emailState:'failed'} : {})}]));
     return { supportsReminderChoice:true, contracts:contracts.docs.map(d=>({id:d.id,...d.data()})), dues:contracts.docs.flatMap(d=>installments({id:d.id,...d.data()})).map(row=>({...row,...statuses.get(row.id), id:row.id})).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)) };
   }
@@ -254,16 +254,41 @@ function createClubSubscriptions(db, sendEmail) {
         return {ok:true};
       });
     },
-    async pending(uid) {
-      const club=await owner(uid), docs=await club.collection('privateClients').get();
+    async pending(uid,indexed=false) {
+      const club=await owner(uid),privateClients=club.collection('privateClients');
+      const contractsById=new Map();
+      let docs;
+      if(indexed){
+        const field=require('firebase-admin/firestore').FieldPath.documentId();
+        const [manual,contracts]=await Promise.all([
+          privateClients.where('payments','>',[]).select('payments').get(),
+          db.collectionGroup('subscriptions').orderBy(field).startAt(club).endBefore(club.parent.doc(club.id+'\u0001')).get()
+        ]);
+        for(const doc of contracts.docs){
+          const parent=doc.ref.parent.parent;
+          if(parent?.parent.path!==privateClients.path)continue;
+          if(!contractsById.has(parent.id))contractsById.set(parent.id,[]);
+          contractsById.get(parent.id).push(doc);
+        }
+        const candidates=new Map(manual.docs.map(doc=>[doc.id,doc]));
+        const missing=[...contractsById.keys()].filter(id=>!candidates.has(id));
+        for(let i=0;i<missing.length;i+=100){
+          const extra=await db.getAll(...missing.slice(i,i+100).map(id=>privateClients.doc(id)),{fieldMask:['payments']});
+          for(const doc of extra)if(doc.exists)candidates.set(doc.id,doc);
+        }
+        docs={docs:[...candidates.values()]};
+      }else docs=await privateClients.get();
       const result=await Promise.all(docs.docs.map(async doc=>{
+        const dueManual=(doc.data().payments||[]).filter(p=>validDate(p.dueDate)&&p.dueDate<=today()&&p.dueCents>p.paidCents);
+        const contracts=indexed ? {docs:contractsById.get(doc.id)||[]} : await privateClients.doc(doc.id).collection('subscriptions').get();
+        if(!contracts.docs.length && !dueManual.length)return [];
         let s; try {s=await administration.scope(uid,doc.id,club.id);}catch(e){if(e.status===403||e.status===404)return [];throw e;}
-        const manual=(doc.data().payments||[]).filter(p=>validDate(p.dueDate)&&p.dueDate<=today()&&p.dueCents>p.paidCents).map(p=>({
+        const manual=dueManual.map(p=>({
           id:`manual_${p.id}`,paymentId:p.id,source:'manual',clientId:doc.id,clientName:s.clientName,
           dueDate:p.dueDate,amountCents:p.dueCents-p.paidCents,currency:p.currency||'EUR',unitScale:p.unitScale??100,label:p.label,kind:p.kind||'regular',status:p.paidCents>0?'partial':'pending'
         }));
-        if(s.former)return manual;
-        const data=await read(s);
+        if(s.former || !contracts.docs.length)return manual;
+        const data=await read(s,contracts);
         return [...manual,...data.dues.filter(d=>d.dueDate<=today() && (!d.status || d.status==='pending' || d.status==='unpaid' || d.status==='partial')).map(d=>({...d,clientId:doc.id,clientName:s.clientName}))];
       }));
       return result.flat().sort((a,b)=>a.dueDate.localeCompare(b.dueDate));

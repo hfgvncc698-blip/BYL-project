@@ -46,9 +46,9 @@ function calculatePacks(packs,events,now=Date.now()) {
 }
 function createClubSessionPacks(db){
  const administration=createClubClientAdministration(db);
- async function read(ref,clubId,clientId,reader,sharedEvents){
+ async function read(ref,clubId,clientId,reader,sharedEvents,knownPacks,knownReports){
   const get=r=>reader?reader.get(r):r.get();
-  const [packs,events,reports]=await Promise.all([get(ref.collection('sessionPacks')),sharedEvents || get(db.collection('clubs').doc(clubId).collection('appointments')),get(ref.collection('eventReports'))]);
+  const [packs,events,reports]=await Promise.all([knownPacks || get(ref.collection('sessionPacks')),sharedEvents || get(db.collection('clubs').doc(clubId).collection('appointments')),knownReports || get(ref.collection('eventReports'))]);
   const reportMap=new Map(reports.docs.map(d=>[d.id,d.data()]));
   const history=events.docs.filter(e=>eventFor(e.data(),clientId)||reportMap.has(e.id)).map(e=>{
    const d=e.data(),report=reportMap.get(e.id)||{};
@@ -63,12 +63,13 @@ function createClubSessionPacks(db){
   async credit(clubId,clientId,event,reader){
    const club=db.collection('clubs').doc(clubId),ref=club.collection('privateClients').doc(clientId);
    const get=r=>reader?reader.get(r):r.get();
-   const [raw,all]=await Promise.all([get(ref.collection('sessionPacks')),get(club.collection('appointments'))]);
+   const raw=await get(ref.collection('sessionPacks'));
    const type=event.type==='group'?'group':event.type==='nutrition'?'nutrition':'individual';
    const managed=raw.docs.some(d=>d.data().type===type);
    if(!managed)return {allowed:true,managed:false};
+   const all=await get(club.collection('appointments'));
    const events={docs:all.docs.filter(d=>d.id!==event.id)};
-   const result=await read(ref,clubId,clientId,reader,events);
+   const result=await read(ref,clubId,clientId,reader,events,raw);
    const date=day(millis(event.startsAt));
    const available=result.packs.filter(p=>!p.cancelled&&p.type===type&&p.start<=date&&(!p.end||p.end>=date)&&(!p.courseTitle||normalized(p.courseTitle)===normalized(event.title))).reduce((n,p)=>n+p.available,0);
    return {allowed:available>0,managed:true,available};
@@ -79,12 +80,26 @@ function createClubSessionPacks(db){
   },
   // Called only by the owner-authorized club directory route; reuse its appointment snapshot.
   async directoryBalances(clubId,ids){
-   const club=db.collection('clubs').doc(clubId),events=await club.collection('appointments').get(),result={};
+   const club=db.collection('clubs').doc(clubId),result={};
    for(let offset=0;offset<ids.length;offset+=10){
-    await Promise.all(ids.slice(offset,offset+10).map(async id=>{
-     const data=await read(club.collection('privateClients').doc(id),clubId,id,null,events);
-     result[id]=data.packs.filter(p=>!p.cancelled).map(({id,name,type,courseTitle,start,end,remaining,quantity,reserved,available,state,reservationEventIds})=>({id,name,type,courseTitle,start,end,remaining,quantity,reserved,available,state,reservationEventIds}));
-    }));
+     await Promise.all(ids.slice(offset,offset+10).map(async id=>{
+       const ref=club.collection('privateClients').doc(id);
+       const packs=await ref.collection('sessionPacks').get();
+       if(!packs.docs.some(doc=>!doc.data().deleted && !doc.data().cancelled)){result[id]=[];return;}
+       const appointments=club.collection('appointments');
+       const [individual,participants,waiting,reports]=await Promise.all([
+         appointments.where('clientId','==',id).get(),appointments.where('participantIds','array-contains',id).get(),
+         appointments.where('waitlistIds','array-contains',id).get(),ref.collection('eventReports').get()
+       ]);
+       const events=new Map([...individual.docs,...participants.docs,...waiting.docs].map(d=>[d.id,d]));
+       const missing=reports.docs.filter(d=>!events.has(d.id)).map(d=>appointments.doc(d.id));
+       for(let i=0;i<missing.length;i+=100){
+         const docs=await db.getAll(...missing.slice(i,i+100));
+         for(const doc of docs)if(doc.exists)events.set(doc.id,doc);
+       }
+       const data=await read(ref,clubId,id,null,{docs:[...events.values()]},packs,reports);
+       result[id]=data.packs.filter(p=>!p.cancelled).map(({id,name,type,courseTitle,start,end,remaining,quantity,reserved,available,state,reservationEventIds})=>({id,name,type,courseTitle,start,end,remaining,quantity,reserved,available,state,reservationEventIds}));
+     }));
    }
    return result;
   },

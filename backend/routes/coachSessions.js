@@ -23,7 +23,7 @@ router.get('/my-cancellations', requireFirebaseAuth, async(req,res)=>{
  try {res.json(await clientCancellation.mine(req.auth.uid,req.query.history==='true'));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Chargement impossible.'});}
 });
 router.get('/cancellation-requests', requireFirebaseAuth, async(req,res)=>{
- try {res.json(await clientCancellation.list(req.auth.uid,req.query.history==='true',req.auth.token));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Chargement impossible.'});}
+ try {res.json(await clientCancellation.list(req.auth.uid,req.query.history==='true',req.auth.token,req.query.count==='1'));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Chargement impossible.'});}
 });
 router.post('/:id/cancellation-review', requireFirebaseAuth, async(req,res)=>{
  try {res.json(await clientCancellation.review(req.auth.uid,req.params.id,req.body,req.auth.token));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Enregistrement impossible.'});}

@@ -1,29 +1,42 @@
+import {calendarWindow} from '../../utils/calendarWindow.mjs';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { clubText, clubLocale } from '../../i18n/clubText';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Text, Button, Stack, Badge, useToast } from '@chakra-ui/react';
 import { apiFetch } from '../../utils/api';
-export default function useClientClubClasses(uid, enabled) {
+export default function useClientClubClasses(uid, enabled,date,view,weekOffset) {
   const [classes, setClasses] = useState([]), [error, setError] = useState(''), [selected, setSelected] = useState(null), [saving, setSaving] = useState(false);
   const { i18n } = useTranslation();
   const toast = useToast();
   const navigate = useNavigate();
   const [contacting, setContacting] = useState(false);
 
-  const refresh = useCallback(async () => {
-    if (!enabled || !uid) return;
-    const data = await apiFetch('/clubs/my-group-classes');
-    setClasses(data.classes || []); setError('');
-  }, [uid, enabled]);
-  useEffect(() => {
-    setClasses([]); setSelected(null); setError('');
-    if (!enabled || !uid) return;
-    let alive = true;
-    const load = async () => { try { const data = await apiFetch('/clubs/my-group-classes'); if (alive) { setClasses(data.classes || []); setError(''); } } catch { if (alive) setError(clubText("Impossible de charger les cours collectifs.")); } };
-    load(); const timer = setInterval(load, 30000); window.addEventListener('focus', load); window.addEventListener('club-memberships-changed', load);
-    return () => { alive = false; clearInterval(timer); window.removeEventListener('focus', load); window.removeEventListener('club-memberships-changed', load); };
-  }, [uid, enabled, i18n.language]);
+  const week=new Date();week.setDate(week.getDate()+7*weekOffset);
+  const [a,b]=calendarWindow(date,view),[c,d]=calendarWindow(week,'week');
+  const endpoint='/clubs/my-group-classes?from='+a+'&to='+b+'&weekFrom='+c+'&weekTo='+d;
+  const sequence=useRef(0);
+  const refresh=useCallback(async()=>{
+    if(!enabled || !uid)return;
+    const version=++sequence.current;
+    try{
+      const data=await apiFetch(endpoint);
+      if(version===sequence.current){setClasses(data.classes || []);setError('');}
+    }catch(e){
+      if(version===sequence.current){
+        if(e.status===401 || e.status===403){setClasses([]);setSelected(null);}
+        setError(clubText('Impossible de charger les cours collectifs.'));
+      }
+    }
+  },[uid,enabled,endpoint]);
+  useEffect(()=>{
+    setClasses([]);setSelected(null);setError('');
+    if(!enabled || !uid)return;
+    const load=()=>{if(document.visibilityState!=='hidden')void refresh();};
+    load();const timer=setInterval(load,30000);
+    window.addEventListener('focus',load);window.addEventListener('online',load);window.addEventListener('club-memberships-changed',load);
+    return()=>{sequence.current++;clearInterval(timer);window.removeEventListener('focus',load);window.removeEventListener('online',load);window.removeEventListener('club-memberships-changed',load);};
+  },[refresh,i18n.language]);
   const current = classes.find(c => `${c.clubId}/${c.id}` === selected);
   const reserve = async action => {
     setSaving(true);

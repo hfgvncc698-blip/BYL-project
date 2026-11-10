@@ -7,9 +7,9 @@ const data=new Map([
 ]);
 const snap=path=>({id:path.split('/').pop(),exists:data.has(path),data:()=>structuredClone(data.get(path)),ref:ref(path)});
 function ref(path){return {path,id:path.split('/').pop(),get:async()=>snap(path),set:async(value,options)=>data.set(path,{...(options?.merge?data.get(path):{}),...value}),collection:name=>coll(path+'/'+name)};}
-function coll(path){return {where:(key,op,value)=>({get:async()=>({docs:[...data.keys()].filter(k=>k.startsWith(path+'/')&&k.split('/').length===path.split('/').length+1&&data.get(k)[key]===value).map(snap)})}),doc:id=>ref(path+'/'+id),get:async()=>({docs:[...data.keys()].filter(k=>k.startsWith(path+'/')&&k.split('/').length===path.split('/').length+1).map(snap)})};}
+function coll(path){return {where:(key,op,value)=>({get:async()=>({docs:[...data.keys()].filter(k=>k.startsWith(path+'/')&&k.split('/').length===path.split('/').length+1&&(op==="array-contains"?data.get(k)[key]?.includes(value):data.get(k)[key]===value)).map(snap)})}),doc:id=>ref(path+'/'+id),get:async()=>({docs:[...data.keys()].filter(k=>k.startsWith(path+'/')&&k.split('/').length===path.split('/').length+1).map(snap)})};}
 let queue=Promise.resolve();
-const db={collection:coll,runTransaction:fn=>{const run=queue.then(async()=>{const writes=[];const result=await fn({get:r=>{assert.equal(writes.length,0);return r.get();},set:(r,d,o)=>writes.push(()=>r.set(d,o))});for(const w of writes)await w();return result;});queue=run.catch(()=>{});return run;}};
+const db={collection:coll,getAll:(...refs)=>Promise.all(refs.map(r=>r.get())),runTransaction:fn=>{const run=queue.then(async()=>{const writes=[];const result=await fn({get:r=>{assert.equal(writes.length,0);return r.get();},set:(r,d,o)=>writes.push(()=>r.set(d,o))});for(const w of writes)await w();return result;});queue=run.catch(()=>{});return run;}};
 (async()=>{
  const now=Date.now(),start=now-7200000;
  const pack={id:'p',name:'Coaching',quantity:10,type:'individual',courseTitle:'',start:'2020-01-01',end:'',createdAt:1};

@@ -1,3 +1,4 @@
+import { calendarWindow, visibleEvents } from '../../utils/calendarWindow.mjs';
 import { getCalendarScrollTime, getCalendarAgendaMessages } from "../../utils/calendarLocale";
 import React from "react";
 import ClubCalendarSlotHint from "./ClubCalendarSlotHint";
@@ -33,7 +34,10 @@ export default function CoachDashboardCalendar({ calendarCulture = "fr", onReady
   }, [calendarCulture]);
 
   const [scrollToTime, setScrollToTime] = React.useState(getCalendarScrollTime);
+  const [date,setDate]=React.useState(()=>new Date());
   const [view, setView] = React.useState('week');
+  const [from,to]=calendarWindow(props.date || date,props.view || view);
+  const visible=React.useMemo(()=>visibleEvents(props.events || [],from,to),[props.events,from,to]);
   const hintRef = React.useRef(null);
   const formatTime = React.useCallback(date => new Intl.DateTimeFormat(calendarCulture, { hour: '2-digit', minute: '2-digit' }).format(date), [calendarCulture]);
   const handleView = view => {
@@ -44,7 +48,7 @@ export default function CoachDashboardCalendar({ calendarCulture = "fr", onReady
 
   return <>
     <ClubCalendarSlotHint ref={hintRef} formatTime={formatTime} scope={slotHintScope} disabled={!["week", "day"].includes(view)} />
-    <DnDCalendar dayLayoutAlgorithm="no-overlap" componentIdentity={props.components} localizer={localizer} culture={calendarCulture} defaultView="week" scrollToTime={scrollToTime} {...props} messages={{ ...props.messages, ...getCalendarAgendaMessages(calendarCulture) }} onView={handleView}
+    <DnDCalendar dayLayoutAlgorithm="no-overlap" componentIdentity={props.components} localizer={localizer} culture={calendarCulture} defaultView="week" scrollToTime={scrollToTime} {...props} events={visible} onNavigate={(next,...args)=>{setDate(next);props.onNavigate?.(next,...args);}} messages={{ ...props.messages, ...getCalendarAgendaMessages(calendarCulture) }} onView={handleView}
     step={15} timeslots={4}
     slotPropGetter={date => ({ 'data-club-slot-time': date.getTime() })}
     onSelecting={range => { hintRef.current?.select(range); return range.end - range.start <= 180 * 60000; }}

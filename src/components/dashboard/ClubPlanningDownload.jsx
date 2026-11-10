@@ -1,3 +1,4 @@
+import {useClubCalendarPeriod} from '../../utils/useClubCalendarPeriod';
 import { useTranslation } from "react-i18next";
 import { clubText, clubLocale } from "../../i18n/clubText";
 import React, { useState } from 'react';
@@ -6,7 +7,7 @@ import { DownloadIcon } from '@chakra-ui/icons';
 import { planningDays } from '../../utils/clubPlanningPdf.mjs';
 
 const dateValue = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-export default function ClubPlanningDownload({ appointments, coaches, clubName, clubLogoUrl, calendarDate, selectedCoaches }) {
+export default function ClubPlanningDownload({ urlFor,scope,coaches, clubName, clubLogoUrl, calendarDate, selectedCoaches }) {
   useTranslation();
   const modal = useDisclosure();
   const [date, setDate] = useState(dateValue(new Date()));
@@ -15,7 +16,8 @@ export default function ClubPlanningDownload({ appointments, coaches, clubName, 
   const [paper, setPaper] = useState('a4');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const options = { appointments, date, type, coaches: selected, coachNames: coaches, clubName, clubLogoUrl, paper, locale: clubLocale(), translate: clubText };
+  const period=useClubCalendarPeriod(modal.isOpen && Boolean(date),urlFor,new Date(date+"T12:00:00"),"week",scope);
+  const options = { appointments:period.appointments, date, type, coaches: selected, coachNames: coaches, clubName, clubLogoUrl, paper, locale: clubLocale(), translate: clubText };
   const count = date ? new Set(planningDays(options).flatMap(day => day.events.map(event => event.id))).size : 0;
   const download = async () => {
     setBusy(true); setError('');
@@ -43,6 +45,7 @@ export default function ClubPlanningDownload({ appointments, coaches, clubName, 
           </Stack></Stack>
           <FormControl><FormLabel>{clubText("Format d’impression")}</FormLabel><Select value={paper} onChange={e => setPaper(e.target.value)}><option value="a4">{clubText("A4 paysage")}</option><option value="a3">{clubText("A3 paysage — planning chargé")}</option></Select></FormControl>
           <Text fontSize="sm">{count} {clubText("événement(s) sélectionné(s). Les événements annulés sont exclus.")}</Text>
+          {period.error && <Text role="alert">{clubText("Synchronisation du calendrier indisponible.")}</Text>}
           {error && <Alert status="error"><AlertIcon />{error}</Alert>}
         </Stack></ModalBody>
         <ModalFooter gap={3}><Button variant="ghost" onClick={modal.onClose} isDisabled={busy}>{clubText("Fermer")}</Button><Button colorScheme="blue" onClick={download} isLoading={busy} isDisabled={!date || !count}>{clubText("Télécharger le PDF")}</Button></ModalFooter>
