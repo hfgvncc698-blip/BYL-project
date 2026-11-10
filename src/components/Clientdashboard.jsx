@@ -27,9 +27,10 @@ import { dashboardWeekLabels } from '../i18n/dashboardWeek';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   collection, getDocs, query, where, onSnapshot, orderBy, limit,
-  doc, addDoc, updateDoc, Timestamp, getDoc
+  doc, addDoc, updateDoc, Timestamp, getDoc, getDocFromServer
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import {programAccessScope,watchDashboardPrograms} from '../utils/clientProgramFeed';
 import { useAuth } from '../AuthContext';
 import { dashboardCycle } from '../utils/dashboardCycle';
 import { dashboardCycleLabels } from '../i18n/dashboardCycle';
@@ -530,6 +531,41 @@ const toMillis = (ts) => {
   return 0;
 };
 
+// QuerySnapshots are immutable. Program edits, difficulty updates and a warm
+// navigation reuse this result while the authorized snapshot is still alive.
+const historySummaries = new WeakMap();
+function summarizeHistory(snapshot) {
+  if (historySummaries.has(snapshot)) return historySummaries.get(snapshot);
+  let done=0, lastSessionMs=0, lastCompletedIdx=null, latestTime=-Infinity, latestSessionRecord=null;
+  const finishedIdx=new Set();
+  for (const doc of snapshot.docs) {
+    const row=doc.data();
+    const validated=isSessionValidatedRecord(row);
+    if (validated) {
+      done++;
+      const index=getSessionIndex(row);
+      if (Number.isFinite(index)) finishedIdx.add(index);
+    }
+    const date = row.progressUpdatedAt?.toDate?.() || row.updatedAt?.toDate?.() ||
+      row.dateEffectuee?.toDate?.() || row.completedAt?.toDate?.() || row.validatedAt?.toDate?.() ||
+      row.playedAt?.toDate?.() || row.timestamp?.toDate?.();
+    if (date && date.getTime() >= lastSessionMs) {
+      lastSessionMs=date.getTime();
+      const index=Number(row.sessionIndex);
+      if (validated && Number.isFinite(index)) lastCompletedIdx=index;
+    }
+    const time=toMillis(row.updatedAt) || toMillis(row.dateEffectuee) || toMillis(row.completedAt) ||
+      toMillis(row.startedAt) || toMillis(row.createdAt) || 0;
+    if (time>latestTime) {
+      latestTime=time;
+      latestSessionRecord={id:doc.id,...row};
+    }
+  }
+  const result={done,finishedIdx,lastSessionMs,lastCompletedIdx,latestSessionRecord};
+  historySummaries.set(snapshot,result);
+  return result;
+}
+
 /* ✅ Format date (lang) */
 const formatDate = (ms, lang) => {
   if (!ms) return '';
@@ -727,6 +763,13 @@ function ProgrammeAuthor({ name, dossierId }) {
 }
 
 export default function ClientDashboard({ adminPreview = false }) {
+  const {user, effectiveRole} = useAuth();
+  const {clientId} = useParams();
+  const accessScope=programAccessScope(user,effectiveRole,adminPreview ? clientId : '');
+  return <ClientDashboardBody key={accessScope} adminPreview={adminPreview} accessScope={accessScope} />;
+}
+
+function ClientDashboardBody({adminPreview, accessScope}) {
   useCalendarClock();
   const { t, i18n } = useTranslation();
   const calendarCulture = useMemo(
@@ -864,17 +907,21 @@ export default function ClientDashboard({ adminPreview = false }) {
   const [clientProfile, setClientProfile] = useState(null);
   useEffect(() => {
     if (!clientId || previewMode) return;
-    return onSnapshot(doc(db,'clients',clientId), snapshot => {
+    return onSnapshot(doc(db,'clients',clientId), {includeMetadataChanges:true}, snapshot => {
+      if(snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
       if (snapshot.exists()) setClientProfile(snapshot.data());
-    }, () => {});
+      else setClientProfile(null);
+    }, () => setClientProfile(null));
   }, [clientId, previewMode]);
   const [nutritionSummary, setNutritionSummary] = useState(null);
   const [nutritionClientIds, setNutritionClientIds] = useState([]);
   const [nutritionMealHabits, setNutritionMealHabits] = useState({});
   const [programmes, setProgrammes] = useState([]);
+  const [knownPrograms,setKnownPrograms]=useState([]);
   const [premiumPrograms, setPremiumPrograms] = useState([]);
   const [sessionsRaw, setSessionsRaw] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadAttempt,setLoadAttempt]=useState(0);
   const [loadingPremium, setLoadingPremium] = useState(true);
   const [dayClock, setDayClock] = useState(() => new Date());
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
@@ -954,10 +1001,13 @@ export default function ClientDashboard({ adminPreview = false }) {
     // Le tableau de bord doit toujours repartir de l'identité liée actuelle :
     // une ancienne résolution en cache ne doit jamais masquer les programmes
     // ni leur progression après l'activation ou la liaison du compte.
-    return resolveClientSnapshotForUser(u, {
+    const dossier=await resolveClientSnapshotForUser(u, {
       disableCache: true,
       logPrefix: "ClientDashboard",
     });
+    if (!dossier?.metadata?.fromCache && !dossier?.metadata?.hasPendingWrites) return dossier;
+    const verified=await getDocFromServer(dossier.ref);
+    return verified.exists() ? verified : null;
   }
 
   useEffect(() => {
@@ -1036,22 +1086,7 @@ export default function ClientDashboard({ adminPreview = false }) {
   };
 
   /* -------- Notes (rating) : sous-collection difficulté_notes -------- */
-  async function fetchDifficultyMap({ cId, programmeId }) {
-    const tryCols = ['difficulté_notes', 'difficulte_notes']; // ✅ on tente les 2
-    let docs = [];
-
-    for (const colName of tryCols) {
-      try {
-        const snap = await getDocs(collection(db, 'clients', cId, 'programmes', programmeId, colName));
-        if (!snap.empty) {
-          docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          break;
-        }
-      } catch {}
-    }
-
-    if (!docs.length) return {};
-
+  function difficultyBySession(docs) {
     // map sessionIndex -> dernier doc (createdAt)
     const byIdx = {};
     for (const d of docs) {
@@ -1092,7 +1127,9 @@ export default function ClientDashboard({ adminPreview = false }) {
   useEffect(() => {
     if (!user) return;
 
-    let active = true;
+    let active = true, admissionFailed=false;
+    const retryAdmission=()=>{if (admissionFailed) setLoadAttempt(n=>n+1);};
+    window.addEventListener('online',retryAdmission);
     // 1) Premium: chargement indépendant
     (async () => {
       setLoadingPremium(true);
@@ -1320,71 +1357,11 @@ export default function ClientDashboard({ adminPreview = false }) {
       // ✅ programmes (mes programmes)
       const programCaches = new Map();
       const publishPrograms=(id,items)=>{programCaches.set(id,items);const all=[...programCaches.values()].flat();setProgrammes(all.sort((a,b)=>(b._lastOrAssignedMs||0)-(a._lastOrAssignedMs||0)));setHasPremiumOwned(all.some(p=>p.isPremiumOnly||String(p.origine||'').includes('premium')));};
-      const programUnsubs = dossierIds.map(cId=>{
-      let programLoadVersion=0;
-      const progCol = collection(db, 'clients', cId, 'programmes');
-      return onSnapshot(progCol, async (snap) => {
-        const loadVersion = ++programLoadVersion;
-        const quickItems = snap.docs.map((d) => {
-          const p = { id: d.id, ...d.data(), clientDocId:cId };
-          const assignedAtMs = toMillis(
-            p.assignedAt || p.dateAssignation || p.dateAffectation ||
-            p.createdAt || p.createdOn || p.created_date
-          );
-          const createdAtMs =
-            toMillis(p.createdAt) ||
-            toMillis(p.createdOn) ||
-            toMillis(p.created_date) ||
-            0;
-          const templateTotal = getTotalSessionsFromProgrammeDoc(p);
-          const total = getProgramPlannedSessionTotal(p);
-          const nextIndex = 0;
-          return {
-            ...p,
-            sessionsEffectuees: [],
-            nomProgramme: getProgrammeDisplayName(p),
-            createdByName: getProgrammeAuthorLabel(p),
-            _done: 0,
-            _doneRaw: 0,
-            _total: total,
-            _templateTotal: templateTotal,
-            _percent: 0,
-            _visualPercent: 0,
-            _nextIndex: nextIndex,
-            _nextSessionLabel: getProgrammeSessionTitle(p, nextIndex, t),
-            _freshNextSessionIndex: nextIndex,
-            _freshNextSessionLabel: getProgrammeSessionTitle(p, nextIndex, t),
-            _resumeSessionIndex: nextIndex,
-            _resumeSessionLabel: getProgrammeSessionTitle(p, nextIndex, t),
-            _resumeExerciseIndex: 0,
-            _resumeSet: 1,
-            _resumePct: null,
-            _hasResumePoint: false,
-            _assignedAtMs: assignedAtMs,
-            _createdAtMs: createdAtMs,
-            _lastSessionMs: 0,
-            _lastOrAssignedMs: assignedAtMs || createdAtMs,
-            _displayDateFormatted: assignedAtMs || createdAtMs
-              ? formatDate(assignedAtMs || createdAtMs, i18n.language)
-              : "",
-            _rating: null,
-            _difficultyMap: {},
-          };
-        });
-        const quickSorted = [...quickItems].sort(
-          (a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0)
-        );
-        publishPrograms(cId,quickSorted);
-
-        setLoading(false);
-
-        try {
-        const items = await runLimited(
-          snap.docs,
-          async d => {
-            if (!active || loadVersion !== programLoadVersion) return null;
-            const p = { id: d.id, ...d.data(), clientDocId:cId };
-
+      const directories=new Map();
+      const loadingDossiers=new Set(dossierIds);
+      const syncCalendar=calendarCompletionSync(clientDoc.id);
+      const programUnsubs = dossierIds.map(cId => {
+        function compute(p, sessDoneSnap, coachDisplay, difficultyMap) {
             const rawAssignTs =
               p.assignedAt || p.dateAssignation || p.dateAffectation ||
               p.createdAt  || p.createdOn       || p.created_date;
@@ -1397,73 +1374,9 @@ export default function ClientDashboard({ adminPreview = false }) {
               toMillis(p.created_date) ||
               0;
 
-            const [sessDoneSnap, coachDisplay, difficultyMap] = await Promise.all([
-              getDocs(collection(db, 'clients', cId, 'programmes', d.id, 'sessionsEffectuees')),
-              resolveCoachDisplay(p, user, clientData),
-              fetchDifficultyMap({ cId, programmeId: d.id }),
-            ]);
-
-            let lastSessionMs = 0;
-            let lastCompletedIdx = null;
-
-            const sessionsEffectuees = sessDoneSnap.docs.map(s => {
-              const sd = s.data();
-              const dt =
-                sd.progressUpdatedAt?.toDate?.() ||
-                sd.updatedAt?.toDate?.() ||
-                sd.dateEffectuee?.toDate?.() ||
-                sd.completedAt?.toDate?.() ||
-                sd.validatedAt?.toDate?.() ||
-                sd.playedAt?.toDate?.() ||
-                sd.timestamp?.toDate?.() ||
-                null;
-
-              const idx = (typeof sd.sessionIndex === 'number') ? sd.sessionIndex : Number(sd.sessionIndex);
-
-              if (dt) {
-                const ms = dt.getTime();
-                const prevLast = lastSessionMs;
-                if (ms > lastSessionMs) lastSessionMs = ms;
-
-                if (isSessionValidatedRecord(sd) && Number.isFinite(idx) && ms >= prevLast && ms === lastSessionMs) {
-                  lastCompletedIdx = idx;
-                }
-              }
-
-              return { id: s.id, ...sd };
-            });
-
-            const latestSessionRecord = [...sessionsEffectuees]
-              .sort((a, b) => {
-                const ams =
-                  toMillis(a.updatedAt) ||
-                  toMillis(a.dateEffectuee) ||
-                  toMillis(a.completedAt) ||
-                  toMillis(a.startedAt) ||
-                  toMillis(a.createdAt) ||
-                  0;
-                const bms =
-                  toMillis(b.updatedAt) ||
-                  toMillis(b.dateEffectuee) ||
-                  toMillis(b.completedAt) ||
-                  toMillis(b.startedAt) ||
-                  toMillis(b.createdAt) ||
-                  0;
-                return bms - ams;
-              })[0] || null;
-
+            const {lastSessionMs,lastCompletedIdx,latestSessionRecord,done,finishedIdx}=summarizeHistory(sessDoneSnap);
             const templateTotal = getTotalSessionsFromProgrammeDoc(p);
             const totalPrevues = getProgramPlannedSessionTotal(p);
-            let done = 0;
-            const finishedIdx = new Set();
-            sessionsEffectuees.forEach(s => {
-              if (isSessionValidatedRecord(s)) {
-                done += 1;
-                const idx = getSessionIndex(s);
-                if (Number.isFinite(idx)) finishedIdx.add(idx);
-              }
-            });
-
             const doneForProgress = totalPrevues > 0 ? Math.min(done, totalPrevues) : done;
             const percent = totalPrevues > 0 ? Math.min(100, Math.round((doneForProgress / totalPrevues) * 100)) : 0;
 
@@ -1545,7 +1458,6 @@ export default function ClientDashboard({ adminPreview = false }) {
 
             return {
               ...p,
-              sessionsEffectuees,
               nomProgramme,
               createdByName: coachDisplay,
               _done: doneForProgress,
@@ -1572,36 +1484,31 @@ export default function ClientDashboard({ adminPreview = false }) {
               _rating: (typeof rating === "number" && isFinite(rating)) ? rating : null,
               _difficultyMap: difficultyMap || {},
             };
-          },
-          4
-        );
-
-        if (!active || loadVersion !== programLoadVersion) return;
-
-
-
-        const sorted = items.sort((a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0));
-        publishPrograms(cId,sorted);
-        setLoading(false);
-        } catch (error) {
-          // Keep the base program cards usable if optional enrichment fails.
-          console.warn('[ClientDashboard] program details unavailable', error);
-          if (active && loadVersion === programLoadVersion) setLoading(false);
         }
-      }, () => {
-        programLoadVersion += 1;
-        publishPrograms(cId,[]);
-        setLoading(false);
+        return watchDashboardPrograms(accessScope,collection(db,'clients',cId,'programmes'),{
+          compute,difficultyBySession,syncCalendar,authorLabel:getProgrammeAuthorLabel,
+          authorName:p=>resolveCoachDisplay(p,user,clientData),
+          onDirectory(items){if(active){directories.set(cId,items);setKnownPrograms([...directories.values()].flat());}},
+          onRows(items,ready){
+            if (!active) return;
+            if (ready) loadingDossiers.delete(cId);
+            else loadingDossiers.add(cId);
+            publishPrograms(cId,items);
+            setLoading(loadingDossiers.size>0);
+          },
+        });
       });
-      });
+      if (!dossierIds.length) {setProgrammes([]);setLoading(false);}
       unsubPrograms=()=>programUnsubs.forEach(unsubscribe=>unsubscribe());
     })().catch((error) => {
+      admissionFailed=true;
       console.warn('[ClientDashboard] client load failed', error);
       if (active) setLoading(false);
     });
 
     return () => {
       active = false;
+      window.removeEventListener('online',retryAdmission);
       if (unsubPrograms) unsubPrograms();
       if (unsubSessA) unsubSessA();
       if (unsubSessB) unsubSessB();
@@ -1611,17 +1518,14 @@ export default function ClientDashboard({ adminPreview = false }) {
     };
   // Profile snapshots replace the user object even when identity is unchanged.
   // Only identity/language changes need to rebuild all these live listeners.
-  }, [user?.uid, user?.linkedClientId, user?.email, user?.role, i18n.language, previewMode]);
+  }, [user?.uid, user?.linkedClientId, user?.email, user?.role, i18n.language, previewMode,loadAttempt]);
 
   /* ====== Auto ajout au calendrier quand séance validée ====== */
-  const programmeIdsKey = useMemo(() => programmes.map(p => `${p.clientDocId}:${p.id}`).sort().join(','), [programmes]);
-
-  useEffect(() => {
-    if (previewMode || !clientId || programmes.length === 0 || !user?.uid) return;
-
+  function calendarCompletionSync(clientId) {
     const knownCalendarKeys = new Set();
     const pendingCalendarKeys = new Set();
-    const loadKnownCalendarKeys = Promise.all([
+    let loadingKeys;
+    const loadKnownCalendarKeys = () => loadingKeys ||= Promise.all([
       getDocs(query(collection(db, 'sessions'), where('clientId', '==', user.uid))),
       getDocs(query(collection(db, 'sessions'), where('clientDocId', '==', clientId))),
     ])
@@ -1639,14 +1543,11 @@ export default function ClientDashboard({ adminPreview = false }) {
         console.warn('[ClientDashboard] calendar dedupe history unavailable', error);
       });
 
-    const unsubs = programmes.map(p => {
-      const colRef = collection(db, 'clients', p.clientDocId||clientId, 'programmes', p.id, 'sessionsEffectuees');
-
-      return onSnapshot(colRef, async (snap) => {
+    return async (p,snap,reconcile,live) => {
+        if (previewMode || !clientId || !user?.uid) return;
         try {
-          await loadKnownCalendarKeys;
-
-          for (const change of snap.docChanges()) {
+          for (const change of reconcile ? snap.docs.map(doc=>({doc,type:"added"})) : snap.docChanges()) {
+            if (!live()) return;
             if (change.type !== 'added' && change.type !== 'modified') continue;
 
             const s = change.doc.data();
@@ -1654,6 +1555,8 @@ export default function ClientDashboard({ adminPreview = false }) {
             if (!isSessionValidatedRecord(s)) continue;
             // The player already linked this completion to its planned event.
             if (s.calendarEventId) continue;
+            await loadKnownCalendarKeys();
+            if (!live()) return;
 
             const startDate =
               s.dateEffectuee?.toDate?.() ||
@@ -1733,11 +1636,8 @@ export default function ClientDashboard({ adminPreview = false }) {
         } catch (error) {
           console.warn('[ClientDashboard] automatic calendar sync unavailable', error);
         }
-      }, () => {});
-    });
-
-    return () => { unsubs.forEach(u => u && u()); };
-  }, [clientId, previewMode, programmeIdsKey, user?.uid, t]);
+    };
+  }
 
   /* ------------------ Navigation ------------------ */
   const navigateToProgram = (p) => {
@@ -3933,10 +3833,10 @@ export default function ClientDashboard({ adminPreview = false }) {
         <Flex align="center" justify="space-between" mb={4}>
           <HStack spacing={3} flexWrap="wrap">
             <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
-              {programmes.length} {t("auto.Clientdashboard.actif", "actif")}{programmes.length > 1 ? 's' : ''}
+              {loading ? knownPrograms.length : programmes.length} {t("auto.Clientdashboard.actif", "actif")}{programmes.length > 1 ? 's' : ''}
             </Badge>
             <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
-              {motivationStats.percentAll}{t("auto.Clientdashboard.complete", "% complété")}</Badge>
+              {loading ? "…" : motivationStats.percentAll+t("auto.Clientdashboard.complete", "% complété")}</Badge>
             {activeSessionPacks.length > 0 && <Badge px={3} py={1.5} borderRadius="full" colorScheme={packSessionsRemaining === 1 ? 'orange' : 'teal'} textTransform="none">
               {clubText('Séances restantes en packs : {{remaining}}',{remaining:packSessionsRemaining})}
             </Badge>}
@@ -3944,7 +3844,9 @@ export default function ClientDashboard({ adminPreview = false }) {
         </Flex>
 
         {loading ? (
-          <AppLoading label={t('common.loading', 'Chargement...')} minH="220px" />
+          knownPrograms.length ? <VStack align="stretch" aria-busy="true">
+            {knownPrograms.slice(0,isMobileDashboard ? 3 : 5).map(p=><Button key={p.clientDocId+'/'+p.id} variant="ghost" justifyContent="start" onClick={()=>navigateToProgram(p)}>{getProgrammeDisplayName(p)}</Button>)}
+          </VStack> : <AppLoading label={t('common.loading', 'Chargement...')} minH="220px" />
         ) : (
           <>
             {/* Desktop */}

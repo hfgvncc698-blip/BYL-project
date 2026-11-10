@@ -21,7 +21,7 @@ check("global loading keeps optional work off the critical path", () => {
   const admin = read("src/components/AdminDashboard.jsx");
   const club = read("src/pages/ClubDashboard.jsx");
   const auth = read("src/AuthContext.jsx");
-  assert.match(client, /\[sessDoneSnap, coachDisplay, difficultyMap\] = await Promise\.all/);
+  assert.match(client, /watchDashboardPrograms\(accessScope/);
   assert.match(client, /if \(!active\) return;/);
   assert.match(client, /user\?\.uid, user\?\.linkedClientId, user\?\.email, user\?\.role, i18n.language, previewMode/);
   assert.match(client, /void apiFetch\('\/payments\/recover-premium-purchases'/);
@@ -1067,9 +1067,9 @@ check("program generation and client data access are scoped", () => {
     "Personal clients must not inherit a coach club implicitly"
   );
   assert.ok(
-    clientDashboard.includes("const quickItems = snap.docs.map") &&
-      clientDashboard.includes("await runLimited("),
-    "Client programs must render before bounded history enrichment"
+    clientDashboard.includes("watchDashboardPrograms(accessScope,collection") &&
+      read("src/utils/clientProgramFeed.js").includes("entry.history=snap") && !clientDashboard.includes("sessionsEffectuees: [],"),
+    "Client progress must use the shared per-program history without resetting confirmed counts"
   );
   assert.ok(
     adminDashboard.includes("const initialReads = {") &&

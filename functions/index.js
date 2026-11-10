@@ -2986,8 +2986,8 @@ exports.onProgramSessionCompleted = onDocumentWritten(
       if (completedSessionIndex(completedSession, totalSessions) === null) return;
       if (previousSession && completedSessionIndex(previousSession, totalSessions) !== null) return;
 
-      const completed = await getCompletedSessionCount(programRef, program);
-      if (completed < totalSessions) return;
+      const {reachedCompletionThreshold} = require('./programCompletionThreshold');
+      if (!await reachedCompletionThreshold(programRef,totalSessions,completedSessionIndex)) return;
 
       const activeWeeks = readActiveWeeks(program);
       const dueAt = nextParisMorningEligibility();

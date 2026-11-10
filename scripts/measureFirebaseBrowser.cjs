@@ -44,7 +44,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
     write(file, 'import {forFirestorePage} from "../utils/firestoreMetrics.js";\nconst {' + reads.join(',') +
       '} = forFirestorePage(' + JSON.stringify(activity) + ');\n' + source);
   }
-  if(coachScenario && !revision){
+  if(coachScenario && !coachScenario.clientProgress && !revision){
     const file='src/utils/coachPageSource.js';
     write(file,fs.readFileSync(path.join(folder,file),'utf8').replaceAll('Date.now()', '(Date.now()+(globalThis.fixtureCoachAge || 0))'));
   }
@@ -83,7 +83,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
       isAuthenticated:true, loading:false, effectiveRole:window.fixtureMember ? 'particulier' : window.fixtureOwner ? 'club' : 'coach'});
     export const AuthProvider = ({children}) => children;
   `);
-  if(coachScenario)write('src/AuthContext.jsx',`
+  if(coachScenario && !coachScenario.clientProgress)write('src/AuthContext.jsx',`
     import {useSyncExternalStore} from 'react';
     const coach={uid:'coach',role:'coach',subscriptionStatus:'active',hasActiveSubscription:true,packageKey:'complete',modules:['sport','nutrition']};
     const owner={uid:'owner',role:'club',accountType:'club_owner',clubId:'sample'};
@@ -94,6 +94,13 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
       return {user,isAdmin:false,isCoach:user.role==='coach',effectiveRole:user.role,isAuthenticated:true,loading:false};}
     export const AuthProvider=({children})=>children;
   `);
+  if(coachScenario?.clientProgress){
+    require('./fixtures/clientProgressProbe.cjs')(folder);
+    write('src/AuthContext.jsx', `const patient={uid:'coach',role:'particulier',linkedClientId:'client'};
+      const other={uid:'owner',role:'club'};
+      export const useAuth=()=>({user:window.otherAccount?other:patient,effectiveRole:window.otherAccount?'club':'particulier',isAuthenticated:true});
+      export const AuthProvider=({children})=>children;`);
+  }
   write('index.html', `<meta charset="utf-8"><div id="root"></div>
     <script>
     const fail = event => fetch('/fixture-results', {method:'POST',body:JSON.stringify({failure:'page-exception '+(event.error?.name || event.reason?.name || 'unknown')+' line '+(event.lineno || 0),diagnostic:{stage:window.fixtureStage||'bootstrap',message:String(event.error?.message||event.reason?.message||'').replace(/[A-Za-z0-9_-]{40,}/g,'[redacted]').slice(0,250)}})});
@@ -103,7 +110,7 @@ async function browserPages({ directory, revision, app, accounts, projectId, row
   const condition = appSource.match(/const showDashboardMessaging = ([\s\S]*?);/)[1];
   // Evaluate the same mount condition used by this revision of App.
   write('clubBubble.js', 'export function onClub(user,location) { return ' + condition + '; }');
-  write('entry.jsx', fs.readFileSync(path.join(__dirname, coachScenario ? 'fixtures/coachPagesLot4.jsx' : messagingScenario ? 'fixtures/firebaseMessagingBrowser.jsx' : offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
+  write('entry.jsx', fs.readFileSync(path.join(__dirname, coachScenario?.clientProgress ? 'fixtures/clientProgressLot5.jsx' : coachScenario ? 'fixtures/coachPagesLot4.jsx' : messagingScenario ? 'fixtures/firebaseMessagingBrowser.jsx' : offerScenario ? 'fixtures/firebaseOffersBrowser.jsx' : 'fixtures/firebaseLot1Browser.jsx'), 'utf8'));
   const { createServer } = await import('vite');
   const vite = await createServer({ root: folder, configFile: false, envDir: false, publicDir: false,
     cacheDir: path.join(folder, '.vite'), logLevel: 'error',

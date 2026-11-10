@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot, getDocFromServer } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../AuthContext';
+import { confirmedProgram, programAccessScope } from '../utils/clientProgramFeed';
 import { subscribeToProgram } from '../utils/programSubscription';
 import { usePageLoading } from './usePageLoading';
 
-export function useProgrammeDocument({ clientId, programId, prefetchedProgram }) {
-  const { user } = useAuth();
+export function useProgrammeDocument({ clientId, programId }) {
+  const { user, effectiveRole } = useAuth();
+  const scope=programAccessScope(user,effectiveRole);
   const { begin, state: loadState, fresh } = usePageLoading();
-  const initial = !fresh && prefetchedProgram?.id === programId ? prefetchedProgram : null;
+  const known = useMemo(()=>confirmedProgram(scope,clientId,programId),[scope,clientId,programId]);
+  const initial = !fresh && known?.id === programId ? known : null;
   const [prog, setProg] = useState(initial);
   const [progRef, setProgRef] = useState(null);
   const [loading, setLoading] = useState(!initial);
@@ -56,7 +59,7 @@ export function useProgrammeDocument({ clientId, programId, prefetchedProgram })
     }, 4000);
     const stop = subscribeToProgram({ candidates, subscribe: onSnapshot,
       onValue(hit, cached) {
-        if (!load.current() || ((fresh || serverReceived) && cached)) return;
+        if (!load.current() || cached) return;
         if (!cached) { serverReceived = true; clearTimeout(timeout); }
         setProg(hit ? { ...hit.data, id: hit.id } : null);
         // Cached data may be read, but edits must use a server-confirmed document.
@@ -71,6 +74,6 @@ export function useProgrammeDocument({ clientId, programId, prefetchedProgram })
       }, onError: fail,
     });
     return () => { active = false; clearTimeout(timeout); stop(); };
-  }, [clientId, programId, user?.uid, initial, fresh, begin]);
+  }, [clientId, programId, user?.uid, initial, fresh, begin, scope]);
   return { prog, progRef, loading, error, loadState };
 }

@@ -13,13 +13,15 @@ const context = {
   setLoading: value => { loading = value; }, setProgramLoadError: value => { error = value; },
   setProgramData: () => {}, setSessionObj: () => {}, setFlat: () => {}, setMapIdx: () => {},
   setTimeout: fn => { timeout = fn; return 1; }, clearTimeout: () => {},
-  onSnapshot: (_, onNext, onError) => { next = onNext; fail = onError; return () => { unsubscribed = true; }; },
+  onSnapshot: (_, options, onNext, onError) => { assert.equal(options.includeMetadataChanges,true); next = onNext; fail = onError; return () => { unsubscribed = true; }; },
   getProgramSessionList: () => [], flattenSession: () => ({ flat: [], map: [] }),
 };
 vm.runInNewContext(source.slice(start, end), context);
 assert.equal(loading, true);
 timeout(); assert.equal(loading, false); assert.ok(error);
-next({ exists: () => true, data: () => ({}) }); assert.equal(error, '');
+next({ metadata:{fromCache:true}, exists: () => true, data: () => ({}) }); assert.ok(error);
+next({ metadata:{hasPendingWrites:true}, exists: () => true, data: () => ({}) }); assert.ok(error);
+next({ metadata:{fromCache:false,hasPendingWrites:false}, exists: () => true, data: () => ({}) }); assert.equal(error, '');
 fail({ code: 'permission-denied' }); assert.match(error, /accès/);
 cleanup(); assert.equal(unsubscribed, true);
 assert.equal(await withPlayerDeadline(Promise.resolve('saved'), 20), 'saved');

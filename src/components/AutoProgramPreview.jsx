@@ -64,6 +64,7 @@ import { isUnmodifiedAutomaticProgramTitle } from "../utils/programPdfTitle";
 import { settleWithTimeout } from "../utils/asyncTimeout";
 import { apiFetch } from "../utils/api";
 import PageLoadingStatus from "./ui/PageLoadingStatus";
+import { programAccessScope } from "../utils/clientProgramFeed";
 import { useProgrammeDocument } from "../hooks/useProgrammeDocument";
 import { db } from "../firebaseConfig";
 import {
@@ -2290,6 +2291,13 @@ function ExerciseDetailsContent({ selExo, preferredSex, t }) {
 }
 
 export default function AutoProgramPreview() {
+  const params=useParams();
+  const {user,effectiveRole}=useAuth();
+  const scope=programAccessScope(user,effectiveRole);
+  return <AutoProgramBody key={JSON.stringify([scope,params.clientId,params.programId || params.id || params.programmeId])}/>;
+}
+
+function AutoProgramBody() {
   const params = useParams();
   const clientId = params.clientId || "";
   const programId = params.programId || params.id || params.programmeId;
@@ -2307,7 +2315,7 @@ export default function AutoProgramPreview() {
     return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
   };
 
-  const { prog, progRef, loading, error: programLoadError, loadState } = useProgrammeDocument({ clientId, programId, prefetchedProgram: location.state?.prefetchedProgram });
+  const { prog, progRef, loading, error: programLoadError, loadState } = useProgrammeDocument({ clientId, programId });
   const [tabIndex, setTabIndex] = useState(0);
 
   const [selExo, setSelExo] = useState(null);

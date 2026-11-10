@@ -25,6 +25,7 @@ import {
   deleteField,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import {programAccessScope,watchProgramCollection} from "../utils/clientProgramFeed";
 import {
   Box,
   Heading,
@@ -2583,6 +2584,13 @@ const loadCountdownVoice = () => countdownVoiceLoading ||= import("../utils/play
 const stopCountdownVoice = () => countdownVoice?.stopCountdownVoice();
 
 export default function SessionPlayer() {
+  const {user,effectiveRole}=useAuth();
+  const params=useParams();
+  const scope=programAccessScope(user,effectiveRole);
+  return <SessionPlayerBody key={JSON.stringify([scope,params.clientId,params.programId || params.id || params.programmeId])} accessScope={scope} />;
+}
+
+function SessionPlayerBody({accessScope}) {
   const { t, i18n } = useTranslation("common");
   const params = useParams();
   const navigate = useNavigate();
@@ -2894,16 +2902,13 @@ export default function SessionPlayer() {
       };
     }
 
-    getDocs(
-      query(
-        collection(db, "clients", clientId, "programmes", programId, "sessionsEffectuees"),
-        where("sessionIndex", "==", sessionIndex)
-      )
-    )
-      .then((snap) => {
+    let received=false;
+    const stop=watchProgramCollection(accessScope,collection(db, "clients", clientId, "programmes", programId, "sessionsEffectuees"), snap=>{
+        if (received) return;
+        received=true;
         if (cancelled) return;
         const latest = findLatestRemoteSessionResumeRecord(
-          snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+          snap.docs.filter(d=>d.data().sessionIndex===sessionIndex).map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
           sessionIndex
         );
         const discardStoredResume = location?.state?.discardStoredResume === true;
@@ -2926,14 +2931,14 @@ export default function SessionPlayer() {
           loaded: true,
           state: latest ? { ...basicState, ...(latest.resumeState || {}) } : null,
         });
-      })
-      .catch((error) => {
+      }, (error) => {
         console.warn("remote session resume unavailable:", error);
         if (!cancelled) setRemoteResumeResult({ key: resumeKey, loaded: true, state: null });
       });
 
     return () => {
       cancelled = true;
+      stop();
     };
   }, [clientId, location?.state?.discardStoredResume, programId, sessionIndex, sessionResumeStorageKey]);
 
@@ -4549,7 +4554,8 @@ export default function SessionPlayer() {
       setLoading(false);
       setProgramLoadError("Le programme met trop longtemps à répondre. Vérifiez votre connexion puis réessayez.");
     }, 15000);
-    const unsub = onSnapshot(programDocRef, (snap) => {
+    const unsub = onSnapshot(programDocRef, {includeMetadataChanges:true}, (snap) => {
+      if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
       clearTimeout(timer);
       setProgramLoadError("");
       setLoading(false);
@@ -4576,6 +4582,7 @@ export default function SessionPlayer() {
     }, (error) => {
       clearTimeout(timer);
       setLoading(false);
+      setProgramData(null); setSessionObj(null); setFlat([]); setMapIdx([]);
       setProgramLoadError(error.code === "permission-denied"
         ? "Votre compte n’a pas accès à ce programme."
         : "Impossible de charger le programme. Vérifiez votre connexion puis réessayez.");
@@ -4639,7 +4646,7 @@ export default function SessionPlayer() {
       awaitingFirstSnapshot.add(`completion:${pid}`);
       awaitingFirstSnapshot.add(`modifications:${pid}`);
 
-      const unsubscribe = onSnapshot(
+      const unsubscribe = watchProgramCollection(accessScope,
         collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees"),
         (snap) => {
           if (cancelled) return;
@@ -4662,10 +4669,8 @@ export default function SessionPlayer() {
           publish();
         }
       );
-      historyUnsubscribers.set(pid, unsubscribe);
 
-      getDocs(collection(db, "clients", clientId, "programmes", pid, "historique_modifications"))
-        .then((snap) => {
+      const stopModifications=watchProgramCollection(accessScope,collection(db, "clients", clientId, "programmes", pid, "historique_modifications"), snap => {
           if (cancelled) return;
           modificationsByProgram.set(
             pid,
@@ -4673,14 +4678,14 @@ export default function SessionPlayer() {
           );
           awaitingFirstSnapshot.delete(`modifications:${pid}`);
           publish();
-        })
-        .catch((error) => {
+        }, error => {
           if (cancelled) return;
           console.warn("subscribe programme modification history error:", error);
           awaitingFirstSnapshot.delete(`modifications:${pid}`);
           modificationsByProgram.delete(pid);
           publish();
         });
+      historyUnsubscribers.set(pid,()=>{unsubscribe();stopModifications();});
     };
 
     const syncProgramSubscriptions = (programmeIds) => {
@@ -4703,7 +4708,7 @@ export default function SessionPlayer() {
     setCompletionHistory([]);
     subscribeToProgramHistory(programId);
 
-    const unsubscribeProgrammes = onSnapshot(
+    const unsubscribeProgrammes = watchProgramCollection(accessScope,
       collection(db, "clients", clientId, "programmes"),
       (snap) => {
         sessionsByProgram.clear();

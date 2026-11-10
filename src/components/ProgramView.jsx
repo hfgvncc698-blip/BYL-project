@@ -76,6 +76,7 @@ import {
   readProgramDisplayMetric,
 } from "../utils/programDisplayMetrics";
 import { db } from "../firebaseConfig";
+import {programAccessScope,watchProgramCollection} from "../utils/clientProgramFeed";
 import {
   getStorage,
   ref as storageRef,
@@ -2427,6 +2428,13 @@ function ExerciseDetailsContent({ selExo, preferredSex, t }) {
 }
 
 export default function ProgramView() {
+  const {user,effectiveRole}=useAuth();
+  const params=useParams();
+  const scope=programAccessScope(user,effectiveRole);
+  return <ProgramViewBody key={JSON.stringify([scope,params.clientId,params.programId || params.id || params.programmeId])} accessScope={scope} />;
+}
+
+function ProgramViewBody({accessScope}) {
   const params = useParams();
   const clientId = params.clientId;
   const programId = params.programId || params.id || params.programmeId;
@@ -2444,12 +2452,7 @@ export default function ProgramView() {
     return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
   };
 
-  const prefetchedProgram = location.state?.prefetchedProgram;
-  const prefetchedClient = location.state?.prefetchedClient;
-  const validPrefetchedProgram = prefetchedProgram && String(prefetchedProgram.id || "") === String(programId || "")
-    ? prefetchedProgram
-    : null;
-  const { prog, progRef, loading, error: programLoadError, loadState } = useProgrammeDocument({ clientId, programId, prefetchedProgram: validPrefetchedProgram });
+  const { prog, progRef, loading, error: programLoadError, loadState } = useProgrammeDocument({ clientId, programId });
   const [completionHistory, setCompletionHistory] = useState([]);
   const [tabIndex, setTabIndex] = useState(0);
 
@@ -2462,10 +2465,8 @@ export default function ProgramView() {
   const [replacementVariantsLoading, setReplacementVariantsLoading] = useState(false);
   const detailsDlg = useDisclosure();
 
-  const [clientName, setClientName] = useState(() =>
-    [prefetchedClient?.prenom, prefetchedClient?.nom].filter(Boolean).join(" ")
-  );
-  const [clientData, setClientData] = useState(() => prefetchedClient || null);
+  const [clientName, setClientName] = useState("");
+  const [clientData, setClientData] = useState(null);
   const [coachPdfName, setCoachPdfName] = useState("");
 
   const supportedPdfLangs = useMemo(() => Object.keys(PDF_I18N), []);
@@ -2506,21 +2507,15 @@ export default function ProgramView() {
   const sectionIconColor = theme.textColor;
 
   useEffect(() => {
-    (async () => {
-      if (!clientId) return;
-      try {
-        const snap = await getDoc(doc(db, "clients", clientId));
-        if (snap.exists()) {
-          const data = snap.data() || {};
-          const first = (data.prenom || "").trim();
-          const last = (data.nom || "").trim();
-          setClientName([first, last].filter(Boolean).join(" "));
-          setClientData(data);
-        }
-      } catch {
-        // ignore
-      }
-    })();
+    if (!clientId) return;
+    const clear=()=>{setClientData(null);setClientName("");};
+    return onSnapshot(doc(db,"clients",clientId),{includeMetadataChanges:true},snap=>{
+      if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+      if (!snap.exists()) {clear();return;}
+      const data=snap.data();
+      setClientData(data);
+      setClientName([data.prenom,data.nom].filter(Boolean).join(" "));
+    },clear);
   }, [clientId]);
 
   useEffect(() => {
@@ -2533,7 +2528,7 @@ export default function ProgramView() {
     let timeoutId;
     let idleId;
     const subscribe = () => {
-      unsubscribe = onSnapshot(
+      unsubscribe = watchProgramCollection(accessScope,
         collection(
           db,
           "clients",

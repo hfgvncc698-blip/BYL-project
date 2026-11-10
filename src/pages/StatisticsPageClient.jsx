@@ -1,3 +1,4 @@
+import {programAccessScope,watchProgramCollection} from '../utils/clientProgramFeed';
 import { compareMeasurements } from "../utils/measurementOrder";
 import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../AuthContext";
@@ -8,7 +9,7 @@ import {
   Icon, Flex, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, Portal
 } from "@chakra-ui/react";
 import {
-  collection, query, getDocs, writeBatch, serverTimestamp, orderBy, limit, doc, onSnapshot
+  collection, query, getDocFromServer, getDocs, writeBatch, serverTimestamp, orderBy, limit, doc, onSnapshot
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
@@ -122,7 +123,11 @@ async function getDocsSafe(q, label) {
 }
 
 export default function StatisticsPageClient() {
-  const { user } = useAuth();
+  const {user,effectiveRole}=useAuth();
+  const scope=programAccessScope(user,effectiveRole);
+  return <StatisticsBody key={scope} user={user} scope={scope}/>;
+}
+function StatisticsBody({user,scope}) {
   const { t, i18n } = useTranslation("common");
   const toast = useToast();
 
@@ -141,6 +146,7 @@ export default function StatisticsPageClient() {
   const statsLabels=clientStatsLabels(i18n.language);
   const [programmes, setProgrammes] = useState([]);
 
+  const permissionVersion=useRef(0);
   const [measures, setMeasures] = useState([]);
   const addMeas = useDisclosure();
   const [saving, setSaving] = useState(false);
@@ -195,6 +201,7 @@ export default function StatisticsPageClient() {
   useEffect(() => {
     if (!user) {setLoading(false);setClientId(null);setClientProfile(null);setProgrammes([]);setMeasures([]);return;}
     let cancelled = false;
+    const version=permissionVersion.current;
     setLoadError(false);
     const timeout=setTimeout(()=>{if(!cancelled){cancelled=true;setLoadError(true);setLoading(false);setStatsLoading(false);}},15000);
 
@@ -207,8 +214,12 @@ export default function StatisticsPageClient() {
         setMeasures([]);
 
         // 1) Résolution robuste du document client, alignée avec "Mes programmes".
-        const clientDoc = await resolveClientSnapshotForUser(user, { logPrefix: "StatisticsPageClient" });
-        if (cancelled) return;
+        let clientDoc = await resolveClientSnapshotForUser(user, {disableCache:true, logPrefix: "StatisticsPageClient"});
+        if (clientDoc?.metadata?.fromCache || clientDoc?.metadata?.hasPendingWrites) {
+          const confirmed=await getDocFromServer(clientDoc.ref);
+          clientDoc=confirmed.exists()?confirmed:null;
+        }
+        if (cancelled || permissionVersion.current!==version) return;
         if (!clientDoc) {
           setClientId(null);
           setProgrammes([]);
@@ -225,17 +236,10 @@ export default function StatisticsPageClient() {
 
         // 2) Données de base en parallèle, sans requête composite fragile.
         setClientProfile(clientDoc.data());
-        const [progSnap, measSnap] = await Promise.all([
-          getDocsSafe(query(collection(db, "clients", cid, "programmes"), limit(100)), "programmes"),
-          getDocsSafe(query(collection(db, "clients", cid, "measurements"), orderBy("date", "desc"), limit(80)), "measurements:ordered")
-            .then((snap) => snap || getDocsSafe(query(collection(db, "clients", cid, "measurements"), limit(80)), "measurements")),
-        ]);
-        if (cancelled) return;
-
-        if(!progSnap || !measSnap) setLoadError(true);
-        const progs = progSnap?.docs?.map((d) => ({ id: d.id, ...d.data() })) || [];
-        setProgrammes(progs);
-
+        const measSnap=await getDocsSafe(query(collection(db, "clients", cid, "measurements"), orderBy("date", "desc"), limit(80)), "measurements:ordered")
+          .then(snapshot => snapshot || getDocsSafe(query(collection(db, "clients", cid, "measurements"), limit(80)), "measurements"));
+        if (cancelled || permissionVersion.current!==version) return;
+        if (!measSnap) setLoadError(true);
 
         const arr = (measSnap?.docs || [])
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -245,7 +249,7 @@ export default function StatisticsPageClient() {
         setStatsLoading(false);
 
       } catch (e) {
-        if (cancelled) return;
+        if (cancelled || permissionVersion.current!==version) return;
         console.warn("[StatisticsPageClient] load failed", e);
         setLoadError(true);
         setProgrammes([]);
@@ -269,10 +273,15 @@ export default function StatisticsPageClient() {
 
   useEffect(()=>{
     if(!clientId)return;
-    const stopProfile=onSnapshot(doc(db,'clients',clientId),snapshot=>setClientProfile(snapshot.data()),()=>setLoadError(true));
-    const stopPrograms=onSnapshot(collection(db,'clients',clientId,'programmes'),snapshot=>setProgrammes(snapshot.docs.map(d=>({...d.data(),id:d.id}))),()=>setLoadError(true));
+    const clear=()=>{permissionVersion.current++;setClientProfile(null);setProgrammes([]);setMeasures([]);setLoadError(true);};
+    const stopProfile=onSnapshot(doc(db,'clients',clientId),{includeMetadataChanges:true},snapshot=>{
+      if(!snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites) {
+        if(snapshot.exists())setClientProfile(snapshot.data());else clear();
+      }
+    },clear);
+    const stopPrograms=watchProgramCollection(scope,collection(db,'clients',clientId,'programmes'),snapshot=>setProgrammes(snapshot.docs.map(d=>({...d.data(),id:d.id}))),()=>{setProgrammes([]);setLoadError(true);});
     return ()=>{stopProfile();stopPrograms();};
-  },[clientId]);
+  },[clientId,scope]);
   const currentProgram=selectJourneyProgram(clientProfile,programmes);
 
   const latestMeasure = useMemo(() => measures[measures.length - 1] || {}, [measures]);
