@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "browser": "Chrome mobile emulation; Safari error text injected, not an iPhone test",
+  "width": 390,
+  "cpu": 4,
+  "latencyMs": 150,
+  "results": [
+    {
+      "mode": "before",
+      "shell": false,
+      "root": true,
+      "ready": false,
+      "local": false,
+      "attempts": 1
+    },
+    {
+      "mode": "after",
+      "shell": true,
+      "root": false,
+      "ready": true,
+      "local": false,
+      "attempts": 2
+    },
+    {
+      "mode": "permanent",
+      "shell": true,
+      "root": false,
+      "ready": false,
+      "local": true,
+      "attempts": 2
+    },
+    {
+      "mode": "business",
+      "shell": false,
+      "root": true,
+      "ready": false,
+      "local": false,
+      "attempts": 1
+    }
+  ]
+}

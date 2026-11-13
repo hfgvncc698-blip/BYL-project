@@ -1,0 +1,47 @@
+DÉMARRAGE MOBILE — PROTECTION DES CHARGEMENTS DIFFÉRÉS
+13 novembre 2026 — modifications locales, aucun déploiement
+
+Signalement : icône de l'écran d'accueil ouvrant Safari, écran AppErrorBoundary
+persistant jusqu'au clic sur Recharger, puis admission de session et ouverture.
+Pas d'accès à la console du téléphone : la cause exacte de cet incident n'est
+pas confirmée. Le message utilisateur seul ne distingue pas un téléchargement
+échoué d'une erreur de rendu. Aucun diagnostic certain de cache Safari n'est posé.
+
+Faiblesse démontrée : les composants différés imbriqués du CoachDashboard et de
+Navbar utilisaient React.lazy sans protection locale. Une erreur de téléchargement
+non étiquetée par resilientLazy traversait la frontière de la page et atteignait
+AppErrorBoundary. Le test React dans un navigateur reproduit ce mécanisme.
+
+Correction : ces composants utilisent désormais resilientLazy. Ce chargeur fait
+une seule nouvelle tentative, après 250 ms, uniquement sur les messages connus
+d'échec d'import réseau/CSS. Il ne recharge jamais la page entière, ne recommence
+pas d'opération métier et ne contourne aucune admission Auth. Hors ligne : pas de
+nouvelle tentative immédiate ; le mécanisme existant de reconnexion est conservé.
+Un échec persistant affiche le secours du seul bloc. Les autres erreurs remontent
+encore à AppErrorBoundary ; elles ne sont ni masquées ni assimilées au réseau.
+
+Tests :
+- testResilientLazyLot7B1Octies.mjs : identité Suspense stable, messages Safari et
+  Chrome injectés, reprise à la seconde tentative, plafond de deux tentatives,
+  conservation des erreurs métier, absence de boucle hors ligne.
+- testMobileModuleStartup.cjs : React réel, profil Chrome jetable, 390×844,
+  CPU ralenti x4, latence 150 ms, erreurs synthétiques sans Firebase.
+  Avant : l'écran global d'erreur remplace le shell.
+  Après/transitoire : contenu prêt, shell conservé, deux tentatives.
+  Après/persistant : secours local et shell conservé, deux tentatives.
+  Erreur applicative : secours global maintenu.
+- 53 smoke checks, suite release-regressions, isolation des sessions : succès.
+- Compilation et budgets gzip : succès. Lint ciblé : zéro erreur.
+
+Limites : Chrome mobile émulé n'est pas Safari/iOS. Les messages Safari sont
+injectés ; ce n'est pas une capture de l'erreur réelle du téléphone. Pas de nouvelle
+qualification de la persistance WebKit, des anciennes versions ou du réseau iPhone.
+Une seconde requête de fichier JS/CSS est possible après échec ; aucune nouvelle
+lecture/écriture Firestore n'est introduite directement par ce mécanisme. Aucune
+mesure de facture, ni promesse de zéro transfert réseau supplémentaire.
+Le texte de vérification de session a été retiré localement au changement précédent.
+Les changements locaux ne modifient pas encore le site publié ni l'icône du téléphone.
+
+Fichiers : src/utils/resilientLazy.jsx, src/components/{CoachDashboard,Navbar}.jsx,
+scripts/testResilientLazyLot7B1Octies.mjs, scripts/testMobileModuleStartup.cjs.
+Résultats navigateur : audits/mobile-startup/module-recovery.json.

@@ -1,3 +1,4 @@
+import { resilientLazy } from "../utils/resilientLazy.jsx";
 import PlanInclusionBadge from "./PlanInclusionBadge";
 // src/components/Navbar.jsx
  
@@ -71,7 +72,7 @@ import useMessagingContacts from "./messaging/useMessagingContacts";
 import { canUseGuidedProgram, canUseNavbarBranding, hasPlanModule } from "../utils/proPlanAccess";
 
 const loadClientCreation = () => import("./ClientCreation.jsx");
-const ClientCreation = React.lazy(loadClientCreation);
+const ClientCreation = resilientLazy(loadClientCreation);
 
 /* ========= ROUTES ========= */
 const ROUTES = {
@@ -129,7 +130,7 @@ const NAV_ROUTE_PRELOADS = {
   [ROUTES.messaging]: () => import("../pages/MessagingPage.jsx"),
 };
 
-const NutritionQuickCreateModal = React.lazy(() => import("./NutritionQuickCreateModal.jsx"));
+const NutritionQuickCreateModal = resilientLazy(() => import("./NutritionQuickCreateModal.jsx"));
 const DEFAULT_BRAND_LABEL = "BoostYourLife.coach";
 
 export default function Navbar() {

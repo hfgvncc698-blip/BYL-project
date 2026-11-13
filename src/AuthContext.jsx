@@ -1344,5 +1344,5 @@ export const AuthProvider = ({ children }) => {
     ]
   );
 
-  return <AuthContext.Provider value={value}>{loading || (auth.currentUser && (!user || !privateSessionIdentity())) ? <div role="status">Vérification de la session… <button onClick={() => signOut(auth)}>Retour à la connexion</button></div> : <React.Fragment key={epoch}>{children}</React.Fragment>}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{loading || (auth.currentUser && (!user || !privateSessionIdentity())) ? <div data-testid="session-admission-pending" aria-busy={loading}>{!loading && <button onClick={() => signOut(auth)}>Retour à la connexion</button>}</div> : <React.Fragment key={epoch}>{children}</React.Fragment>}</AuthContext.Provider>;
 };

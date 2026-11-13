@@ -6,10 +6,22 @@ const isNetworkImportFailure = error => /Failed to fetch dynamically imported mo
 // Only failed code downloads are contained. Rendering errors still reach the
 // application boundary. No identity, business data or storage is handled here.
 export function resilientLazy(loader) {
-  const create = () => React.lazy(() => loader().catch(error => {
-    if (isNetworkImportFailure(error)) moduleFailures.add(error);
-    throw error;
-  }));
+  const create = () => React.lazy(async () => {
+    for (let attempt = 0; ; attempt++) {
+      try { return await loader(); }
+      catch (error) {
+        if (!isNetworkImportFailure(error)) throw error;
+        // One bounded retry of code download only. Never reload the document or
+        // retry business operations; an offline browser waits for reconnection.
+        if (attempt === 0 && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
+        }
+        moduleFailures.add(error);
+        throw error;
+      }
+    }
+  });
   // Keep the initial lazy identity stable when Suspense retries an unmounted tree.
   const Initial = create();
   return class DownloadBoundary extends React.Component {

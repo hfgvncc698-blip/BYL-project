@@ -1,3 +1,4 @@
+import { resilientLazy } from "../utils/resilientLazy.jsx";
 import { localSessionStorage } from "../utils/privateStorage.js";
 import {formatLocalDateKey,sameCalendarDay} from '../utils/calendarWindow.mjs';
 import PlanInclusionBadge from "./PlanInclusionBadge";
@@ -229,16 +230,16 @@ modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subt
     </Box>
   );
 
-const CoachCalendarLinkModal = React.lazy(() => import("./dashboard/CoachCalendarLinkModal.jsx"));
+const CoachCalendarLinkModal = resilientLazy(() => import("./dashboard/CoachCalendarLinkModal.jsx"));
 let coachCalendarModule;
 const loadCoachCalendar = () => (coachCalendarModule ||= import("./dashboard/CoachDashboardCalendar.jsx").catch(error => {
   coachCalendarModule = null;
   throw error;
 }));
-const CoachDashboardCalendar = React.lazy(loadCoachCalendar);
-const CyclePreparationModal = React.lazy(() => import('./dashboard/CyclePreparationModal'));
-const CoachClubAppointment = React.lazy(() => import("./dashboard/CoachClubAppointment.jsx"));
-const ClientCreation = React.lazy(() => import("./ClientCreation"));
+const CoachDashboardCalendar = resilientLazy(loadCoachCalendar);
+const CyclePreparationModal = resilientLazy(() => import('./dashboard/CyclePreparationModal'));
+const CoachClubAppointment = resilientLazy(() => import("./dashboard/CoachClubAppointment.jsx"));
+const ClientCreation = resilientLazy(() => import("./ClientCreation"));
 const warmDashboardDestination = (route = "") => {
   if (route.startsWith("/clients")) {
     void import("./Clients.jsx");
@@ -1851,7 +1852,7 @@ async function deleteClientCalendarEvent({ clientId, eventId }) {
   await deleteDoc(doc(db, `clients/${clientId}/calendarEvents/${eventId}`));
 }
 
-const DashboardOfferAlerts = React.lazy(() => import("./offers/DashboardOfferAlerts"));
+const DashboardOfferAlerts = resilientLazy(() => import("./offers/DashboardOfferAlerts"));
 
 export default function CoachDashboard() {
   const {user:appUser} = useAuth();

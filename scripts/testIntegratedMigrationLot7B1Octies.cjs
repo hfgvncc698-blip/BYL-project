@@ -73,7 +73,8 @@ async function run(){
   await cdp.send('Network.setBlockedURLs',{urls:['*127.0.0.1:8180/*']});
   await cdp.send('Page.navigate',{url});await waitFor(cdp,'!!window.q');await sleep(700);
   assert.equal(await ev("!!document.getElementById('builder-program-name')"),false);
-  assert(await ev("q.status().includes('Vérification de la session')"));
+  assert(await ev("!!document.querySelector('[data-testid=session-admission-pending]')"));
+  assert.equal(await ev("q.status().includes('Vérification de la session')"),false);
   await cdp.send('Network.setBlockedURLs',{urls:[]});
   await cdp.send('Page.navigate',{url});await waitFor(cdp,'!!window.q');await waitFor(cdp,"!!document.getElementById('builder-program-name')");
  });
