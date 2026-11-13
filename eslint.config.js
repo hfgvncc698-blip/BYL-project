@@ -65,4 +65,18 @@ export default [
       'no-empty': ['warn', { allowEmptyCatch: true }],
     },
   },
+  {
+    // These qualification fixtures are bundled and executed in Chrome, not Node.
+    files: [
+      'scripts/fixtures/lot7b1quinquies/{firestore,migration}.js',
+      'scripts/fixtures/lot7b1sexies/{firestore,migration}.js',
+      'scripts/fixtures/lot7b1ter/session.js',
+      'scripts/fixtures/sharedBrowserLot7B1.js',
+    ],
+    languageOptions: {
+      globals: globals.browser,
+      sourceType: 'module',
+    },
+  },
+
 ]

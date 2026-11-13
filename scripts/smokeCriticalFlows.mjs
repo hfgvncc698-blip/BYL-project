@@ -1,3 +1,4 @@
+import { clientListPage } from '../src/utils/clientVisibleMetrics.js';
 import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
@@ -854,7 +855,8 @@ check("coach invitations and self-registration stay distinct", () => {
 
   assert.ok(
     app.includes('path="/activate-account"') &&
-      app.includes('location.pathname === "/activate-account"'),
+      app.includes('accountActionPath === "/activate-account"') &&
+      app.includes('!isSessionPlayerRoute && !isAccountActivationRoute'),
     "The account activation page must be public and excluded from normal navigation"
   );
   ["fr", "en", "es", "de", "it", "ru", "ar"].forEach((lang) => {
@@ -1593,20 +1595,13 @@ check("program active weeks are editable and included in private drafts", () => 
 
 check("client search ignores accents", () => {
   const clients = read("src/components/Clients.jsx");
-  assert.ok(
-    clients.includes("const normalizeClientSearchText"),
-    "Client search must normalize both the query and client names"
-  );
-  assert.ok(
-    clients.includes('.normalize("NFD")') &&
-      clients.includes('.replace(/[\\u0300-\\u036f]/g, "")'),
-    "Client search must strip diacritical marks"
-  );
-  assert.ok(
-    clients.includes("normalizeClientSearchText(searchQuery)") &&
-      clients.includes("normalizeClientSearchText(`${c.prenom ?? \"\"} ${c.nom ?? \"\"}`)"),
-    "Client search must compare normalized values"
-  );
+  assert.ok(clients.includes('clientListPage(clientsForDisplay, searchQuery, page)'));
+  const rows = [{ id: 'accented', prenom: 'Élodie', nom: 'Noël' },
+    { id: 'plain', prenom: 'Elodie', nom: 'Noel' },
+    { id: 'other', prenom: 'Alice', nom: 'Martin' }];
+  for (const query of ['elodie noel', 'ÉLODIE NOËL']) {
+    assert.deepEqual(clientListPage(rows, query, 0).rows.map(row => row.id).sort(), ['accented', 'plain']);
+  }
 });
 
 check("coach session planning is atomic, bounded and duplicate-safe", () => {
