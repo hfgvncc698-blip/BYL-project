@@ -8523,7 +8523,11 @@
     "twmj2mu": "Esta explicación se enviará al cliente junto con su decisión.",
     "t1irevvu": "Confirmar el rechazo",
     "t15n0bqn": "El motivo del rechazo no debe superar los 2000 caracteres.",
-    "t1b3fi72": "Aceptar libera el crédito y cancela la sesión. Rechazar mantiene su estado y el consumo del crédito."
+    "t1b3fi72": "Aceptar libera el crédito y cancela la sesión. Rechazar mantiene su estado y el consumo del crédito.",
+    "t8erirs": "La sincronización del calendario no está disponible.",
+    "t1y1nl4p": "Ya no tienes acceso a este club.",
+    "t1w0h468": "Dificultad",
+    "tj7mvfr": "Participantes"
   },
   "offerReminder": {
     "subject": "Recordatorio de pago · {{offer}}",

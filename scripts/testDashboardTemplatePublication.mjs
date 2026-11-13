@@ -4,13 +4,15 @@ import vm from 'node:vm';
 
 // Execute the actual publication callback with client/history work unresolved.
 const source = fs.readFileSync('src/components/CoachDashboard.jsx', 'utf8');
-const start = source.indexOf('}).then((snapshot) => {', source.indexOf('const programmesSnapPromise'));
+const start = source.indexOf('.then((snapshot) => {', source.indexOf('const programmesSnapPromise'));
 assert.ok(start > 0);
 const end = source.indexOf('\n       // It runs in parallel', start);
-const callback = source.slice(start + 8, end).trim().replace(/\);$/, '');
+const callback = source.slice(start + '.then('.length, end).trim().replace(/\);$/, '');
 let active = true;
 let published = null;
 const publish = vm.runInNewContext(callback, {
+  progs: [],
+  markDashboardTiming: () => {},
   isLatestLoad: () => active,
   setProgrammesBase: value => { published = value; },
   toMillis: value => value || 0,
@@ -33,10 +35,10 @@ console.log('Dashboard templates publish before client histories, including refr
 // Execute the list's real loading sequence with deliberately slow client reads.
 const listSource = fs.readFileSync('src/components/ProgramsPage.jsx', 'utf8');
 const listStart = listSource.indexOf('const pSnap = await readDashboardTemplates');
-const listEnd = listSource.indexOf('const clientsById', listStart);
+const listEnd = listSource.indexOf('for (const program of progs)', listStart);
 assert.ok(listStart > 0 && listEnd > listStart);
 let resolveClients;
-const clientSnapsPromise = new Promise(resolve => { resolveClients = resolve; });
+const clientListPromise = new Promise(resolve => { resolveClients = resolve; });
 let listPrograms = null;
 let listLoading = true;
 let listActive = true;
@@ -47,7 +49,7 @@ const runList = vm.runInNewContext(`(async () => { ${listSource.slice(listStart,
   load:{current:()=>listActive}, getMillis:p=>p.createdAt,
   setProgrammes:value=>{listPrograms=value;},
   setLoading:value=>{listLoading=value;},
-  clientSnapsPromise,
+  clientListPromise,
 });
 const pendingList = runList();
 await new Promise(resolve=>setImmediate(resolve));

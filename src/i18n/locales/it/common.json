@@ -8522,7 +8522,11 @@
     "twmj2mu": "Questa spiegazione sarà inviata al cliente insieme alla tua decisione.",
     "t1irevvu": "Conferma il rifiuto",
     "t15n0bqn": "Il motivo del rifiuto non deve superare i 2.000 caratteri.",
-    "t1b3fi72": "Accettare restituisce il credito e annulla la sessione. Rifiutare mantiene invariati lo stato e il consumo del credito."
+    "t1b3fi72": "Accettare restituisce il credito e annulla la sessione. Rifiutare mantiene invariati lo stato e il consumo del credito.",
+    "t8erirs": "La sincronizzazione del calendario non è disponibile.",
+    "t1y1nl4p": "Non hai più accesso a questo club.",
+    "t1w0h468": "Difficoltà",
+    "tj7mvfr": "Partecipanti"
   },
   "offerReminder": {
     "subject": "Promemoria di pagamento · {{offer}}",

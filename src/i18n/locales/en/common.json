@@ -8524,7 +8524,11 @@
     "twmj2mu": "This explanation will be sent to the client with your decision.",
     "t1irevvu": "Confirm rejection",
     "t15n0bqn": "The reason for rejection must not exceed 2,000 characters.",
-    "t1b3fi72": "Accepting releases the credit and cancels the session. Rejecting leaves its status and credit usage unchanged."
+    "t1b3fi72": "Accepting releases the credit and cancels the session. Rejecting leaves its status and credit usage unchanged.",
+    "t8erirs": "Calendar synchronization is unavailable.",
+    "t1y1nl4p": "You no longer have access to this club.",
+    "t1w0h468": "Difficulty",
+    "tj7mvfr": "Participants"
   },
   "offerReminder": {
     "subject": "Payment reminder · {{offer}}",

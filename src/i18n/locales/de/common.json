@@ -8692,7 +8692,11 @@
     "twmj2mu": "Diese Erklärung wird dem Kunden mit Ihrer Entscheidung gesendet.",
     "t1irevvu": "Ablehnung bestätigen",
     "t15n0bqn": "Der Ablehnungsgrund darf höchstens 2.000 Zeichen enthalten.",
-    "t1b3fi72": "Durch Annahme wird das Guthaben freigegeben und die Einheit abgesagt. Bei Ablehnung bleiben Status und Guthabenverbrauch unverändert."
+    "t1b3fi72": "Durch Annahme wird das Guthaben freigegeben und die Einheit abgesagt. Bei Ablehnung bleiben Status und Guthabenverbrauch unverändert.",
+    "t8erirs": "Die Kalendersynchronisierung ist nicht verfügbar.",
+    "t1y1nl4p": "Du hast keinen Zugriff mehr auf diesen Club.",
+    "t1w0h468": "Schwierigkeit",
+    "tj7mvfr": "Teilnehmende"
   },
   "offerReminder": {
     "subject": "Zahlungserinnerung · {{offer}}",

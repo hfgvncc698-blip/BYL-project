@@ -3,13 +3,13 @@
     {
       "label": "before-initial",
       "status": 200,
-      "ms": 312.12679200000025,
-      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "ms": 371.38783399999966,
+      "resultHash": "81ede6ddda61df6459c606b44453795f86a4312f31628bbe712536bd1ed66d6f",
       "rows": [
         {
           "scope": "http",
           "activity": "dashboard-client-programs",
-          "sample": "eadd658d-4e2c-4690-9220-9b4af4e482b6",
+          "sample": "6367acb0-2eac-4db6-b5cb-c48d6938ba63",
           "httpRequests": 1,
           "sdkReads": 40,
           "documentsReturned": 61,
@@ -51,7 +51,7 @@
               "estimate": 24
             }
           },
-          "durationMs": 303,
+          "durationMs": 358,
           "status": 200,
           "responseBytes": 291,
           "unestimatedSdkReads": 0
@@ -69,23 +69,23 @@
         "maxFile": 8388608
       },
       "memory": {
-        "rss": 142475264,
-        "heapTotal": 73433088,
-        "heapUsed": 37183608,
-        "external": 3947230,
-        "arrayBuffers": 119409
+        "rss": 145375232,
+        "heapTotal": 77938688,
+        "heapUsed": 53549504,
+        "external": 10296305,
+        "arrayBuffers": 6467469
       }
     },
     {
       "label": "before-restarted",
       "status": 200,
-      "ms": 238.45383300000003,
-      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "ms": 275.38695899999993,
+      "resultHash": "81ede6ddda61df6459c606b44453795f86a4312f31628bbe712536bd1ed66d6f",
       "rows": [
         {
           "scope": "http",
           "activity": "dashboard-client-programs",
-          "sample": "28ffe8b5-4679-4409-935e-ebfe8fa7cd49",
+          "sample": "41ac666c-18d8-41a3-9217-9ee0a411831c",
           "httpRequests": 1,
           "sdkReads": 40,
           "documentsReturned": 61,
@@ -127,7 +127,7 @@
               "estimate": 24
             }
           },
-          "durationMs": 230,
+          "durationMs": 266,
           "status": 200,
           "responseBytes": 291,
           "unestimatedSdkReads": 0
@@ -145,23 +145,23 @@
         "maxFile": 8388608
       },
       "memory": {
-        "rss": 142966784,
-        "heapTotal": 74104832,
-        "heapUsed": 37526608,
-        "external": 3955959,
-        "arrayBuffers": 128133
+        "rss": 142704640,
+        "heapTotal": 73138176,
+        "heapUsed": 36689688,
+        "external": 3938173,
+        "arrayBuffers": 110410
       }
     },
     {
       "label": "after-initial",
       "status": 200,
-      "ms": 227.91941700000007,
-      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "ms": 259.7530829999996,
+      "resultHash": "81ede6ddda61df6459c606b44453795f86a4312f31628bbe712536bd1ed66d6f",
       "rows": [
         {
           "scope": "http",
           "activity": "dashboard-client-programs",
-          "sample": "d41efff2-adea-465d-9575-50f43a71061a",
+          "sample": "d14b8bf4-4993-4c79-91e0-857c39105335",
           "httpRequests": 1,
           "sdkReads": 40,
           "documentsReturned": 61,
@@ -203,7 +203,7 @@
               "estimate": 24
             }
           },
-          "durationMs": 220,
+          "durationMs": 251,
           "status": 200,
           "responseBytes": 291,
           "unestimatedSdkReads": 0
@@ -221,23 +221,23 @@
         "maxFile": 8388608
       },
       "memory": {
-        "rss": 144916480,
-        "heapTotal": 75874304,
-        "heapUsed": 39791512,
-        "external": 4319417,
-        "arrayBuffers": 491562
+        "rss": 145588224,
+        "heapTotal": 76169216,
+        "heapUsed": 40332568,
+        "external": 4298823,
+        "arrayBuffers": 470999
       }
     },
     {
       "label": "after-restarted",
       "status": 200,
-      "ms": 186.26491699999997,
-      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "ms": 203.68083299999944,
+      "resultHash": "81ede6ddda61df6459c606b44453795f86a4312f31628bbe712536bd1ed66d6f",
       "rows": [
         {
           "scope": "http",
           "activity": "dashboard-client-programs",
-          "sample": "5b307dd8-c6aa-48f4-b09a-3f112cf5bfce",
+          "sample": "975f3bac-29b2-41b6-a890-28cb7ceaebdd",
           "httpRequests": 1,
           "sdkReads": 40,
           "documentsReturned": 61,
@@ -279,7 +279,7 @@
               "estimate": 24
             }
           },
-          "durationMs": 178,
+          "durationMs": 192,
           "status": 200,
           "responseBytes": 291,
           "unestimatedSdkReads": 0
@@ -297,23 +297,23 @@
         "maxFile": 8388608
       },
       "memory": {
-        "rss": 135184384,
-        "heapTotal": 72957952,
-        "heapUsed": 36228624,
-        "external": 3937936,
-        "arrayBuffers": 110143
+        "rss": 135512064,
+        "heapTotal": 74268672,
+        "heapUsed": 41373392,
+        "external": 3992310,
+        "arrayBuffers": 163474
       }
     },
     {
       "label": "after-edited",
       "status": 200,
-      "ms": 186.22154199999977,
-      "resultHash": "40441ad70ebddea905db1486d9d9f451a472a2b68d773af3e717635d4d72bf01",
+      "ms": 464.5124169999999,
+      "resultHash": "f07a5d41ca2b86dcaee820679ab13f2abfb8cf42fb54fc2cb84ac37db8a8f8ca",
       "rows": [
         {
           "scope": "http",
           "activity": "dashboard-client-programs",
-          "sample": "97625f5f-ea56-4dcd-ac85-3a24150fccd3",
+          "sample": "5e6cd722-decc-4340-b51c-2c2d789120c8",
           "httpRequests": 1,
           "sdkReads": 41,
           "documentsReturned": 62,
@@ -355,7 +355,7 @@
               "estimate": 24
             }
           },
-          "durationMs": 178,
+          "durationMs": 455,
           "status": 200,
           "responseBytes": 305,
           "unestimatedSdkReads": 0
@@ -373,23 +373,23 @@
         "maxFile": 8388608
       },
       "memory": {
-        "rss": 131563520,
-        "heapTotal": 70336512,
-        "heapUsed": 45650232,
-        "external": 4028648,
-        "arrayBuffers": 199807
+        "rss": 135659520,
+        "heapTotal": 73744384,
+        "heapUsed": 41613424,
+        "external": 3996072,
+        "arrayBuffers": 167207
       }
     },
     {
       "label": "before-edited",
       "status": 200,
-      "ms": 203.83508299999994,
-      "resultHash": "40441ad70ebddea905db1486d9d9f451a472a2b68d773af3e717635d4d72bf01",
+      "ms": 248.01770899999974,
+      "resultHash": "f07a5d41ca2b86dcaee820679ab13f2abfb8cf42fb54fc2cb84ac37db8a8f8ca",
       "rows": [
         {
           "scope": "http",
           "activity": "dashboard-client-programs",
-          "sample": "4071ea5c-0fe9-4bcb-b8aa-b3992ab84ab8",
+          "sample": "6d704ed9-6eab-4dbb-a920-55ab68a3522d",
           "httpRequests": 1,
           "sdkReads": 40,
           "documentsReturned": 61,
@@ -431,7 +431,7 @@
               "estimate": 24
             }
           },
-          "durationMs": 196,
+          "durationMs": 239,
           "status": 200,
           "responseBytes": 305,
           "unestimatedSdkReads": 0
@@ -449,23 +449,23 @@
         "maxFile": 8388608
       },
       "memory": {
-        "rss": 142360576,
-        "heapTotal": 73957376,
-        "heapUsed": 37035024,
-        "external": 3947197,
-        "arrayBuffers": 119376
+        "rss": 142508032,
+        "heapTotal": 73433088,
+        "heapUsed": 36974344,
+        "external": 3938204,
+        "arrayBuffers": 110383
       }
     },
     {
       "label": "after-revoked",
       "status": 403,
-      "ms": 129.77224999999999,
+      "ms": 148.87979199999972,
       "resultHash": "280579af05f819d2559fd76c0526dc7f18262a9c7d777f1eb2a519abf10b72cf",
       "rows": [
         {
           "scope": "http",
           "activity": "dashboard-client-programs",
-          "sample": "3c51fab9-1c2a-48b2-a207-0316d31ae8f7",
+          "sample": "888bef71-1e17-4f6f-81fc-02416bbeb12c",
           "httpRequests": 1,
           "sdkReads": 3,
           "documentsReturned": 1,
@@ -491,7 +491,7 @@
               "estimate": 1
             }
           },
-          "durationMs": 122,
+          "durationMs": 141,
           "status": 403,
           "responseBytes": 43,
           "unestimatedSdkReads": 0
@@ -509,11 +509,11 @@
         "maxFile": 8388608
       },
       "memory": {
-        "rss": 129646592,
-        "heapTotal": 69287936,
-        "heapUsed": 40300688,
-        "external": 3973076,
-        "arrayBuffers": 145342
+        "rss": 129908736,
+        "heapTotal": 70074368,
+        "heapUsed": 40283656,
+        "external": 3960169,
+        "arrayBuffers": 132435
       }
     }
   ]
