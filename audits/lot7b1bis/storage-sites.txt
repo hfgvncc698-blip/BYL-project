@@ -1,0 +1,217 @@
+src/pages/ClubDashboard.jsx:385:    return window.localStorage.getItem(ADMIN_CLUB_STORAGE_KEY) || "";
+src/pages/ClubDashboard.jsx:390:    window.localStorage.setItem(ADMIN_CLUB_STORAGE_KEY, adminClubId);
+src/pages/ClubDashboard.jsx:449:    window.localStorage.setItem(ADMIN_CLUB_STORAGE_KEY, loadedClubId);
+src/pages/ClubDashboard.jsx:474:      return JSON.parse(window.localStorage.getItem("club_dashboard_goals") || "{}");
+src/pages/ClubDashboard.jsx:757:      window.localStorage.setItem(`club_dashboard_goals_${goalPeriod}`, JSON.stringify(targets));
+src/pages/ClubDashboard.jsx:1351:      localStorage.setItem("i18nextLng", lng);
+src/pages/ClubDashboard.jsx:1788:        window.localStorage.setItem("club_dashboard_goals", JSON.stringify(next));
+src/pages/ClubDashboard.jsx:1789:        window.localStorage.setItem(`club_dashboard_goals_${goalPeriod}`, JSON.stringify(next));
+src/pages/ProfilePageClient.jsx:252:    localStorage.setItem("i18nextLng", next);
+src/pages/SettingsPageCoach.jsx:182:      localStorage.setItem("i18nextLng", newLang);
+src/pages/Cancel.jsx:17:      const from = sessionStorage.getItem("BYL_RETURN_TO");
+src/pages/Cancel.jsx:19:        sessionStorage.removeItem("BYL_RETURN_TO");
+src/pages/Cancel.jsx:38:        const from = sessionStorage.getItem("BYL_RETURN_TO");
+src/pages/Cancel.jsx:40:          sessionStorage.removeItem("BYL_RETURN_TO");
+src/consent/ConsentContext.jsx:34:      const raw = localStorage.getItem(STORAGE_KEY);
+src/consent/ConsentContext.jsx:49:      const legacy = localStorage.getItem(LEGACY_KEY);
+src/consent/ConsentContext.jsx:61:        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+src/consent/ConsentContext.jsx:83:    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+src/consent/ConsentContext.jsx:85:    localStorage.setItem(LEGACY_KEY, JSON.stringify(merged));
+src/consent/ConsentContext.jsx:104:    localStorage.removeItem(STORAGE_KEY);
+src/consent/ConsentContext.jsx:105:    localStorage.removeItem(LEGACY_KEY);
+src/hooks/useAutoRevertColorMode.js:18:  const ts = Number(localStorage.getItem(KEY_TS) || 0);
+src/hooks/useAutoRevertColorMode.js:19:  const manualValue = localStorage.getItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:20:  const version = localStorage.getItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:22:    localStorage.removeItem("chakra-ui-color-mode");
+src/hooks/useAutoRevertColorMode.js:23:    localStorage.removeItem(KEY_TS);
+src/hooks/useAutoRevertColorMode.js:24:    localStorage.removeItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:25:    localStorage.removeItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:26:    localStorage.removeItem(LEGACY_SUN_KEY);
+src/hooks/useAutoRevertColorMode.js:30:    localStorage.removeItem("chakra-ui-color-mode");
+src/hooks/useAutoRevertColorMode.js:31:    localStorage.removeItem(KEY_TS);
+src/hooks/useAutoRevertColorMode.js:32:    localStorage.removeItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:33:    localStorage.removeItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:34:    localStorage.removeItem(LEGACY_SUN_KEY);
+src/hooks/useAutoRevertColorMode.js:44:    localStorage.removeItem("chakra-ui-color-mode");
+src/hooks/useAutoRevertColorMode.js:45:    localStorage.removeItem(KEY_TS);
+src/hooks/useAutoRevertColorMode.js:46:    localStorage.removeItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:47:    localStorage.removeItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:48:    localStorage.removeItem(LEGACY_SUN_KEY);
+src/hooks/useAutoRevertColorMode.js:53:      const ts = Number(localStorage.getItem(KEY_TS) || 0);
+src/hooks/useAutoRevertColorMode.js:54:      const manualValue = localStorage.getItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:103:      localStorage.setItem(KEY_TS, String(Date.now()));
+src/hooks/useAutoRevertColorMode.js:104:      localStorage.setItem(KEY_MODE, String(nextMode));
+src/hooks/useAutoRevertColorMode.js:105:      localStorage.setItem(KEY_VERSION, MANUAL_VERSION);
+src/firebaseConfig.js:30:  try { trimPersistedPageCaches(window.localStorage); } catch { /* storage disabled */ }
+src/AuthContext.jsx:133:    const cached = JSON.parse(window.localStorage.getItem("user") || "null");
+src/AuthContext.jsx:218:    localStorage.setItem("i18nextLng", langCode);
+src/AuthContext.jsx:664:      return localStorage.getItem(VIEW_AS_KEY) || null;
+src/AuthContext.jsx:679:          localStorage.setItem(VIEW_AS_KEY, next);
+src/AuthContext.jsx:686:        localStorage.setItem(VIEW_AS_KEY, "coach");
+src/AuthContext.jsx:692:        localStorage.removeItem(VIEW_AS_KEY);
+src/AuthContext.jsx:774:                  localStorage.setItem("user", JSON.stringify(normalized));
+src/AuthContext.jsx:783:                        return localStorage.getItem(VIEW_AS_KEY);
+src/AuthContext.jsx:795:                      localStorage.setItem(VIEW_AS_KEY, "coach");
+src/AuthContext.jsx:803:                      localStorage.removeItem(VIEW_AS_KEY);
+src/AuthContext.jsx:823:            localStorage.removeItem("user");
+src/AuthContext.jsx:829:            localStorage.removeItem(VIEW_AS_KEY);
+src/AuthContext.jsx:911:          localStorage.setItem("user", JSON.stringify(normalized));
+src/AuthContext.jsx:974:          localStorage.setItem("user", JSON.stringify(normalized));
+src/AuthContext.jsx:1169:      localStorage.setItem("user", JSON.stringify(normalized));
+src/AuthContext.jsx:1254:      localStorage.removeItem("user");
+src/AuthContext.jsx:1258:      localStorage.removeItem(VIEW_AS_KEY);
+src/hooks/useGeolocation.js:28:    localStorage.setItem(GEO_PERMISSION_DECISION_KEY, decision);
+src/hooks/useGeolocation.js:68:      try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
+src/hooks/useGeolocation.js:78:  try { storedDecision = localStorage.getItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
+src/hooks/useGeolocation.js:96:      sessionStorage.setItem('BYL_GEO_STATUS', status);
+src/hooks/useGeolocation.js:110:        localStorage.removeItem(key);
+src/hooks/useGeolocation.js:119:      localStorage.setItem("BYL_GEO_STATUS", status);
+src/hooks/useGeolocation.js:120:      localStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
+src/hooks/useGeolocation.js:125:  // Helper: écrit localStorage + déclenche event pour RouteAnalyticsListener
+src/hooks/useGeolocation.js:129:      const prevC = localStorage.getItem("BYL_COUNTRY");
+src/hooks/useGeolocation.js:130:      const prevCity = localStorage.getItem("BYL_CITY");
+src/hooks/useGeolocation.js:131:      const prevLat = localStorage.getItem("BYL_LAT");
+src/hooks/useGeolocation.js:132:      const prevLng = localStorage.getItem("BYL_LNG");
+src/hooks/useGeolocation.js:133:      if (!country) localStorage.removeItem("BYL_COUNTRY");
+src/hooks/useGeolocation.js:134:      if (!city) localStorage.removeItem("BYL_CITY");
+src/hooks/useGeolocation.js:137:        localStorage.setItem("BYL_COUNTRY", country);
+src/hooks/useGeolocation.js:141:        localStorage.setItem("BYL_CITY", city);
+src/hooks/useGeolocation.js:145:        localStorage.setItem("BYL_LAT", String(lat));
+src/hooks/useGeolocation.js:149:        localStorage.setItem("BYL_LNG", String(lng));
+src/hooks/useGeolocation.js:153:        localStorage.setItem("BYL_GEO_ACCURACY", String(accuracy));
+src/hooks/useGeolocation.js:155:      localStorage.setItem("BYL_GEO_SOURCE", source);
+src/hooks/useGeolocation.js:156:      localStorage.setItem("BYL_GEO_UPDATED_AT", String(timestamp || Date.now()));
+src/hooks/useGeolocation.js:157:      localStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
+src/hooks/useGeolocation.js:220:      if (localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) !== GEO_PAGE_LOAD_ID) {
+src/hooks/useGeolocation.js:231:      try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
+src/hooks/useGeolocation.js:245:    try { refusedThisSession = localStorage.getItem(GEO_REFUSED_SESSION_KEY) === sessionKey; } catch { /* optional storage */ }
+src/hooks/useGeolocation.js:306:          // ✅ localStorage pour RouteAnalyticsListener + event
+src/hooks/useGeolocation.js:331:        try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
+src/hooks/useGeolocation.js:371:    try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
+src/hooks/useGeolocation.js:416:          try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
+src/components/SunColorModeSync.jsx:21:    const raw = localStorage.getItem(STORAGE_KEY);
+src/components/SunColorModeSync.jsx:29:      localStorage.removeItem(STORAGE_KEY);
+src/components/SunColorModeSync.jsx:41:    const lat = Number(localStorage.getItem("BYL_LAT"));
+src/components/SunColorModeSync.jsx:42:    const lng = Number(localStorage.getItem("BYL_LNG"));
+src/components/SunColorModeSync.jsx:53:    localStorage.setItem(
+src/components/SunColorModeSync.jsx:65:    localStorage.removeItem(STORAGE_KEY);
+src/hooks/useLocationPreference.js:7:    const value = localStorage.getItem(KEY);
+src/hooks/useLocationPreference.js:23:    localStorage.setItem(KEY, String(enabled));
+src/hooks/useLocationPreference.js:25:      ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_ACCURACY", "BYL_GEO_SOURCE", "BYL_GEO_UPDATED_AT", "BYL_GEO_PAGE_LOAD_ID"].forEach((key) => localStorage.removeItem(key));
+src/hooks/useLocationPreference.js:27:      localStorage.removeItem("BYL_GEO_PERMISSION_DECISION_V1");
+src/components/CoachDashboard.jsx:2255:      const raw = localStorage.getItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`);
+src/components/CoachDashboard.jsx:2269:      setRadarCollapsed(localStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1");
+src/components/CoachDashboard.jsx:2287:        const raw = localStorage.getItem(`byl:coach-dashboard-widgets:${effectiveCoachUid}`);
+src/components/CoachDashboard.jsx:2292:            localStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1";
+src/components/CoachDashboard.jsx:2299:            localStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1";
+src/components/CoachDashboard.jsx:2322:          localStorage.setItem(`byl:coach-dashboard-widgets:${effectiveCoachUid}`, JSON.stringify(normalized));
+src/components/CoachDashboard.jsx:2323:          localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, normalized.radar.collapsed ? "1" : "0");
+src/components/CoachDashboard.jsx:2347:      localStorage.setItem(
+src/components/CoachDashboard.jsx:2351:      localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, normalized.radar.collapsed ? "1" : "0");
+src/components/CoachDashboard.jsx:2648:          localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, collapsed ? "1" : "0");
+src/components/CoachDashboard.jsx:2663:        localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, "0");
+src/components/CoachDashboard.jsx:2678:          localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, next ? "1" : "0");
+src/components/CoachDashboard.jsx:2693:    const localConnected = localStorage.getItem(key) === "1";
+src/components/CoachDashboard.jsx:2705:          localStorage.setItem(key, "1");
+src/components/CoachDashboard.jsx:2728:    localStorage.setItem(key, "1");
+src/components/CoachDashboard.jsx:6646:            localStorage.setItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`, JSON.stringify(next));
+src/components/CoachDashboard.jsx:6668:        localStorage.removeItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`);
+src/components/RouteAnalyticsListener.jsx:10:    const pageLoadId = localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) || null;
+src/components/RouteAnalyticsListener.jsx:15:      country: localStorage.getItem("BYL_COUNTRY") || null,
+src/components/RouteAnalyticsListener.jsx:16:      city: localStorage.getItem("BYL_CITY") || null,
+src/components/RouteAnalyticsListener.jsx:17:      lat: localStorage.getItem("BYL_LAT") || null,
+src/components/RouteAnalyticsListener.jsx:18:      lng: localStorage.getItem("BYL_LNG") || null,
+src/components/RouteAnalyticsListener.jsx:19:      accuracy: localStorage.getItem("BYL_GEO_ACCURACY") || null,
+src/components/RouteAnalyticsListener.jsx:20:      capturedAt: localStorage.getItem("BYL_GEO_UPDATED_AT") || null,
+src/components/RouteAnalyticsListener.jsx:21:      source: localStorage.getItem("BYL_GEO_SOURCE") || null,
+src/components/RouteAnalyticsListener.jsx:22:      geoStatus: localStorage.getItem("BYL_GEO_STATUS") || "pending",
+src/components/RouteAnalyticsListener.jsx:103:    try { geoStatus = sessionStorage.getItem("BYL_GEO_STATUS") || "unknown"; } catch { /* optional storage */ }
+src/components/RouteAnalyticsListener.jsx:152:        try { locationDisabled = localStorage.getItem("BYL_LOCATION_ENABLED_V1") === "false"; } catch { /* optional storage */ }
+src/components/LanguageSwitcher.jsx:29:    localStorage.getItem("i18nextLng") ||
+src/components/LanguageSwitcher.jsx:46:    localStorage.setItem("i18nextLng", lng);
+src/hooks/useSessionDraft.js:7:    try { const raw = sessionStorage.getItem(prefix + key); if (raw !== null) return JSON.parse(raw); } catch { /* Storage can be unavailable. */ }
+src/hooks/useSessionDraft.js:13:  try { for (const key of Object.keys(sessionStorage)) if (key.startsWith(prefix + scope)) sessionStorage.removeItem(key); } catch { /* In-memory fallback remains usable. */ }
+src/hooks/useSessionDraft.js:26:        try { if (value === '') sessionStorage.removeItem(prefix + key); else sessionStorage.setItem(prefix + key, JSON.stringify(value)); } catch { /* Preserve in memory if storage is full. */ }
+src/pages/AdminGeo.jsx:135:    return localStorage.getItem("BYL_LAST_PAGEVIEW_DAY") || "";
+src/i18n/index.js:75:       * 2) localStorage
+src/i18n/index.js:80:      order: ["querystring", "localStorage", "path", "navigator", "htmlTag"],
+src/i18n/index.js:89:      caches: ["localStorage"],
+src/components/MenuJournalierAuto.jsx:1845:  // Les anciens menus peuvent avoir gardé "Légumes" en entrée en localStorage/Firebase.
+src/components/LanguageRouteSync.jsx:41:      const storedLng = localStorage.getItem(STORAGE_KEY)?.split("-")[0]?.toLowerCase();
+src/pages/SettingsPageClient.jsx:115:      localStorage.setItem("i18nextLng", newLang);
+src/components/Clientdashboard.jsx:937:      return window.localStorage.getItem(`byl:dashboard-seen:${key}`) === "1";
+src/components/Clientdashboard.jsx:946:      window.localStorage.setItem(`byl:dashboard-seen:${key}`, "1");
+src/components/Clientdashboard.jsx:1016:    setCalendarConnectedOnce(localStorage.getItem(key) === "1");
+src/components/Clientdashboard.jsx:1028:    localStorage.setItem(key, "1");
+src/components/client/ClientJourneyPage.jsx:91:    try { if(user?.uid && view==='program')saved=window.localStorage.getItem(`byl:last-program-followup:${user.uid}`); } catch { /* Storage can be unavailable in private browsing. */ }
+src/components/client/ClientJourneyPage.jsx:96:    try { if(user?.uid)window.localStorage.setItem(`byl:last-program-followup:${user.uid}`,id); } catch { /* Keep the selection for this visit. */ }
+src/utils/geolocationSession.js:15:    if (localStorage.getItem(key) === sessionKey) return false;
+src/utils/geolocationSession.js:16:    localStorage.setItem(key, sessionKey);
+src/components/ClientView.jsx:680:    () => localStorage.getItem("unit.height") || "cm"
+src/components/ClientView.jsx:683:    () => localStorage.getItem("unit.weight") || "kg"
+src/components/ClientView.jsx:692:    localStorage.setItem("unit.height", u);
+src/components/ClientView.jsx:697:    localStorage.setItem("unit.weight", u);
+src/components/GuidedTutorial.jsx:649:  window.sessionStorage.setItem(PENDING_TOUR_KEY, tourId);
+src/components/GuidedTutorial.jsx:734:    (key) => window.localStorage.getItem(key) === "1"
+src/components/GuidedTutorial.jsx:741:    window.localStorage.setItem(key, "1");
+src/components/GuidedTutorial.jsx:886:        if (didStart) window.sessionStorage.removeItem(PENDING_TOUR_KEY);
+src/components/GuidedTutorial.jsx:895:    const pendingTourId = window.sessionStorage.getItem(PENDING_TOUR_KEY);
+src/components/GuidedTutorial.jsx:898:    if (didStart) window.sessionStorage.removeItem(PENDING_TOUR_KEY);
+src/components/offers/OfferPreviewStore.js:74:      localStorage.setItem(storageSignal, JSON.stringify(signal));
+src/components/offers/OfferPreviewStore.js:75:      localStorage.removeItem(storageSignal);
+src/components/offers/OfferPreviewStore.js:148:      const saved = JSON.parse(sessionStorage.getItem('byl-offer-preview-v2:' + entry.account.uid));
+src/components/messaging/messagingFeed.js:28:      localStorage.removeItem('byl:messaging:coach-directory:v1');
+src/components/messaging/messagingFeed.js:34:          localStorage.removeItem('byl:messaging:notified:v1:' + previousUid);
+src/components/messaging/DashboardMessagingBubble.jsx:82:      const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+src/components/messaging/DashboardMessagingBubble.jsx:98:      try { for(const [id,v] of Object.entries(JSON.parse(localStorage.getItem(key)||'{}'))) saved.set(id,v); } catch { /* local fallback */ }
+src/components/messaging/DashboardMessagingBubble.jsx:109:      if(changed) try { localStorage.setItem(key,JSON.stringify(Object.fromEntries([...saved].slice(-200)))); } catch { /* local fallback */ }
+src/utils/pageDataCache.js:39:      writePageCacheValue(window.localStorage, key, payload);
+src/utils/pageDataCache.js:60:      payload = JSON.parse(window.localStorage.getItem(key) || "null");
+src/utils/persistedPageCache.js:2:// preferences or unsaved drafts: Firebase also needs room in localStorage.
+src/components/ExerciseCard.jsx:206:    const raw = window.localStorage.getItem(key);
+src/utils/sessionResume.js:6:  return window.localStorage;
+src/utils/dashboardSnapshotCache.js:2:// localStorage quota, and never stores credentials or unsaved form values.
+src/utils/dashboardSnapshotCache.js:14:    if (typeof indexedDB === "undefined") { resolve(null); return; }
+src/utils/dashboardSnapshotCache.js:24:      const request = indexedDB.open(DB_NAME, 1);
+src/components/MenuJournalierFromRation.jsx:87:    localStorage.setItem(key, value);
+src/utils/analytics.js:16:    localStorage.setItem("BYL_LAST_PAGEVIEW_DAY", fmtDay(new Date()));
+src/utils/analytics.js:30:    let id = localStorage.getItem(key);
+src/utils/analytics.js:33:      localStorage.setItem(key, id);
+src/utils/analytics.js:118:      localStorage.setItem(
+src/utils/clientResolver.js:21:    const raw = window.localStorage.getItem(getLocalClientResolveKey(user));
+src/utils/clientResolver.js:34:    window.localStorage.setItem(
+src/utils/firestoreAccessDiagnostics.js:16:      window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1"
+src/components/AutoProgramPreview.jsx:1030:    for (let i = 0; i < sessionStorage.length; i++) {
+src/components/AutoProgramPreview.jsx:1031:      const key = sessionStorage.key(i);
+src/components/AutoProgramPreview.jsx:1045:        const raw = sessionStorage.getItem(key);
+src/components/ProgramView.jsx:1037:    for (let i = 0; i < sessionStorage.length; i++) {
+src/components/ProgramView.jsx:1038:      const key = sessionStorage.key(i);
+src/components/ProgramView.jsx:1052:        const raw = sessionStorage.getItem(key);
+src/components/ProgramView.jsx:1981:    const raw = sessionStorage.getItem(cacheKeyForProgram(clientId, programId));
+src/components/ProgramView.jsx:1992:    sessionStorage.setItem(cacheKeyForProgram(clientId, programId), JSON.stringify(prefs));
+src/components/ProgramView.jsx:2000:    const raw = sessionStorage.getItem(LAST_PREFS_KEY);
+src/components/ProgramView.jsx:2017:    sessionStorage.setItem(LAST_PREFS_KEY, JSON.stringify(prefs));
+src/components/SessionPlayer.jsx:186:    const country = String(localStorage.getItem("BYL_COUNTRY") || "").trim().toUpperCase();
+src/components/SessionPlayer.jsx:187:    const city = String(localStorage.getItem("BYL_CITY") || "").trim();
+src/components/SessionPlayer.jsx:188:    const lat = Number(localStorage.getItem("BYL_LAT"));
+src/components/SessionPlayer.jsx:189:    const lng = Number(localStorage.getItem("BYL_LNG"));
+src/components/SessionPlayer.jsx:471:    const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+src/components/SessionPlayer.jsx:487:    window.localStorage.setItem(storageKey, JSON.stringify(state || {}));
+src/components/SessionPlayer.jsx:494:    window.localStorage.removeItem(storageKey);
+src/components/SessionPlayer.jsx:2734:      const stored = window.localStorage.getItem("BYL_PLAYER_AUTO_FLOW");
+src/components/SessionPlayer.jsx:2743:      return window.localStorage.getItem("BYL_PLAYER_SOUND") !== "false";
+src/components/SessionPlayer.jsx:2751:      return window.localStorage.getItem("BYL_PLAYER_HAPTICS") !== "false";
+src/components/SessionPlayer.jsx:2798:      window.localStorage.setItem("BYL_PLAYER_AUTO_FLOW", autoFlowEnabled ? "true" : "false");
+src/components/SessionPlayer.jsx:2804:      window.localStorage.setItem("BYL_PLAYER_SOUND", soundEnabled ? "true" : "false");
+src/components/SessionPlayer.jsx:2810:      window.localStorage.setItem("BYL_PLAYER_HAPTICS", hapticsEnabled ? "true" : "false");
+src/components/ExerciseList.jsx:21:    const savedProgram = JSON.parse(localStorage.getItem("workoutProgram"));
+src/components/ExerciseList.jsx:28:    localStorage.setItem("workoutProgram", JSON.stringify(program));
+src/components/ProgramBuilder.jsx:2986:    const ls = localStorage.getItem("byl_weight_unit");
+src/components/ProgramBuilder.jsx:2991:    const ls = localStorage.getItem("byl_speed_unit");
+src/components/ProgramBuilder.jsx:2996:    const ls = localStorage.getItem("byl_distance_unit");
+src/components/ProgramBuilder.jsx:3212:      localStorage.setItem("byl_weight_unit", next);
+src/components/ProgramBuilder.jsx:3222:      localStorage.setItem("byl_speed_unit", next);
+src/components/ProgramBuilder.jsx:3232:      localStorage.setItem("byl_distance_unit", next);
+src/components/ProgramBuilder.jsx:3345:        localStorage.setItem("byl_weight_unit", units.weight);
+src/components/ProgramBuilder.jsx:3346:        localStorage.setItem("byl_speed_unit", units.speed);
+src/components/ProgramBuilder.jsx:3347:        localStorage.setItem("byl_distance_unit", units.distance);

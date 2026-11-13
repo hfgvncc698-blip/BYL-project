@@ -1,0 +1,22 @@
+[
+  {
+    "name": "counter",
+    "exitCode": 0,
+    "ms": 77
+  },
+  {
+    "name": "batch",
+    "exitCode": 0,
+    "ms": 74
+  },
+  {
+    "name": "smoke",
+    "exitCode": 0,
+    "ms": 980
+  },
+  {
+    "name": "build",
+    "exitCode": 0,
+    "ms": 4185
+  }
+]

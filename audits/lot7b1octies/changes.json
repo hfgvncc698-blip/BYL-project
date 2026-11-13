@@ -1,0 +1,20 @@
+{
+  "src/App.jsx": "84318d1ea8a38e4e6d8871de07a98dc6b2f324e7992e1ec9284b4604d56c76c6",
+  "src/AuthContext.jsx": "7c616deaaef459129e5dfb9180f3282bcfa06bd5cb31b9d4b760cbf2efaa921f",
+  "src/utils/api.js": "01126b03dfdf7a2bf3778b578aecb41171d085cfafd54a77f0424816e81a5a1f",
+  "src/utils/resilientLazy.jsx": "deb7003ccb4f39409223c16db82c7324c5702bcdb66f22572b4d8f76c9cbe0d8",
+  "scripts/runIntegratedMigrationLot7B1Octies.cjs": "521e689bb82cd3ed6ee07fe9149c0880429a19bc61fb49d4400d123e90313a5a",
+  "scripts/testIntegratedMigrationLot7B1Octies.cjs": "535b99de53753f9aeec72814933c88d43ca2c13e642eb6a17dd2987f04473a78",
+  "scripts/fixtures/lot7b1octies/application.jsx": "8fafca9341aa6917ede9129483094fb1f7ae9563c593071d7393f16865429dfc",
+  "scripts/testPrivateSessionLot7B1Octies.mjs": "bf63efca0f849e3eda8e0430dca90c26c05fd35c02d44e31414827357ddd83b6",
+  "scripts/testResilientLazyLot7B1Octies.mjs": "5ef439ba26d7274a6d85b7b2766bd7459892262b99dabb5c674280aa8bc4b23a",
+  "BYL_LOT7B1OCTIES_STABILITE.md": "bd9420cbe2db9d87247eda778dad764a72324ab56a6b49254773e802f3475be6",
+  "BYL_LOT7B1OCTIES_TESTS.md": "cf61627e4ef1a8f9dcb0e57dca00e7b886d4f35b6748bd712ae32063efb48182",
+  "BYL_LOT7B1OCTIES_PERFORMANCES.md": "17b734401347f8360bbfc4fceb27c45c232f7b478ab541db5c0eb6bc32c949b1",
+  "BYL_LOT7B1OCTIES_MIGRATION.md": "c7ca290b7594875772c76d82039dbb67491f4fc9b2e160ba7c5c10f6aaead164",
+  "BYL_LOT7B1OCTIES_BILAN.md": "d144472b11025b27b86b1c26ca04cbfda7a6749405efc832a53a985bc01618d1",
+  "BYL_LOT7B1OCTIES_DECISION.md": "f25dd6a0fa08ef19185dfac9495b0875b926e5166d29506a2757ab3a33907baf",
+  "BYL_LOT7B1OCTIES_SECURITE.md": "391313429ed67e90c67babf8398f7916cadee19e170ef2cc0418a49c202fcd10",
+  "scripts/runIntegratedDraftLot7B1Quater.cjs": "a9cc72269a4544528042f79ac058dd3a5bca0fa3200399182b8949f914b07a3f",
+  "scripts/runIntegratedMigrationLot7B1Septies.cjs": "3540c9e147f1bdc749c9c5c1a07eb26d3a8263f799921f2d8dac123388210b5b"
+}

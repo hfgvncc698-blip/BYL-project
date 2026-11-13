@@ -1,3 +1,4 @@
+import { localSessionStorage } from "./privateStorage.js";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { apiFetch } from "./api";
@@ -18,7 +19,7 @@ const getLocalClientResolveKey = (user) =>
 function readLocalClientId(user) {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(getLocalClientResolveKey(user));
+    const raw = localSessionStorage.getItem(getLocalClientResolveKey(user));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.clientId || Date.now() - Number(parsed.at || 0) > CLIENT_RESOLVE_LOCAL_TTL_MS) return null;
@@ -31,7 +32,7 @@ function readLocalClientId(user) {
 function writeLocalClientId(user, clientId) {
   if (typeof window === "undefined" || !clientId) return;
   try {
-    window.localStorage.setItem(
+    localSessionStorage.setItem(
       getLocalClientResolveKey(user),
       JSON.stringify({ at: Date.now(), clientId })
     );

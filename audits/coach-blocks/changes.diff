@@ -1,0 +1,161 @@
+--- before/src/components/CoachDashboard.jsx
++++ after/src/components/CoachDashboard.jsx
+@@ -3347,6 +3347,8 @@
+      force = force || dashboardPerfFresh;
+      if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("coach-dashboard", "refresh");
+      markDashboardTiming("core", "loading");
++     markDashboardTiming("clientProgress", "loading");
++     markDashboardTiming("templates", "loading");
+      const loadSeq = dashboardLoadSeqRef.current + 1;
+      dashboardLoadSeqRef.current = loadSeq;
+      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
+@@ -3390,6 +3392,7 @@
+           where("createdBy", "==", effectiveCoachUid),
+           limit(200)
+        );
++       let progs = cachedDashboardDataForRefresh?.programmesBase || [];
+        const programmesSnapPromise = source.read("templates",cacheScope,()=>readDashboardTemplates(effectiveCoachUid, {
+          request: apiFetch,
+           summaries: true,
+@@ -3401,12 +3404,14 @@
+          if (isLatestLoad()) {
+            const templates = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
+            templates.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
++           progs = templates;
+            setProgrammesBase(templates);
++           markDashboardTiming("templates", "ready", { documents: templates.length });
+          }
+          return snapshot;
+        });
+        // It runs in parallel; observe early failures until the awaited join.
+-       void programmesSnapPromise.catch(() => {});
++       void programmesSnapPromise.catch(() => { if(isLatestLoad())markDashboardTiming("templates", "error"); });
+        if (dashboardPerfEnabled) {
+          void programmesSnapPromise.then(snap => markDashboardTiming("templates", "ready", { documents: snap.size, jsonCharacters: JSON.stringify(snap.docs.map(d => d.data())).length, transport: snap.transport || 'firestore', changed: snap.changed })).catch(() => {});
+          void primaryClientSnapPromise.then(snap => markDashboardTiming("clientQuery", "ready", { documents: snap.size, jsonCharacters: JSON.stringify(snap.docs.map(d => d.data())).length })).catch(() => {});
+@@ -3660,10 +3665,7 @@
+           let latestSessionMs = 0;
+           let latestCompletedSessionMs = 0;
+           progsWithSessions.forEach((p) => {
+-             (p.sessionsEffectuees || []).forEach((s) => {
+-                const ms = getSessionActivityMs(s);
+-                if (ms > latestSessionMs) latestSessionMs = ms;
+-             });
++             latestSessionMs = Math.max(latestSessionMs, Number(p._lastSessionMs || 0));
+              latestCompletedSessionMs = Math.max(latestCompletedSessionMs, Number(p._lastCompletedSessionMs || 0));
+           });
+           const lastClientUpdate = Math.max(
+@@ -3681,11 +3683,7 @@
+             }
+             return completedClient;
+          })).then(value => ({ value }), error => ({ error }));
+-       const pSnap = await programmesSnapPromise;
+-       const progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data()
+-}));
+-       progs.sort((a, b) => toMillis(b.createdAt) -
+-toMillis(a.createdAt));
++       // Template downloads do not gate client progress or calendar enrichment.
+        const quickCounts = {};
+        const quickAssignedMap = {};
+        quickDashboardClients.forEach((client) => {
+@@ -3722,7 +3720,7 @@
+        // Dès que les collections racines sont disponibles, les destinations
+        // les plus fréquentes peuvent s'afficher sans attendre l'enrichissement
+        // client -> programmes -> séances effectué plus bas.
+-       primeCoachDestinationCaches({clients:quickDashboardClients,programmesBase:progs,assignedCounts:quickCounts,assignedClientsMap:quickAssignedMap},{partial:true});
++       if (source.present("templates",cacheScope)) primeCoachDestinationCaches({clients:quickDashboardClients,programmesBase:progs,assignedCounts:quickCounts,assignedClientsMap:quickAssignedMap},{partial:true});
+       await quickCalendarPromise;
+       const detailResult = await detailedClientsPromise;
+       if (!isLatestLoad()) return;
+@@ -4229,6 +4227,11 @@
+         setSessions(merged);
+       }
+       if (!isLatestLoad()) return;
++      markDashboardTiming("clientProgress", "ready", { clients: clientsForCoachDashboard.length });
++      // Keep the full-page readiness/cache contract: all domains must finish.
++      // The already-confirmed client/calendar UI remains usable while this waits.
++      await programmesSnapPromise;
++      if (!isLatestLoad()) return;
+       const dashboardPayload = {
+         clients: clientsForCoachDashboard,
+         programmesBase: progs,
+@@ -4248,6 +4251,7 @@
+       primeCoachDestinationCaches(dashboardPayload);
+     } catch (error) {
+       if(isLatestLoad() && (error.status===401 || error.status===403 || error.code==='permission-denied')){
++        markDashboardTiming("clientProgress", "error");
+         source.purge();dashboardDataMemoryCache.clear();setClients([]);setSessions([]);setProgrammesBase([]);
+         setAssignedCounts({});setAssignedClientsMap({});setNutritionRows([]);setNutritionFeedbackRows([]);setSelectedEvent(null);
+       }
+@@ -6988,7 +6992,7 @@
+   // Confirm each domain independently; partial roots are not global totals.
+   const rootsConfirmed = source.roots.fresh();
+   const nutritionConfirmed = rootsConfirmed && dashboardTiming.nutrition?.status === 'ready';
+-  const coreConfirmed = rootsConfirmed && source.calendar.fresh() && dashboardTiming.core?.status === 'ready';
++  const coreConfirmed = rootsConfirmed && source.calendar.fresh() && dashboardTiming.clientProgress?.status === 'ready';
+   const isStatConfirmed = (stat) => dashboardStatConfirmed(stat, rootsConfirmed, nutritionConfirmed, coreConfirmed, nutritionOnlyDashboard);
+   const renderStatTile = ({ label, value, hint, icon, accent, featured =
+ false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false, navigationArrow = false }) => (
+@@ -8162,7 +8166,7 @@
+           </Flex>
+         </Box>
+ 
+-        <Box display={{ base: "block", md: "none" }} mb={2.5}>
++        {isMobileDashboard && <Box mb={2.5}>
+           <Box
+             bg={surfaceBgStrong}
+             border="1px solid"
+@@ -8416,7 +8420,7 @@
+               </VStack>
+             )}
+           </Box>
+-        </Box>
++        </Box>}
+ 
+         {!isMobileDashboard && (
+         <>
+--- before/src/utils/coachDirectoryFeed.js
++++ after/src/utils/coachDirectoryFeed.js
+@@ -2,7 +2,9 @@
+ import {db} from '../firebaseConfig';
+ import {coachConfirmedSnapshot,clientsConfirmedSnapshot,coachQuery,clientsQuery} from './firestoreMetrics';
+ 
+-// The first 25 authorized roots can paint before the rest of the search index.
++// The Clients page paints its first 25 roots. The Dashboard needs every root
++// for exact totals and legacy identity deduplication: use one shared query,
++// instead of serial pages that eventually read the same complete directory.
+ // Each subsequent listener starts strictly after its preceding page. If that
+ // boundary moves, discard its old tail before accepting any new full view.
+ export function coachDirectoryFeed(target,purge) {
+@@ -23,9 +25,9 @@
+     const listen=pageName==='clients'?clientsConfirmedSnapshot:coachConfirmedSnapshot;
+     const filter=or(where('createdBy','==',target),where('coachId','==',target),where('coachIds','array-contains',target));
+     function attach(after){
+-      const i=pages.length, size=i===0?25:100, page={after,confirmed:false,docs:[]};
++      const i=pages.length, size=pageName==='coach-dashboard'?Infinity:(i===0?25:100), page={after,confirmed:false,docs:[],size};
+       pages.push(page);
+-      const query=q(collection(db,'clients'),filter,orderBy(documentId()),...(after?[startAfter(after)]:[]),limit(size));
++      const query=q(collection(db,'clients'),filter,orderBy(documentId()),...(after?[startAfter(after)]:[]),...(Number.isFinite(size)?[limit(size)]:[]));
+       page.stop=listen(query,snap=>{
+         if(pages[i]!==page)return;
+         if(snap.metadata.fromCache || snap.metadata.hasPendingWrites){
+@@ -41,7 +43,7 @@
+           attach(boundary);return;
+         }
+         const tail=pages.at(-1);
+-        if(!pages.every(p=>p.confirmed) || tail.docs.length===(pages.length===1?25:100))return;
++        if(!pages.every(p=>p.confirmed) || tail.docs.length===tail.size)return;
+         const docs=pages.flatMap(p=>p.docs);
+         const next=new Map(docs.map(d=>[d.id,d]));
+         const changes=[];
+--- before/src/hooks/useDashboardTiming.js
++++ after/src/hooks/useDashboardTiming.js
+@@ -5,7 +5,7 @@
+   const mountedAt = useRef(performance.now());
+   const [timing, setTiming] = useState({});
+   const mark = useCallback((section, status = "ready", details = {}) => {
+-    if (!enabled && !["core", "nutrition", "copilot"].includes(section)) return;
++    if (!enabled && !["core", "clientProgress", "templates", "nutrition", "copilot"].includes(section)) return;
+     if (!enabled) {
+       setTiming(previous => ({ ...previous, [section]: { status } }));
+       return;

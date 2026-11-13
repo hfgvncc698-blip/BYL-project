@@ -1,0 +1,54 @@
+{
+  "createdAt": "2026-11-11T00:48:32.269735+00:00",
+  "branch": "codex/firebase-performance-audit",
+  "productionDeployment": false,
+  "realUserData": false,
+  "openSecurityIssues": [
+    "P0-3",
+    "P0-4"
+  ],
+  "applicationFiles": {
+    "src/components/CoachDashboard.jsx": "b073ec7c7f8d223303515755ed52b16ae8906e629727b18c0077841a9eaa4b58",
+    "src/utils/coachDashboardLoading.js": "bc4bc4651948f9e43eb7f251cb5b184e80c8f696f40d1036a33825f9105d2c73",
+    "src/utils/coachProgramBatch.js": "5503669a55f37688303c848af794400b6e1b4dfb4ea4f6e27efe3f8e1bd237f0",
+    "backend/routes/coachProgramRead.js": "a49a49d7c6acb1c2979f6caf6f4fb803949a44d8e1e82c7b8e2f9b52db7f9cd5"
+  },
+  "baselineFiles": {
+    "audits/lot8b/baseline/coachProgramBatch.js": "955f893072e715e72a58c7b95328f4bbc64455e4e6a034fc0ab552d9cac10b44",
+    "audits/lot8b/baseline/CoachDashboard.jsx": "e99ccc86144fc375609ebdd091aa4dedaae86a3b65228667f4bbb37fcc522461",
+    "audits/lot8b/baseline/coachDashboardLoading.js": "fd00e250960d670ff5d8691443a1e578311d471d6a37ff09c28b74f0f365b910",
+    "audits/lot8b/baseline/coachProgramRead.js": "f8a87230479f109c731cae22aa3eb55cecd649645262d80fb6f7b4e1914a922b"
+  },
+  "evidenceFiles": {
+    "audits/lot8b/before.json": "1277b34375fdd2d9b9b9137da6c293bae1f9133a557e2eb363a54ccdeb4786e7",
+    "audits/lot8b/after.json": "5430d39bbb7fcb2b06a41dc5ec251186796cd4a33e0ef5c863c9f5a80e88afdc",
+    "audits/lot8b/before-slow.json": "aea3d8d58016d2dd74c5dede6ca24ca5680c2d95bab007d562c83f96e35786c3",
+    "audits/lot8b/after-slow.json": "f51a161b3a11ebc32a56ffcae416cc5ded87347059fa20a8aa1f39d896dc588e",
+    "audits/lot8b/before-cpu.json": "675041189cd145b7e9512c4c294f10c9f18cd725b2d2c5dad7540a7ef21ec130",
+    "audits/lot8b/after-cpu.json": "519ebf30196ba4c8d3dc95df9fb52d898d99d33539fdaf66ce101133f0d599c6",
+    "audits/lot8b/before-transitions.json": "1d6506ce6abf4ccb8f86b31d709cc3c875ea93730c3660cf723390986dfb642f",
+    "audits/lot8b/after-transitions.json": "310979e8881cbc514cfc43fcdcb4064a7987ec94e69ab3861a1e6c6a3ef115c1",
+    "audits/lot8b/paired.json": "8179dfbfb8dd077643fd11f3b633a20cad618403f0e206b52821ccb2c8064c0c",
+    "audits/lot8b/accepted.json": "4e2e45868242a61b8baf75d18f7769dcf0b1da99109204906f01e821c0ca320b",
+    "audits/lot8b/suites.json": "d5132d9c924d35c51a35576fb4898b0fb9ade3b1f0d2fe51460b10c09ea6166e",
+    "audits/lot8b/final-checks.json": "5909f7b429c93cf148143fceeda9c1f7fd365972e427f8a20052ae0f00529751",
+    "audits/lot8b/delivered.json": "6c208a11d5365df4a92fc32b929f6da1ddec47d8d6f71f551cad65d9dddd20d7"
+  },
+  "normalComparison": "paired-before.log / paired-after.log; before.json / after.json",
+  "nonRegression": {
+    "emulatorSuites": 6,
+    "integratedChecks": 48,
+    "finalSmokeChecks": 53,
+    "finalBuild": "pass; CoachDashboard 69.5 KiB / 70"
+  },
+  "limits": [
+    "Single sample per cell; substantial inter-run variability.",
+    "Cold browser per volume; Vite server reused within a series.",
+    "Slow/CPU series precede only final second-layout counter confirmation alignment.",
+    "Earlier constrained reloads without timeOrigin proof excluded.",
+    "Server CPU/memory and exhaustive secondary-service completion not measured.",
+    "Auth profileAuthorized in existing traces is last confirmation; report uses startup.admitted. Current harness preserves first marker for future runs.",
+    "No production Firebase billing measurement; document reads estimated.",
+    "No production authorization; performance targets not met across matrix."
+  ]
+}

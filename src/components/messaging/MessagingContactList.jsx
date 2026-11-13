@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -24,8 +24,13 @@ import { useAppTheme } from "../../styles/appTheme";
 const SWIPE_WIDTH = 76;
 const SWIPE_TRIGGER = 32;
 
-export default function MessagingContactList({ contacts, selectedId = "", onSelect, onDelete, compact = false }) {
+export default function MessagingContactList({ contacts, selectedId = "", onSelect, onDelete, compact = false, initialVisibleCount = Infinity, resetKey = "" }) {
   const { t } = useTranslation();
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount);
+  useEffect(()=>setVisibleCount(initialVisibleCount),[initialVisibleCount,resetKey]);
+  // Preserve a selected deep link; search still filters the complete source.
+  const renderedCount=Math.max(visibleCount,contacts.findIndex(c=>c.id===selectedId)+1);
+  const renderedContacts=contacts.slice(0,renderedCount);
   const theme = useAppTheme();
   const toast = useToast();
   const [openId, setOpenId] = useState("");
@@ -99,7 +104,7 @@ export default function MessagingContactList({ contacts, selectedId = "", onSele
   return (
     <>
       <VStack align="stretch" spacing={1.5}>
-      {contacts.map((contact) => {
+      {renderedContacts.map((contact) => {
         const canDelete = Boolean(onDelete && contact.conversation);
         const isOpen = canDelete && openId === contact.id;
         const translateX = isOpen ? (dragOffset || -SWIPE_WIDTH) : 0;
@@ -186,6 +191,9 @@ export default function MessagingContactList({ contacts, selectedId = "", onSele
         );
       })}
       </VStack>
+      {renderedCount<contacts.length && <Button mt={3} size="sm" onClick={()=>setVisibleCount(renderedCount+50)} data-testid="messages-load-more">
+        {t('common.showMore', 'Afficher davantage')} ({Math.min(renderedCount,contacts.length)} / {contacts.length})
+      </Button>}
 
       <AlertDialog
         isOpen={Boolean(pendingDelete)}

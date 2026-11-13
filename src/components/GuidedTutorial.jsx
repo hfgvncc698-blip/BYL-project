@@ -1,3 +1,4 @@
+import { localSessionStorage, tabSessionStorage } from "../utils/privateStorage.js";
 import { useTranslation } from 'react-i18next';
 import { clubText } from '../i18n/clubText';
 import { CLUB_TOUR_PAGES, reviseTutorial, tutorialDevice } from '../utils/tutorialVariants';
@@ -646,7 +647,7 @@ const ROUTE_TOURS = {
 
 export function startGuidedTutorial(tourId) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(PENDING_TOUR_KEY, tourId);
+  tabSessionStorage.setItem(PENDING_TOUR_KEY, tourId);
   window.dispatchEvent(new CustomEvent(START_EVENT, { detail: { tourId } }));
 }
 
@@ -731,14 +732,14 @@ function isSeenInProfile(user, role, tourId) {
 function isSeenInLocalCache(user, role, tourId) {
   if (typeof window === "undefined") return false;
   return getLocalSeenKeys(user, role, tourId).some(
-    (key) => window.localStorage.getItem(key) === "1"
+    (key) => localSessionStorage.getItem(key) === "1"
   );
 }
 
 function cacheTourSeen(user, role, tourId) {
   if (typeof window === "undefined") return;
   getLocalSeenKeys(user, role, tourId).forEach((key) => {
-    window.localStorage.setItem(key, "1");
+    localSessionStorage.setItem(key, "1");
   });
 }
 
@@ -883,7 +884,7 @@ export default function GuidedTutorial() {
       const tourId = event.detail?.tourId;
       if (tourId) {
         const didStart = startTour(tourId, { force: true });
-        if (didStart) window.sessionStorage.removeItem(PENDING_TOUR_KEY);
+        if (didStart) tabSessionStorage.removeItem(PENDING_TOUR_KEY);
       }
     };
     window.addEventListener(START_EVENT, onStart);
@@ -892,10 +893,10 @@ export default function GuidedTutorial() {
 
   React.useEffect(() => {
     if (!user || !role || typeof window === "undefined") return;
-    const pendingTourId = window.sessionStorage.getItem(PENDING_TOUR_KEY);
+    const pendingTourId = tabSessionStorage.getItem(PENDING_TOUR_KEY);
     if (!pendingTourId) return;
     const didStart = startTour(pendingTourId, { force: true });
-    if (didStart) window.sessionStorage.removeItem(PENDING_TOUR_KEY);
+    if (didStart) tabSessionStorage.removeItem(PENDING_TOUR_KEY);
   }, [location.pathname, role, startTour, user]);
 
   React.useEffect(() => {

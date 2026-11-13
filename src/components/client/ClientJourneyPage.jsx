@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../../utils/privateStorage.js";
 import { clubText } from '../../i18n/clubText';
 import { apiFetch } from '../../utils/api';
 import ClientCycleTimeline from './ClientCycleTimeline';
@@ -88,12 +89,12 @@ export default function ClientJourneyPage({children,view='home'}) {
   const [selectedDossier,setSelectedDossier]=useState(null);
   useEffect(()=>{
     let saved=null;
-    try { if(user?.uid && view==='program')saved=window.localStorage.getItem(`byl:last-program-followup:${user.uid}`); } catch { /* Storage can be unavailable in private browsing. */ }
+    try { if(user?.uid && view==='program')saved=localSessionStorage.getItem(`byl:last-program-followup:${user.uid}`); } catch { /* Storage can be unavailable in private browsing. */ }
     setSelectedDossier(saved);
   },[user?.uid,view]);
   const selectDossier=id=>{
     setSelectedDossier(id);
-    try { if(user?.uid)window.localStorage.setItem(`byl:last-program-followup:${user.uid}`,id); } catch { /* Keep the selection for this visit. */ }
+    try { if(user?.uid)localSessionStorage.setItem(`byl:last-program-followup:${user.uid}`,id); } catch { /* Keep the selection for this visit. */ }
   };
   useEffect(()=>{
     if(!user?.uid)return;

@@ -1,3 +1,5 @@
+import { loadCiqual as loadTranslatedCiqual } from "../utils/ciqualLoader";
+import { localSessionStorage } from "../utils/privateStorage.js";
 import { hydrationReferenceText } from "../utils/nutritionHydration";
 import { buildRationMeals } from "../utils/rationMenu";
 import { useNavigationSave } from "../hooks/useNavigationSave";
@@ -84,7 +86,7 @@ import {
 
 const safeSetSmallLocal = (key, value) => {
   try {
-    localStorage.setItem(key, value);
+    localSessionStorage.setItem(key, value);
     return true;
   } catch {
     return false;
@@ -670,9 +672,7 @@ export default function MenuJournalierFromRation() {
     setCiqualLoading(true);
     setCiqualError("");
     try {
-      const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await loadTranslatedCiqual();
 
       const arr = Array.isArray(data)
         ? data

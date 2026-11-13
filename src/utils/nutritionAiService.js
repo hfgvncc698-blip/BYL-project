@@ -1,9 +1,6 @@
-import { getFunctions, httpsCallable } from "firebase/functions";
 import app from "../firebaseConfig";
 import { generateBaseNutritionPlan } from "./nutritionBaseService";
 import { validateNutritionPlanWithCiqual } from "./nutritionValidationService";
-
-const functions = getFunctions(app, "europe-west1");
 
 const EMPTY_AI_PLAN = {
   improvedPlan: {},
@@ -43,6 +40,10 @@ const normalizeAiResponse = (value) => ({
 });
 
 export async function improveNutritionPlanWithAI(basePlan, clientProfile = {}, feedbackHistory = []) {
+  // Optional AI must not prevent the ration page from loading. Initialization
+  // failures belong to the existing algorithmic fallback, just like call failures.
+  const { getFunctions, httpsCallable } = await import("firebase/functions");
+  const functions = getFunctions(app, "europe-west1");
   const call = httpsCallable(functions, "optimizeNutritionPlanWithAI");
   const { data } = await call({
     basePlan: sanitizeForAi(basePlan, clientProfile, feedbackHistory),

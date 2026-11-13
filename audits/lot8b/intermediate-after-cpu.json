@@ -1,0 +1,6036 @@
+{
+  "label": "after",
+  "samples": [
+    {
+      "kind": "coach",
+      "n": 12,
+      "h": 0,
+      "group": "cpu",
+      "viewport": 1440,
+      "shellMs": 619.5357080000003,
+      "calendarShellMs": 3609.286833,
+      "calendarEventMs": 3609.286833,
+      "firstUsefulMs": 2505.2625829999997,
+      "primaryMs": 3609.286833,
+      "networkSettledMs": 8060.797708,
+      "observationMs": 8061.788458000001,
+      "networkBytes": 35185950,
+      "backend": {
+        "reads": 13,
+        "documents": 11,
+        "estimated": 17,
+        "writes": 0
+      },
+      "api": {
+        "requests": 8,
+        "completed": 6,
+        "responseBytes": 1116,
+        "durationMs": 326.45179199999984,
+        "statuses": {
+          "200": 5,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "f97b2546-8d8e-4824-a0da-ca193392e820",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 70,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "c5f24664-f398-407f-bcbb-f271782a07c5",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 23,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "offers",
+          "sample": "7a7259cb-282e-428a-9765-726cf8a8be95",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 20,
+          "status": 200,
+          "responseBytes": 56,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-templates",
+          "sample": "59a06649-71cb-4677-9c93-148ff553c80e",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 11,
+          "estimatedDocumentReads": 11,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 1,
+            "query": 1,
+            "getAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "programmes": {
+              "reads": 2,
+              "docs": 10,
+              "estimate": 10
+            }
+          },
+          "durationMs": 41,
+          "status": 200,
+          "responseBytes": 245,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "fa77ffff-48fd-48b0-9e8d-503e09f3d175",
+          "httpRequests": 1,
+          "sdkReads": 40,
+          "documentsReturned": 61,
+          "estimatedDocumentReads": 63,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 38,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            },
+            "programmes": {
+              "reads": 12,
+              "docs": 24,
+              "estimate": 24
+            },
+            "sessionsEffectuees": {
+              "reads": 24,
+              "docs": 24,
+              "estimate": 24
+            }
+          },
+          "durationMs": 173,
+          "status": 200,
+          "responseBytes": 304,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {
+          "coach-dashboard/listener-snapshot/users": {
+            "calls": 5,
+            "documentsReturned": 5,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 1
+          },
+          "coach-dashboard/cache/users": {
+            "calls": 1,
+            "documentsReturned": 1,
+            "failures": 0,
+            "estimate": 0
+          },
+          "coach-dashboard/default/users": {
+            "calls": 2,
+            "documentsReturned": 2,
+            "failures": 0,
+            "estimate": 2
+          },
+          "coach-dashboard/default/coachCalendarSubscriptions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1
+          },
+          "coach-dashboard/listener-snapshot/coachPageTemplateRevisions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 0
+          },
+          "coach-dashboard/listener-snapshot/clients": {
+            "calls": 1,
+            "documentsReturned": 12,
+            "failures": 0,
+            "estimate": 12,
+            "serverChanges": 12
+          },
+          "coach-dashboard/listener-snapshot/sessions": {
+            "calls": 1,
+            "documentsReturned": 40,
+            "failures": 0,
+            "estimate": 40,
+            "serverChanges": 40
+          },
+          "coach-dashboard/server/nutrition_assessments": {
+            "calls": 12,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 12
+          }
+        },
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "coach-dashboard/listener-start": {
+            "calls": 4
+          },
+          "club-inbox/http": {
+            "calls": 2
+          },
+          "coach-dashboard/listener-snapshot": {
+            "calls": 8,
+            "added": 52,
+            "modified": 0,
+            "removed": 0,
+            "serverChanges": 53,
+            "estimatedDocumentReads": 54,
+            "documentsReturned": 57,
+            "first": 4,
+            "fromCache": 0,
+            "server": 8,
+            "pendingWrites": 2
+          },
+          "offers/refresh": {
+            "calls": 1
+          },
+          "coach-dashboard/refresh": {
+            "calls": 1
+          },
+          "offers/http": {
+            "calls": 1
+          },
+          "dashboard-templates/http": {
+            "calls": 1
+          },
+          "coach-dashboard/cache": {
+            "calls": 1,
+            "durationMs": 16.100000023841858,
+            "documentsReturned": 1,
+            "fromCache": 1,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 0
+          },
+          "coach-dashboard/default": {
+            "calls": 3,
+            "durationMs": 856.3000000119209,
+            "documentsReturned": 2,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 3
+          },
+          "offers/ready": {
+            "calls": 1,
+            "durationMs": 531.8000000119209
+          },
+          "dashboard-client-programs/http": {
+            "calls": 1
+          },
+          "coach-dashboard/ready": {
+            "calls": 1
+          },
+          "offers/cache-hit": {
+            "calls": 2
+          },
+          "coach-dashboard/server": {
+            "calls": 12,
+            "durationMs": 7220.499999761581,
+            "documentsReturned": 0,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 12
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 21,
+        "documentsReturned": 65,
+        "estimatedReads": 74,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "mounts": 2821,
+      "mountNames": {
+        "ColorModeScript": 1,
+        "ChakraProvider": 1,
+        "Provider": 1,
+        "ThemeProvider": 2,
+        "CSSVars": 1,
+        "ColorModeProvider": 1,
+        "CSSReset": 1,
+        "GlobalStyle": 1,
+        "EnvironmentProvider": 1,
+        "BrowserRouter": 1,
+        "Router": 1,
+        "AppResume": 1,
+        "PullToRefresh": 1,
+        "AppErrorBoundary": 1,
+        "App": 1,
+        "AuthProvider": 1,
+        "ToastProvider": 1,
+        "Portal": 9,
+        "DefaultPortal": 9,
+        "AnimatePresence": 45,
+        "ConsentProvider": 2,
+        "Insertion": 1316,
+        "AppContent": 2,
+        "RouteIntentPreloader": 2,
+        "SeoManager": 2,
+        "LanguageRouteSync": 2,
+        "Routes": 2,
+        "RenderedRoute": 2,
+        "CoachActiveRoute": 2,
+        "Navigate": 1,
+        "LazyBackground": 4,
+        "DownloadBoundary": 13,
+        "Navbar": 2,
+        "Drawer": 2,
+        "Modal": 22,
+        "Login": 2,
+        "ButtonContent": 133,
+        "ButtonIcon": 40,
+        "FcGoogle": 2,
+        "IconBase": 42,
+        "Trans": 4,
+        "Footer": 2,
+        "CookieConsentBanner": 2,
+        "IdleMount": 2,
+        "CacheMigrationNotice": 1,
+        "QuickCoachActions": 3,
+        "Menu": 7,
+        "MdOutlineSpaceDashboard": 1,
+        "CoachDashboard": 1,
+        "CoachPageAccess": 1,
+        "DashboardMessagingBubble": 1,
+        "MessagingBubble": 1,
+        "MdOutlineChat": 1,
+        "CoachDashboardView": 1,
+        "ClubLogo": 1,
+        "MdToday": 4,
+        "DashboardCard": 18,
+        "MdOutlineBolt": 3,
+        "MdOutlinePeopleAlt": 4,
+        "MdOutlineRestaurantMenu": 5,
+        "MdOutlinePayments": 2,
+        "AppNavigationArrow": 19,
+        "MdOutlineFitnessCenter": 4,
+        "MdTune": 1,
+        "CardShell": 6,
+        "MdOutlineLibraryBooks": 2,
+        "MdOutlineNoteAlt": 1,
+        "PlanInclusionBadge": 1,
+        "MdOutlineLink": 2,
+        "MdOutlineSchedule": 2,
+        "DeferredViewport": 1,
+        "DeferredWidgetBoundary": 1,
+        "MdPlayArrow": 5,
+        "DashboardOfferAlerts": 2,
+        "OfferPaymentPreview": 1,
+        "OfferRenewalAlerts": 1,
+        "CoachDashboardCalendar": 1,
+        "DragAndDropCalendar": 1,
+        "StableCalendar": 1,
+        "Uncontrolled(Calendar)": 1,
+        "Calendar": 1,
+        "Toolbar": 1,
+        "Week": 1,
+        "TimeGrid": 1,
+        "TimeGridHeader": 1,
+        "Header": 7,
+        "DateContentRow": 1,
+        "BackgroundCells": 1,
+        "NoopWrapper": 777,
+        "WeekWrapper": 1,
+        "EventRow": 2,
+        "TimeGutter": 1,
+        "TimeSlotGroup": 192,
+        "DayColumn": 7,
+        "DayColumnWrapper": 7,
+        "EventContainerWrapper": 7,
+        "TimeGridEvent": 1,
+        "Nest": 1,
+        "anonymous": 2,
+        "CoachClubEventWrapper": 1,
+        "ClubCalendarEventPreview": 1,
+        "EventWrapper": 1,
+        "CalendarValidationMark": 1,
+        "MenuDivider": 6,
+        "GuidedTutorial": 1,
+        "RouteAnalyticsListener": 1,
+        "MdClose": 1,
+        "MdArrowBack": 1,
+        "MdArrowForward": 1
+      },
+      "heap": {
+        "usedSize": 79929080,
+        "totalSize": 144670720,
+        "embedderHeapUsedSize": 16270472,
+        "backingStorageSize": 35304254
+      },
+      "execution": {
+        "LayoutDuration": 0.092542,
+        "ScriptDuration": 4.823967,
+        "TaskDuration": 5.730604
+      },
+      "stages": {
+        "painted": {
+          "pageMs": 5261,
+          "mountMs": 3812
+        },
+        "preferences": {
+          "status": "ready",
+          "pageMs": 2111,
+          "mountMs": 662
+        },
+        "preferencesCache": {
+          "status": "ready",
+          "pageMs": 1722,
+          "mountMs": 273
+        },
+        "copilot": {
+          "status": "ready",
+          "pageMs": 1961,
+          "mountMs": 512
+        },
+        "nutrition": {
+          "status": "ready",
+          "pageMs": 5011,
+          "mountMs": 3562,
+          "clients": 12,
+          "assessments": 0,
+          "feedback": 0
+        },
+        "core": {
+          "status": "ready",
+          "pageMs": 3118,
+          "mountMs": 1669,
+          "completed": 24,
+          "planned": 24,
+          "clients": 12,
+          "detailedClients": 12,
+          "programs": 5,
+          "sessions": 40,
+          "snapshotChars": 52199
+        },
+        "copilotCache": {
+          "status": "ready",
+          "pageMs": 1740,
+          "mountMs": 291
+        },
+        "templates": {
+          "status": "ready",
+          "pageMs": 2256,
+          "mountMs": 807,
+          "documents": 5,
+          "jsonCharacters": 1291,
+          "transport": "incremental-api",
+          "changed": 5
+        },
+        "clientQuery": {
+          "status": "ready",
+          "pageMs": 2532,
+          "mountMs": 1083,
+          "documents": 12,
+          "jsonCharacters": 3287
+        },
+        "roots": {
+          "status": "ready",
+          "pageMs": 2534,
+          "mountMs": 1085,
+          "clients": 12
+        },
+        "calendarRoots": {
+          "status": "ready",
+          "pageMs": 2544,
+          "mountMs": 1095,
+          "sessions": 40
+        },
+        "details": {
+          "status": "ready",
+          "pageMs": 3110,
+          "mountMs": 1661,
+          "clients": 12
+        },
+        "calendar": {
+          "status": "ready",
+          "pageMs": 3531,
+          "mountMs": 2082
+        }
+      },
+      "longTasks": [
+        {
+          "start": 376.80000001192093,
+          "duration": 106
+        },
+        {
+          "start": 485.19999998807907,
+          "duration": 95
+        },
+        {
+          "start": 1130.199999988079,
+          "duration": 53
+        },
+        {
+          "start": 1418.800000011921,
+          "duration": 331
+        },
+        {
+          "start": 1796.6000000238419,
+          "duration": 148
+        },
+        {
+          "start": 1969.3999999761581,
+          "duration": 123
+        },
+        {
+          "start": 2111.100000023842,
+          "duration": 130
+        },
+        {
+          "start": 2261.5,
+          "duration": 201
+        },
+        {
+          "start": 2546.199999988079,
+          "duration": 296
+        },
+        {
+          "start": 2879.899999976158,
+          "duration": 195
+        },
+        {
+          "start": 3125.199999988079,
+          "duration": 450
+        },
+        {
+          "start": 3602.399999976158,
+          "duration": 268
+        },
+        {
+          "start": 3881.300000011921,
+          "duration": 253
+        },
+        {
+          "start": 4139.300000011921,
+          "duration": 249
+        },
+        {
+          "start": 4405.699999988079,
+          "duration": 231
+        },
+        {
+          "start": 4648.300000011921,
+          "duration": 227
+        },
+        {
+          "start": 5011.5,
+          "duration": 230
+        },
+        {
+          "start": 5260.300000011921,
+          "duration": 230
+        },
+        {
+          "start": 5598.800000011921,
+          "duration": 238
+        },
+        {
+          "start": 5842.199999988079,
+          "duration": 242
+        }
+      ],
+      "heartbeatMaxMs": 794.7000000476837,
+      "navigation": [
+        {
+          "name": "http://localhost:5174/coach-dashboard?dashboardPerf",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 482.60000002384186,
+          "navigationId": 6905,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 0.3999999761581421,
+          "domainLookupStart": 0.3999999761581421,
+          "domainLookupEnd": 0.3999999761581421,
+          "connectStart": 0.3999999761581421,
+          "secureConnectionStart": 0,
+          "connectEnd": 0.3999999761581421,
+          "requestStart": 1,
+          "responseStart": 18.69999998807907,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 18.69999998807907,
+          "responseEnd": 18.899999976158142,
+          "transferSize": 421,
+          "encodedBodySize": 121,
+          "decodedBodySize": 121,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 40.80000001192093,
+          "domContentLoadedEventStart": 481.5,
+          "domContentLoadedEventEnd": 481.5,
+          "domComplete": 482.60000002384186,
+          "loadEventStart": 482.60000002384186,
+          "loadEventEnd": 482.60000002384186,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {}
+        }
+      ],
+      "startup": {
+        "entry": 478.80000001192093,
+        "authStart": 634.6999999880791,
+        "sessionRestored": 669.1000000238419,
+        "admitted": 1229.300000011921,
+        "route": 1230.6000000238419,
+        "authObserver": 812.8999999761581,
+        "profileAuthorized": 5598.800000011921,
+        "profilePublished": 5598.800000011921,
+        "firebase": 459.60000002384186
+      },
+      "state": {
+        "ready": true,
+        "path": "/coach-dashboard",
+        "text": "\nLes dernières validations et mouvements importants.\n\nAucune action récente\n\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "cpuSelfTopMs": [
+        {
+          "frame": "(idle) ",
+          "ms": 2315.042
+        },
+        {
+          "frame": "(program) ",
+          "ms": 597.871
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 297.548
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 249.215
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 159.269
+        },
+        {
+          "frame": "exports.unstable_now http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 127.06
+        },
+        {
+          "frame": "(garbage collector) ",
+          "ms": 119.937
+        },
+        {
+          "frame": "CoachDashboardView http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 113.515
+        },
+        {
+          "frame": "splitProps http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 97.482
+        },
+        {
+          "frame": "renderWithHooks http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 94.892
+        },
+        {
+          "frame": "handleInterpolation http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 91.6
+        },
+        {
+          "frame": "css2 http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 88.433
+        },
+        {
+          "frame": "split http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 87.855
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 80.181
+        },
+        {
+          "frame": "createElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 78.983
+        },
+        {
+          "frame": "ChakraComponent2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 73.532
+        },
+        {
+          "frame": "walk ",
+          "ms": 67.124
+        },
+        {
+          "frame": "(anonymous) ",
+          "ms": 61.378
+        },
+        {
+          "frame": "diffProperties http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 61.251
+        },
+        {
+          "frame": "compact http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 60.723
+        },
+        {
+          "frame": "baseMerge http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 60.632
+        },
+        {
+          "frame": "formatLanguageCode http://localhost:PORT/node_modules/.vite/deps/i18next.js?v=fb9d14f2",
+          "ms": 58.31
+        },
+        {
+          "frame": "murmur2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 46.426
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/jsx-runtime-_kFF-uRP.js?v=4e61d547",
+          "ms": 46.27
+        },
+        {
+          "frame": "fn http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 44.723
+        },
+        {
+          "frame": "createElementWithValidation http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 42.407
+        },
+        {
+          "frame": "validateProperty$1 http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 40.831
+        },
+        {
+          "frame": "assignAfter http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 40.156
+        },
+        {
+          "frame": "createStringFromObject http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 39.331
+        },
+        {
+          "frame": "appendChild ",
+          "ms": 38.038
+        }
+      ],
+      "mobileResizePassed": true
+    },
+    {
+      "kind": "coach",
+      "n": 100,
+      "h": 0,
+      "group": "cpu",
+      "viewport": 1440,
+      "shellMs": 502.33400000000074,
+      "calendarShellMs": 3439.333667000001,
+      "calendarEventMs": 3439.333667000001,
+      "firstUsefulMs": 2054.069042000001,
+      "primaryMs": 5292.2784169999995,
+      "networkSettledMs": 8952.583834,
+      "observationMs": 8953.376624999999,
+      "networkBytes": 35194620,
+      "backend": {
+        "reads": 16,
+        "documents": 11,
+        "estimated": 20,
+        "writes": 0
+      },
+      "api": {
+        "requests": 11,
+        "completed": 9,
+        "responseBytes": 2315,
+        "durationMs": 1590.5648340000043,
+        "statuses": {
+          "200": 8,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "1ae5c27e-ebc9-45a6-8008-c22f8b7c8382",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 18,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "offers",
+          "sample": "c14cbb1b-7305-4ec1-962f-0e4e7e273841",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 11,
+          "status": 200,
+          "responseBytes": 56,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-templates",
+          "sample": "1ce70970-2d8f-4bea-94eb-8d458f2d36f3",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 11,
+          "estimatedDocumentReads": 11,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 1,
+            "query": 1,
+            "getAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "programmes": {
+              "reads": 2,
+              "docs": 10,
+              "estimate": 10
+            }
+          },
+          "durationMs": 19,
+          "status": 200,
+          "responseBytes": 246,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "9bf31b7d-3378-4add-b301-9c2595660bfd",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 21,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "ef70be0b-4077-48a3-8588-9b1a36072638",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 480,
+          "status": 200,
+          "responseBytes": 416,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "5ae43646-657b-4f71-9286-678a85dbd5a9",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 489,
+          "status": 200,
+          "responseBytes": 415,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "fd73ae90-e453-4aeb-9f2b-bb3265de9a8b",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 496,
+          "status": 200,
+          "responseBytes": 416,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "321ecdda-4667-4531-a7a3-a54ced9cb55d",
+          "httpRequests": 1,
+          "sdkReads": 16,
+          "documentsReturned": 21,
+          "estimatedDocumentReads": 23,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 14,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 4,
+              "estimate": 4
+            },
+            "programmes": {
+              "reads": 4,
+              "docs": 8,
+              "estimate": 8
+            },
+            "sessionsEffectuees": {
+              "reads": 8,
+              "docs": 8,
+              "estimate": 8
+            }
+          },
+          "durationMs": 57,
+          "status": 200,
+          "responseBytes": 255,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {
+          "coach-dashboard/listener-snapshot/users": {
+            "calls": 5,
+            "documentsReturned": 5,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 1
+          },
+          "coach-dashboard/cache/users": {
+            "calls": 1,
+            "documentsReturned": 1,
+            "failures": 0,
+            "estimate": 0
+          },
+          "coach-dashboard/default/users": {
+            "calls": 2,
+            "documentsReturned": 2,
+            "failures": 0,
+            "estimate": 2
+          },
+          "coach-dashboard/default/coachCalendarSubscriptions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1
+          },
+          "coach-dashboard/listener-snapshot/coachPageTemplateRevisions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 0
+          },
+          "coach-dashboard/listener-snapshot/clients": {
+            "calls": 2,
+            "documentsReturned": 100,
+            "failures": 0,
+            "estimate": 100,
+            "serverChanges": 100
+          },
+          "coach-dashboard/listener-snapshot/sessions": {
+            "calls": 1,
+            "documentsReturned": 40,
+            "failures": 0,
+            "estimate": 40,
+            "serverChanges": 40
+          },
+          "coach-dashboard/server/nutrition_assessments": {
+            "calls": 100,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 100
+          }
+        },
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "coach-dashboard/listener-start": {
+            "calls": 5
+          },
+          "coach-dashboard/listener-snapshot": {
+            "calls": 9,
+            "added": 140,
+            "modified": 0,
+            "removed": 0,
+            "serverChanges": 141,
+            "estimatedDocumentReads": 142,
+            "documentsReturned": 145,
+            "first": 5,
+            "fromCache": 0,
+            "server": 9,
+            "pendingWrites": 2
+          },
+          "offers/refresh": {
+            "calls": 1
+          },
+          "coach-dashboard/refresh": {
+            "calls": 1
+          },
+          "offers/http": {
+            "calls": 1
+          },
+          "dashboard-templates/http": {
+            "calls": 1
+          },
+          "coach-dashboard/cache": {
+            "calls": 1,
+            "durationMs": 15.299999952316284,
+            "documentsReturned": 1,
+            "fromCache": 1,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 0
+          },
+          "coach-dashboard/default": {
+            "calls": 3,
+            "durationMs": 859.2000000476837,
+            "documentsReturned": 2,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 3
+          },
+          "offers/ready": {
+            "calls": 1,
+            "durationMs": 519.3000000119209
+          },
+          "club-inbox/http": {
+            "calls": 2
+          },
+          "dashboard-client-programs/http": {
+            "calls": 4
+          },
+          "offers/cache-hit": {
+            "calls": 2
+          },
+          "coach-dashboard/ready": {
+            "calls": 1
+          },
+          "coach-dashboard/server": {
+            "calls": 100,
+            "durationMs": 21586.600000321865,
+            "documentsReturned": 0,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 100
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 110,
+        "documentsReturned": 153,
+        "estimatedReads": 250,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "mounts": 2734,
+      "mountNames": {
+        "ColorModeScript": 1,
+        "ChakraProvider": 1,
+        "Provider": 1,
+        "ThemeProvider": 2,
+        "CSSVars": 1,
+        "ColorModeProvider": 1,
+        "CSSReset": 1,
+        "GlobalStyle": 1,
+        "EnvironmentProvider": 1,
+        "BrowserRouter": 1,
+        "Router": 1,
+        "AppResume": 1,
+        "PullToRefresh": 1,
+        "AppErrorBoundary": 1,
+        "App": 1,
+        "AuthProvider": 1,
+        "ToastProvider": 1,
+        "Portal": 10,
+        "DefaultPortal": 10,
+        "AnimatePresence": 44,
+        "ConsentProvider": 2,
+        "Insertion": 1251,
+        "AppContent": 2,
+        "RouteIntentPreloader": 2,
+        "SeoManager": 2,
+        "LanguageRouteSync": 2,
+        "Routes": 2,
+        "RenderedRoute": 2,
+        "CoachActiveRoute": 2,
+        "Navigate": 1,
+        "LazyBackground": 4,
+        "DownloadBoundary": 7,
+        "Navbar": 1,
+        "ButtonContent": 128,
+        "Drawer": 1,
+        "Modal": 20,
+        "IdleMount": 2,
+        "AppLoading": 1,
+        "CookieConsentBanner": 1,
+        "QuickCoachActions": 4,
+        "ButtonIcon": 40,
+        "Menu": 8,
+        "MdOutlineSpaceDashboard": 1,
+        "IconBase": 40,
+        "Trans": 1,
+        "CoachDashboard": 1,
+        "CoachPageAccess": 1,
+        "CoachDashboardView": 1,
+        "ClubLogo": 1,
+        "MdToday": 4,
+        "DashboardCard": 18,
+        "MdOutlineBolt": 3,
+        "MdOutlinePeopleAlt": 4,
+        "MdOutlineRestaurantMenu": 5,
+        "MdOutlinePayments": 2,
+        "AppNavigationArrow": 19,
+        "MdOutlineFitnessCenter": 4,
+        "MdTune": 1,
+        "CardShell": 6,
+        "MdOutlineLibraryBooks": 2,
+        "MdOutlineNoteAlt": 1,
+        "PlanInclusionBadge": 1,
+        "MdOutlineLink": 2,
+        "MdOutlineSchedule": 2,
+        "DeferredViewport": 1,
+        "DeferredWidgetBoundary": 1,
+        "CacheMigrationNotice": 1,
+        "DashboardMessagingBubble": 1,
+        "MessagingBubble": 1,
+        "MdOutlineChat": 1,
+        "MdPlayArrow": 5,
+        "DashboardOfferAlerts": 2,
+        "OfferPaymentPreview": 1,
+        "OfferRenewalAlerts": 1,
+        "CoachDashboardCalendar": 1,
+        "DragAndDropCalendar": 1,
+        "StableCalendar": 1,
+        "Uncontrolled(Calendar)": 1,
+        "Calendar": 1,
+        "Toolbar": 1,
+        "Week": 1,
+        "TimeGrid": 1,
+        "TimeGridHeader": 1,
+        "Header": 7,
+        "DateContentRow": 1,
+        "BackgroundCells": 1,
+        "NoopWrapper": 777,
+        "WeekWrapper": 1,
+        "EventRow": 2,
+        "TimeGutter": 1,
+        "TimeSlotGroup": 192,
+        "DayColumn": 7,
+        "DayColumnWrapper": 7,
+        "EventContainerWrapper": 7,
+        "TimeGridEvent": 1,
+        "Nest": 1,
+        "anonymous": 2,
+        "CoachClubEventWrapper": 1,
+        "ClubCalendarEventPreview": 1,
+        "EventWrapper": 1,
+        "CalendarValidationMark": 1,
+        "MenuDivider": 7,
+        "GuidedTutorial": 1,
+        "RouteAnalyticsListener": 1,
+        "MdClose": 1,
+        "MdArrowBack": 1,
+        "MdArrowForward": 1
+      },
+      "heap": {
+        "usedSize": 89595536,
+        "totalSize": 153518080,
+        "embedderHeapUsedSize": 16398496,
+        "backingStorageSize": 35523413
+      },
+      "execution": {
+        "LayoutDuration": 0.092174,
+        "ScriptDuration": 5.550683,
+        "TaskDuration": 6.67265
+      },
+      "stages": {
+        "painted": {
+          "pageMs": 7065,
+          "mountMs": 6046
+        },
+        "preferences": {
+          "status": "ready",
+          "pageMs": 1675,
+          "mountMs": 656
+        },
+        "preferencesCache": {
+          "status": "ready",
+          "pageMs": 1289,
+          "mountMs": 270
+        },
+        "copilot": {
+          "status": "ready",
+          "pageMs": 1531,
+          "mountMs": 512
+        },
+        "nutrition": {
+          "status": "ready",
+          "pageMs": 6805,
+          "mountMs": 5786,
+          "clients": 100,
+          "assessments": 0,
+          "feedback": 0
+        },
+        "core": {
+          "status": "ready",
+          "pageMs": 4980,
+          "mountMs": 3961,
+          "completed": 200,
+          "planned": 200,
+          "clients": 100,
+          "detailedClients": 100,
+          "programs": 5,
+          "sessions": 40,
+          "snapshotChars": 234960
+        },
+        "copilotCache": {
+          "status": "ready",
+          "pageMs": 1307,
+          "mountMs": 288
+        },
+        "templates": {
+          "status": "ready",
+          "pageMs": 1808,
+          "mountMs": 789,
+          "documents": 5,
+          "jsonCharacters": 1301,
+          "transport": "incremental-api",
+          "changed": 5
+        },
+        "clientQuery": {
+          "status": "ready",
+          "pageMs": 2586,
+          "mountMs": 1567,
+          "documents": 100,
+          "jsonCharacters": 27658
+        },
+        "roots": {
+          "status": "ready",
+          "pageMs": 2590,
+          "mountMs": 1571,
+          "clients": 100
+        },
+        "calendarRoots": {
+          "status": "ready",
+          "pageMs": 2594,
+          "mountMs": 1575,
+          "sessions": 40
+        },
+        "calendar": {
+          "status": "ready",
+          "pageMs": 3404,
+          "mountMs": 2385
+        },
+        "details": {
+          "status": "ready",
+          "pageMs": 4962,
+          "mountMs": 3943,
+          "clients": 100
+        }
+      },
+      "longTasks": [
+        {
+          "start": 245,
+          "duration": 110
+        },
+        {
+          "start": 357.89999997615814,
+          "duration": 89
+        },
+        {
+          "start": 848.0999999642372,
+          "duration": 66
+        },
+        {
+          "start": 992.1999999880791,
+          "duration": 324
+        },
+        {
+          "start": 1358.7999999523163,
+          "duration": 158
+        },
+        {
+          "start": 1540.0999999642372,
+          "duration": 118
+        },
+        {
+          "start": 1674.0999999642372,
+          "duration": 127
+        },
+        {
+          "start": 1816.3999999761581,
+          "duration": 171
+        },
+        {
+          "start": 2089.699999988079,
+          "duration": 244
+        },
+        {
+          "start": 2395.199999988079,
+          "duration": 182
+        },
+        {
+          "start": 2602.899999976158,
+          "duration": 334
+        },
+        {
+          "start": 3008.7999999523163,
+          "duration": 403
+        },
+        {
+          "start": 3432.7999999523163,
+          "duration": 270
+        },
+        {
+          "start": 3710.7999999523163,
+          "duration": 231
+        },
+        {
+          "start": 3947.699999988079,
+          "duration": 244
+        },
+        {
+          "start": 4221.699999988079,
+          "duration": 262
+        },
+        {
+          "start": 4505.199999988079,
+          "duration": 225
+        },
+        {
+          "start": 4745.799999952316,
+          "duration": 212
+        },
+        {
+          "start": 4984.699999988079,
+          "duration": 272
+        },
+        {
+          "start": 5284.799999952316,
+          "duration": 60
+        },
+        {
+          "start": 5382.699999988079,
+          "duration": 216
+        },
+        {
+          "start": 6101.399999976158,
+          "duration": 205
+        },
+        {
+          "start": 6308.699999988079,
+          "duration": 244
+        },
+        {
+          "start": 6804.799999952316,
+          "duration": 241
+        },
+        {
+          "start": 7064.599999964237,
+          "duration": 221
+        }
+      ],
+      "heartbeatMaxMs": 819.8999999761581,
+      "navigation": [
+        {
+          "name": "http://localhost:5174/coach-dashboard?dashboardPerf",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 354.69999998807907,
+          "navigationId": 5805,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 0.3999999761581421,
+          "domainLookupStart": 0.3999999761581421,
+          "domainLookupEnd": 0.3999999761581421,
+          "connectStart": 0.3999999761581421,
+          "secureConnectionStart": 0,
+          "connectEnd": 0.3999999761581421,
+          "requestStart": 1.199999988079071,
+          "responseStart": 3.5,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 3.5,
+          "responseEnd": 10.299999952316284,
+          "transferSize": 421,
+          "encodedBodySize": 121,
+          "decodedBodySize": 121,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 31.799999952316284,
+          "domContentLoadedEventStart": 353.89999997615814,
+          "domContentLoadedEventEnd": 353.89999997615814,
+          "domComplete": 354.69999998807907,
+          "loadEventStart": 354.69999998807907,
+          "loadEventEnd": 354.69999998807907,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {}
+        }
+      ],
+      "startup": {
+        "entry": 351.0999999642372,
+        "authStart": 501,
+        "sessionRestored": 537.1999999880791,
+        "admitted": 795.3999999761581,
+        "route": 796.1999999880791,
+        "authObserver": 669.0999999642372,
+        "profileAuthorized": 6100.799999952316,
+        "profilePublished": 6100.899999976158,
+        "firebase": 330.39999997615814
+      },
+      "state": {
+        "ready": true,
+        "path": "/coach-dashboard",
+        "text": "\nLes dernières validations et mouvements importants.\n\nAucune action récente\n\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "cpuSelfTopMs": [
+        {
+          "frame": "(idle) ",
+          "ms": 2273.783
+        },
+        {
+          "frame": "(program) ",
+          "ms": 690.522
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 405.469
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 287.068
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 189.166
+        },
+        {
+          "frame": "exports.unstable_now http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 147.375
+        },
+        {
+          "frame": "(garbage collector) ",
+          "ms": 122.22
+        },
+        {
+          "frame": "CoachDashboardView http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 117.808
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 111.612
+        },
+        {
+          "frame": "splitProps http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 109.519
+        },
+        {
+          "frame": "renderWithHooks http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 108.949
+        },
+        {
+          "frame": "split http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 98.945
+        },
+        {
+          "frame": "handleInterpolation http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 97.757
+        },
+        {
+          "frame": "formatLanguageCode http://localhost:PORT/node_modules/.vite/deps/i18next.js?v=fb9d14f2",
+          "ms": 91.854
+        },
+        {
+          "frame": "css2 http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 85.333
+        },
+        {
+          "frame": "createElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 84.613
+        },
+        {
+          "frame": "compact http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 83.944
+        },
+        {
+          "frame": "ChakraComponent2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 83.377
+        },
+        {
+          "frame": "assignAfter http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 79.964
+        },
+        {
+          "frame": "walk ",
+          "ms": 77.283
+        },
+        {
+          "frame": "diffProperties http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 73.41
+        },
+        {
+          "frame": "baseMerge http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 71.343
+        },
+        {
+          "frame": "(anonymous) ",
+          "ms": 65.245
+        },
+        {
+          "frame": "FiberNode http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 58.739
+        },
+        {
+          "frame": "murmur2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 51.953
+        },
+        {
+          "frame": "baseAssignValue http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 51.546
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=17eaa581",
+          "ms": 51.12
+        },
+        {
+          "frame": "fn http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 50.799
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/jsx-runtime-_kFF-uRP.js?v=4e61d547",
+          "ms": 47.558
+        },
+        {
+          "frame": "validateProperty$1 http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 46.471
+        }
+      ]
+    },
+    {
+      "kind": "coach",
+      "n": 500,
+      "h": 0,
+      "group": "cpu",
+      "viewport": 1440,
+      "shellMs": 600.1137920000001,
+      "calendarShellMs": 3339.7792500000032,
+      "calendarEventMs": 5616.8602500000015,
+      "firstUsefulMs": 2097.0172920000005,
+      "primaryMs": 11091.201292000002,
+      "networkSettledMs": 17092.180208,
+      "observationMs": 17092.836124999998,
+      "networkBytes": 35229034,
+      "backend": {
+        "reads": 28,
+        "documents": 11,
+        "estimated": 32,
+        "writes": 0
+      },
+      "api": {
+        "requests": 23,
+        "completed": 21,
+        "responseBytes": 7486,
+        "durationMs": 5576.807128999993,
+        "statuses": {
+          "200": 20,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "8edc6dc2-b8ec-43cb-bd57-f5e92c85f498",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 21,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "offers",
+          "sample": "504bd07b-ca15-4bf3-9066-f777e7e6d201",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 18,
+          "status": 200,
+          "responseBytes": 56,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-templates",
+          "sample": "ed36d608-f2b8-4ab6-9a77-46bf334ba07a",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 11,
+          "estimatedDocumentReads": 11,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 1,
+            "query": 1,
+            "getAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "programmes": {
+              "reads": 2,
+              "docs": 10,
+              "estimate": 10
+            }
+          },
+          "durationMs": 29,
+          "status": 200,
+          "responseBytes": 245,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "79e9a48f-f2df-4106-a15d-2e279a5081bb",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 19,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "981f7832-43b1-466e-8540-53229be484c2",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 388,
+          "status": 200,
+          "responseBytes": 418,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "fa31f819-c2e1-40f1-b51c-f74d2f72bd82",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 397,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "567c5f75-ff05-484f-88b5-27327328c1a7",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 398,
+          "status": 200,
+          "responseBytes": 423,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "2c4d692a-5742-4386-a0bd-892ad56f4ca4",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 373,
+          "status": 200,
+          "responseBytes": 423,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "362664c7-2139-4431-a779-85fdbf0a35c6",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 354,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "180615a7-8b1a-439c-ad8f-68f6fe9f2336",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 390,
+          "status": 200,
+          "responseBytes": 424,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "cbf25602-5567-4b14-80b3-7b0167d561b6",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 361,
+          "status": 200,
+          "responseBytes": 419,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "9b9b6050-a956-4e8d-be4a-e4be2a87636f",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 370,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "1a6a748a-1118-422f-b279-cc0061bc72cd",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 375,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "c20f4fc0-fccc-426b-a455-497a333b5e10",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 263,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "093dd222-9c8f-43dc-9335-dc50916b6575",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 311,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "9a887809-7b3b-4579-b0c3-e4826b085cc3",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 315,
+          "status": 200,
+          "responseBytes": 424,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "34e0515d-fa90-4fbe-bf51-abf1cbc5154d",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 295,
+          "status": 200,
+          "responseBytes": 423,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "c4eaa69a-1d9f-4dce-82ca-d3ecdb1d8ec3",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 293,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "6efbefc1-bbe6-4fa0-ba49-30a5abdcd1e8",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 361,
+          "status": 200,
+          "responseBytes": 417,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "87347fc5-b095-4eca-b4e9-d05e566c0e57",
+          "httpRequests": 1,
+          "sdkReads": 64,
+          "documentsReturned": 101,
+          "estimatedDocumentReads": 103,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 62,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 20,
+              "estimate": 20
+            },
+            "programmes": {
+              "reads": 20,
+              "docs": 40,
+              "estimate": 40
+            },
+            "sessionsEffectuees": {
+              "reads": 40,
+              "docs": 40,
+              "estimate": 40
+            }
+          },
+          "durationMs": 246,
+          "status": 200,
+          "responseBytes": 351,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {
+          "coach-dashboard/listener-snapshot/users": {
+            "calls": 5,
+            "documentsReturned": 5,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 1
+          },
+          "coach-dashboard/cache/users": {
+            "calls": 1,
+            "documentsReturned": 1,
+            "failures": 0,
+            "estimate": 0
+          },
+          "coach-dashboard/default/users": {
+            "calls": 2,
+            "documentsReturned": 2,
+            "failures": 0,
+            "estimate": 2
+          },
+          "coach-dashboard/default/coachCalendarSubscriptions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1
+          },
+          "coach-dashboard/listener-snapshot/coachPageTemplateRevisions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 0
+          },
+          "coach-dashboard/listener-snapshot/clients": {
+            "calls": 6,
+            "documentsReturned": 500,
+            "failures": 0,
+            "estimate": 500,
+            "serverChanges": 500
+          },
+          "coach-dashboard/listener-snapshot/sessions": {
+            "calls": 1,
+            "documentsReturned": 40,
+            "failures": 0,
+            "estimate": 40,
+            "serverChanges": 40
+          },
+          "coach-dashboard/server/nutrition_assessments": {
+            "calls": 500,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 500
+          }
+        },
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "coach-dashboard/listener-start": {
+            "calls": 9
+          },
+          "coach-dashboard/listener-snapshot": {
+            "calls": 13,
+            "added": 540,
+            "modified": 0,
+            "removed": 0,
+            "serverChanges": 541,
+            "estimatedDocumentReads": 542,
+            "documentsReturned": 545,
+            "first": 9,
+            "fromCache": 0,
+            "server": 13,
+            "pendingWrites": 2
+          },
+          "offers/refresh": {
+            "calls": 1
+          },
+          "coach-dashboard/refresh": {
+            "calls": 1
+          },
+          "offers/http": {
+            "calls": 1
+          },
+          "dashboard-templates/http": {
+            "calls": 1
+          },
+          "coach-dashboard/cache": {
+            "calls": 1,
+            "durationMs": 15.899999976158142,
+            "documentsReturned": 1,
+            "fromCache": 1,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 0
+          },
+          "coach-dashboard/default": {
+            "calls": 3,
+            "durationMs": 872.5,
+            "documentsReturned": 2,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 3
+          },
+          "offers/ready": {
+            "calls": 1,
+            "durationMs": 530.1999999880791
+          },
+          "club-inbox/http": {
+            "calls": 2
+          },
+          "offers/cache-hit": {
+            "calls": 2
+          },
+          "dashboard-client-programs/http": {
+            "calls": 16
+          },
+          "coach-dashboard/server": {
+            "calls": 500,
+            "durationMs": 86037.09999990463,
+            "documentsReturned": 0,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 500
+          },
+          "coach-dashboard/ready": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 514,
+        "documentsReturned": 553,
+        "estimatedReads": 1050,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "mounts": 2902,
+      "mountNames": {
+        "ColorModeScript": 1,
+        "ChakraProvider": 1,
+        "Provider": 1,
+        "ThemeProvider": 2,
+        "CSSVars": 1,
+        "ColorModeProvider": 1,
+        "CSSReset": 1,
+        "GlobalStyle": 1,
+        "EnvironmentProvider": 1,
+        "BrowserRouter": 1,
+        "Router": 1,
+        "AppResume": 1,
+        "PullToRefresh": 1,
+        "AppErrorBoundary": 1,
+        "App": 1,
+        "AuthProvider": 1,
+        "ToastProvider": 1,
+        "Portal": 14,
+        "DefaultPortal": 14,
+        "AnimatePresence": 48,
+        "ConsentProvider": 2,
+        "Insertion": 1379,
+        "AppContent": 2,
+        "RouteIntentPreloader": 2,
+        "SeoManager": 2,
+        "LanguageRouteSync": 2,
+        "Routes": 2,
+        "RenderedRoute": 2,
+        "CoachActiveRoute": 2,
+        "Navigate": 1,
+        "LazyBackground": 4,
+        "DownloadBoundary": 7,
+        "Navbar": 1,
+        "ButtonContent": 144,
+        "Drawer": 1,
+        "Modal": 20,
+        "IdleMount": 2,
+        "AppLoading": 1,
+        "CookieConsentBanner": 1,
+        "QuickCoachActions": 4,
+        "ButtonIcon": 44,
+        "Menu": 12,
+        "MdOutlineSpaceDashboard": 1,
+        "IconBase": 40,
+        "Trans": 1,
+        "CoachDashboard": 1,
+        "CoachPageAccess": 1,
+        "CacheMigrationNotice": 1,
+        "CoachDashboardView": 1,
+        "ClubLogo": 1,
+        "MdToday": 4,
+        "DashboardCard": 18,
+        "MdOutlineBolt": 3,
+        "MdOutlinePeopleAlt": 4,
+        "MdOutlineRestaurantMenu": 5,
+        "MdOutlinePayments": 2,
+        "AppNavigationArrow": 19,
+        "MdOutlineFitnessCenter": 4,
+        "MdTune": 1,
+        "CardShell": 6,
+        "MdOutlineLibraryBooks": 2,
+        "MdOutlineNoteAlt": 1,
+        "PlanInclusionBadge": 1,
+        "MdOutlineLink": 2,
+        "MdOutlineSchedule": 2,
+        "DeferredViewport": 1,
+        "DeferredWidgetBoundary": 1,
+        "DashboardMessagingBubble": 1,
+        "MessagingBubble": 1,
+        "MdOutlineChat": 1,
+        "MdPlayArrow": 5,
+        "DashboardOfferAlerts": 2,
+        "OfferPaymentPreview": 1,
+        "OfferRenewalAlerts": 1,
+        "CoachDashboardCalendar": 1,
+        "DragAndDropCalendar": 1,
+        "StableCalendar": 1,
+        "Uncontrolled(Calendar)": 1,
+        "Calendar": 1,
+        "Toolbar": 1,
+        "Week": 1,
+        "TimeGrid": 1,
+        "TimeGridHeader": 1,
+        "Header": 7,
+        "DateContentRow": 1,
+        "BackgroundCells": 1,
+        "NoopWrapper": 777,
+        "WeekWrapper": 1,
+        "EventRow": 2,
+        "TimeGutter": 1,
+        "TimeSlotGroup": 192,
+        "DayColumn": 7,
+        "DayColumnWrapper": 7,
+        "EventContainerWrapper": 7,
+        "TimeGridEvent": 1,
+        "Nest": 1,
+        "anonymous": 2,
+        "CoachClubEventWrapper": 1,
+        "ClubCalendarEventPreview": 1,
+        "EventWrapper": 1,
+        "CalendarValidationMark": 1,
+        "GuidedTutorial": 1,
+        "RouteAnalyticsListener": 1,
+        "MenuDivider": 11,
+        "MdClose": 1,
+        "MdArrowBack": 1,
+        "MdArrowForward": 1
+      },
+      "heap": {
+        "usedSize": 89721652,
+        "totalSize": 183648256,
+        "embedderHeapUsedSize": 10415080,
+        "backingStorageSize": 35546672
+      },
+      "execution": {
+        "LayoutDuration": 0.10034,
+        "ScriptDuration": 10.346113,
+        "TaskDuration": 13.005984
+      },
+      "stages": {
+        "painted": {
+          "pageMs": 15204,
+          "mountMs": 14165
+        },
+        "preferences": {
+          "status": "ready",
+          "pageMs": 1715,
+          "mountMs": 675
+        },
+        "preferencesCache": {
+          "status": "ready",
+          "pageMs": 1322,
+          "mountMs": 282
+        },
+        "copilot": {
+          "status": "ready",
+          "pageMs": 1567,
+          "mountMs": 527
+        },
+        "nutrition": {
+          "status": "ready",
+          "pageMs": 14834,
+          "mountMs": 13794,
+          "clients": 500,
+          "assessments": 0,
+          "feedback": 0
+        },
+        "core": {
+          "status": "ready",
+          "pageMs": 10601,
+          "mountMs": 9561,
+          "completed": 1000,
+          "planned": 1000,
+          "clients": 500,
+          "detailedClients": 500,
+          "programs": 5,
+          "sessions": 40,
+          "snapshotChars": 1065625
+        },
+        "copilotCache": {
+          "status": "ready",
+          "pageMs": 1340,
+          "mountMs": 300
+        },
+        "templates": {
+          "status": "ready",
+          "pageMs": 1852,
+          "mountMs": 812,
+          "documents": 5,
+          "jsonCharacters": 1301,
+          "transport": "incremental-api",
+          "changed": 5
+        },
+        "calendar": {
+          "status": "ready",
+          "pageMs": 3290,
+          "mountMs": 2250
+        },
+        "clientQuery": {
+          "status": "ready",
+          "pageMs": 5179,
+          "mountMs": 4139,
+          "documents": 500,
+          "jsonCharacters": 138723
+        },
+        "roots": {
+          "status": "ready",
+          "pageMs": 5187,
+          "mountMs": 4147,
+          "clients": 500
+        },
+        "calendarRoots": {
+          "status": "ready",
+          "pageMs": 5190,
+          "mountMs": 4150,
+          "sessions": 40
+        },
+        "details": {
+          "status": "ready",
+          "pageMs": 10554,
+          "mountMs": 9514,
+          "clients": 500
+        }
+      },
+      "longTasks": [
+        {
+          "start": 270.19999998807907,
+          "duration": 107
+        },
+        {
+          "start": 380.0999999642372,
+          "duration": 86
+        },
+        {
+          "start": 867.6999999880791,
+          "duration": 65
+        },
+        {
+          "start": 1013.5,
+          "duration": 338
+        },
+        {
+          "start": 1398.699999988079,
+          "duration": 152
+        },
+        {
+          "start": 1574.8999999761581,
+          "duration": 121
+        },
+        {
+          "start": 1714.5,
+          "duration": 128
+        },
+        {
+          "start": 1859.5,
+          "duration": 163
+        },
+        {
+          "start": 2130.899999976158,
+          "duration": 254
+        },
+        {
+          "start": 2458.599999964237,
+          "duration": 189
+        },
+        {
+          "start": 2664.399999976158,
+          "duration": 207
+        },
+        {
+          "start": 2950.800000011921,
+          "duration": 345
+        },
+        {
+          "start": 3332.099999964237,
+          "duration": 268
+        },
+        {
+          "start": 3612.699999988079,
+          "duration": 217
+        },
+        {
+          "start": 3883.5,
+          "duration": 245
+        },
+        {
+          "start": 4152.599999964237,
+          "duration": 222
+        },
+        {
+          "start": 4379.5,
+          "duration": 57
+        },
+        {
+          "start": 4439.5,
+          "duration": 203
+        },
+        {
+          "start": 4661.5,
+          "duration": 226
+        },
+        {
+          "start": 4947,
+          "duration": 222
+        },
+        {
+          "start": 5200.199999988079,
+          "duration": 388
+        },
+        {
+          "start": 5609.899999976158,
+          "duration": 224
+        },
+        {
+          "start": 5884.599999964237,
+          "duration": 404
+        },
+        {
+          "start": 6362.5,
+          "duration": 381
+        },
+        {
+          "start": 6807.800000011921,
+          "duration": 239
+        },
+        {
+          "start": 7078.599999964237,
+          "duration": 329
+        },
+        {
+          "start": 7427.5,
+          "duration": 323
+        },
+        {
+          "start": 7757.800000011921,
+          "duration": 328
+        },
+        {
+          "start": 8165.699999988079,
+          "duration": 366
+        },
+        {
+          "start": 8559.300000011921,
+          "duration": 385
+        },
+        {
+          "start": 8974.199999988079,
+          "duration": 420
+        },
+        {
+          "start": 9417.300000011921,
+          "duration": 409
+        },
+        {
+          "start": 9859.899999976158,
+          "duration": 337
+        },
+        {
+          "start": 10212,
+          "duration": 335
+        },
+        {
+          "start": 10609.399999976158,
+          "duration": 448
+        },
+        {
+          "start": 11141.300000011921,
+          "duration": 252
+        },
+        {
+          "start": 14834.099999964237,
+          "duration": 358
+        },
+        {
+          "start": 15206.899999976158,
+          "duration": 218
+        }
+      ],
+      "heartbeatMaxMs": 876.1999999880791,
+      "navigation": [
+        {
+          "name": "http://localhost:5174/coach-dashboard?dashboardPerf",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 376.89999997615814,
+          "navigationId": 8138,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 0.5,
+          "domainLookupStart": 0.5,
+          "domainLookupEnd": 0.5,
+          "connectStart": 0.5,
+          "secureConnectionStart": 0,
+          "connectEnd": 0.5,
+          "requestStart": 1.199999988079071,
+          "responseStart": 3.099999964237213,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 3.099999964237213,
+          "responseEnd": 4,
+          "transferSize": 421,
+          "encodedBodySize": 121,
+          "decodedBodySize": 121,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 25.899999976158142,
+          "domContentLoadedEventStart": 375.69999998807907,
+          "domContentLoadedEventEnd": 375.69999998807907,
+          "domComplete": 376.89999997615814,
+          "loadEventStart": 376.89999997615814,
+          "loadEventEnd": 376.89999997615814,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {}
+        }
+      ],
+      "startup": {
+        "entry": 373.0999999642372,
+        "authStart": 524.3999999761581,
+        "sessionRestored": 568.5999999642372,
+        "admitted": 824.5,
+        "route": 825.1999999880791,
+        "authObserver": 697.8000000119209,
+        "profileAuthorized": 7427.5,
+        "profilePublished": 7427.5,
+        "firebase": 351.80000001192093
+      },
+      "state": {
+        "ready": true,
+        "path": "/coach-dashboard",
+        "text": "\nLes dernières validations et mouvements importants.\n\nAucune action récente\n\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "cpuSelfTopMs": [
+        {
+          "frame": "(idle) ",
+          "ms": 4084.068
+        },
+        {
+          "frame": "(program) ",
+          "ms": 991.08
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 700.707
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 520.448
+        },
+        {
+          "frame": "__PRIVATE_compareUtf8Strings http://localhost:PORT/node_modules/.vite/deps/firebase_firestore.js?v=e2c85c04",
+          "ms": 495.428
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 479.574
+        },
+        {
+          "frame": "exports.unstable_now http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 328.478
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 297.471
+        },
+        {
+          "frame": "createElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 234.005
+        },
+        {
+          "frame": "(garbage collector) ",
+          "ms": 233.375
+        },
+        {
+          "frame": "css2 http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 229.854
+        },
+        {
+          "frame": "handleInterpolation http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 229.112
+        },
+        {
+          "frame": "split http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 213.182
+        },
+        {
+          "frame": "splitProps http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 200.303
+        },
+        {
+          "frame": "formatLanguageCode http://localhost:PORT/node_modules/.vite/deps/i18next.js?v=fb9d14f2",
+          "ms": 199.467
+        },
+        {
+          "frame": "diffProperties http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 176.552
+        },
+        {
+          "frame": "compact http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 169.277
+        },
+        {
+          "frame": "ChakraComponent2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 167.678
+        },
+        {
+          "frame": "CoachDashboardView http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 151.541
+        },
+        {
+          "frame": "walk ",
+          "ms": 141.686
+        },
+        {
+          "frame": "(anonymous) ",
+          "ms": 139.469
+        },
+        {
+          "frame": "baseMerge http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 132.365
+        },
+        {
+          "frame": "renderWithHooks http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 128.186
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=17eaa581",
+          "ms": 124.213
+        },
+        {
+          "frame": "murmur2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 118.546
+        },
+        {
+          "frame": "assignAfter http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 112.204
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/firebase_firestore.js?v=e2c85c04",
+          "ms": 94.883
+        },
+        {
+          "frame": "jsxDEV http://localhost:PORT/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=17eaa581",
+          "ms": 92.013
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/jsx-runtime-_kFF-uRP.js?v=4e61d547",
+          "ms": 90.408
+        },
+        {
+          "frame": "fetch ",
+          "ms": 88.826
+        }
+      ]
+    },
+    {
+      "kind": "coach",
+      "n": 1000,
+      "h": 0,
+      "group": "cpu",
+      "viewport": 1440,
+      "shellMs": 592.0451669999966,
+      "calendarShellMs": 3333.5907499999958,
+      "calendarEventMs": 8349.630292000002,
+      "firstUsefulMs": 2108.236041999997,
+      "primaryMs": 17872.14,
+      "networkSettledMs": 28566.332875,
+      "observationMs": 28567.239500000003,
+      "networkBytes": 35274086,
+      "backend": {
+        "reads": 51,
+        "documents": 14,
+        "estimated": 55,
+        "writes": 0
+      },
+      "api": {
+        "requests": 41,
+        "completed": 39,
+        "responseBytes": 14461,
+        "durationMs": 58304.136625000036,
+        "statuses": {
+          "200": 38,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "aa4072e8-4fd9-422c-b9c0-5b5d9da0cd1b",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 27,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "offers",
+          "sample": "2f477da5-752d-4a4f-b97f-fe9258802770",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 8,
+          "status": 200,
+          "responseBytes": 56,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-templates",
+          "sample": "9258ab58-4060-4912-a10f-985fe6f6dfa2",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 11,
+          "estimatedDocumentReads": 11,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 1,
+            "query": 1,
+            "getAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "programmes": {
+              "reads": 2,
+              "docs": 10,
+              "estimate": 10
+            }
+          },
+          "durationMs": 17,
+          "status": 200,
+          "responseBytes": 244,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "a1f021ce-5426-4e83-93a7-e84ebb5a77f6",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 20,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "d9055300-f9d2-438b-aa74-5bf1421b5352",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 480,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "9f49d45d-c509-421b-bbf0-27dd4e89ba8e",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 481,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "9c4cdcf1-8c2b-447d-ad18-4c90b4179651",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 496,
+          "status": 200,
+          "responseBytes": 417,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "7f1e625b-01bd-4d54-a48c-88378114e24d",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 502,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "f9fe9aa7-efa4-42ae-88c3-830fb0728d3d",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 578,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "89fd39a7-60d5-4508-ac78-2b477778f74f",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 583,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "79a307c4-7164-46ce-8ce0-093c508b5576",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 408,
+          "status": 200,
+          "responseBytes": 419,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "86b9f021-a0b3-4228-8e8a-dc279717955b",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 285,
+          "status": 200,
+          "responseBytes": 418,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "b73f7b5d-34ac-4de2-9e21-c9546aecf254",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 278,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "70152710-eb5d-40ed-aa53-21988c4fa96f",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 284,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "ff0f649a-6d87-4ed2-ac1a-69fce021222b",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 333,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "b3541d45-d887-49dd-abba-6ed612cc672d",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 338,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "870e5260-2f5b-4860-9ef6-89fc20d4b8cd",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 352,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "73dba3aa-4d01-4653-b445-7752c7dedb9e",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 255,
+          "status": 200,
+          "responseBytes": 419,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "dddaf0e3-92a1-4612-850f-e95eec57abf5",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 307,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "0419186e-3e24-45ec-87eb-59923c20e6f9",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 320,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "4997d1bf-7804-4c6a-8ef5-5c449c969df7",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 264,
+          "status": 200,
+          "responseBytes": 419,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "96713536-f23a-4170-a14e-0192eeb50305",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 275,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "e8539d10-3a9c-4cc9-b7e2-3d089839143d",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 278,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "a8df7fa9-6f10-421d-b158-2860bc341132",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 250,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "722e6daa-70f3-4d20-8fe7-941137e99517",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 254,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "04fc0b00-f63f-4700-bcfd-fe33e9704476",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 253,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "68cf14e2-1343-4525-99b0-f8201a3b2ed1",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 234,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "d30a7b4d-ac64-48e9-924f-daa509516dca",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 268,
+          "status": 200,
+          "responseBytes": 419,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "722b0acd-77f5-4859-903a-27c6c5b6b113",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 275,
+          "status": 200,
+          "responseBytes": 422,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "7367cb94-04fc-43e8-9ca6-c53c31cd4017",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 251,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "79160db9-6e49-4180-bb9b-3bbcf51b79f7",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 251,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "e7c57342-76b6-4208-bd17-208b251bd944",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 253,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "4d127a0e-88fe-4b3b-9a16-591dce3bd6e0",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 231,
+          "status": 200,
+          "responseBytes": 420,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "edbeb934-648b-493c-a479-d0f536522577",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 256,
+          "status": 200,
+          "responseBytes": 421,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "4cd133ef-72e0-42cc-ac33-9f975ff64867",
+          "httpRequests": 1,
+          "sdkReads": 100,
+          "documentsReturned": 161,
+          "estimatedDocumentReads": 163,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 98,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 32,
+              "estimate": 32
+            },
+            "programmes": {
+              "reads": 32,
+              "docs": 64,
+              "estimate": 64
+            },
+            "sessionsEffectuees": {
+              "reads": 64,
+              "docs": 64,
+              "estimate": 64
+            }
+          },
+          "durationMs": 257,
+          "status": 200,
+          "responseBytes": 419,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "096c680a-922f-4dfa-989c-29079527c391",
+          "httpRequests": 1,
+          "sdkReads": 28,
+          "documentsReturned": 41,
+          "estimatedDocumentReads": 43,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 26,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 8,
+              "estimate": 8
+            },
+            "programmes": {
+              "reads": 8,
+              "docs": 16,
+              "estimate": 16
+            },
+            "sessionsEffectuees": {
+              "reads": 16,
+              "docs": 16,
+              "estimate": 16
+            }
+          },
+          "durationMs": 71,
+          "status": 200,
+          "responseBytes": 282,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "405c1017-90ce-4ca1-bfd2-e3e9a67d2578",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 24016,
+          "status": 200,
+          "responseBytes": 170,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "9251ec58-f360-44c1-8d3d-4ba34a7ed4ed",
+          "httpRequests": 1,
+          "sdkReads": 4,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 4,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 4
+          },
+          "method": "GET",
+          "durationMs": 24016,
+          "status": 200,
+          "responseBytes": 170,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {
+          "coach-dashboard/listener-snapshot/users": {
+            "calls": 5,
+            "documentsReturned": 5,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 1
+          },
+          "coach-dashboard/cache/users": {
+            "calls": 1,
+            "documentsReturned": 1,
+            "failures": 0,
+            "estimate": 0
+          },
+          "coach-dashboard/default/users": {
+            "calls": 2,
+            "documentsReturned": 2,
+            "failures": 0,
+            "estimate": 2
+          },
+          "coach-dashboard/default/coachCalendarSubscriptions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1
+          },
+          "coach-dashboard/listener-snapshot/coachPageTemplateRevisions": {
+            "calls": 1,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 0
+          },
+          "coach-dashboard/listener-snapshot/clients": {
+            "calls": 11,
+            "documentsReturned": 1000,
+            "failures": 0,
+            "estimate": 1000,
+            "serverChanges": 1000
+          },
+          "coach-dashboard/listener-snapshot/sessions": {
+            "calls": 1,
+            "documentsReturned": 40,
+            "failures": 0,
+            "estimate": 40,
+            "serverChanges": 40
+          },
+          "coach-dashboard/server/nutrition_assessments": {
+            "calls": 1000,
+            "documentsReturned": 0,
+            "failures": 0,
+            "estimate": 1000
+          }
+        },
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 3
+          },
+          "coach-dashboard/listener-start": {
+            "calls": 14
+          },
+          "coach-dashboard/listener-snapshot": {
+            "calls": 18,
+            "added": 1040,
+            "modified": 0,
+            "removed": 0,
+            "serverChanges": 1041,
+            "estimatedDocumentReads": 1042,
+            "documentsReturned": 1045,
+            "first": 14,
+            "fromCache": 0,
+            "server": 18,
+            "pendingWrites": 2
+          },
+          "offers/refresh": {
+            "calls": 1
+          },
+          "coach-dashboard/refresh": {
+            "calls": 1
+          },
+          "offers/http": {
+            "calls": 1
+          },
+          "dashboard-templates/http": {
+            "calls": 1
+          },
+          "coach-dashboard/cache": {
+            "calls": 1,
+            "durationMs": 16.100000023841858,
+            "documentsReturned": 1,
+            "fromCache": 1,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 0
+          },
+          "coach-dashboard/default": {
+            "calls": 3,
+            "durationMs": 862.3999999761581,
+            "documentsReturned": 2,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 3
+          },
+          "offers/ready": {
+            "calls": 1,
+            "durationMs": 532.3000000119209
+          },
+          "club-inbox/http": {
+            "calls": 3
+          },
+          "offers/cache-hit": {
+            "calls": 2
+          },
+          "dashboard-client-programs/http": {
+            "calls": 32
+          },
+          "coach-dashboard/server": {
+            "calls": 1000,
+            "durationMs": 158869.89999842644,
+            "documentsReturned": 0,
+            "fromCache": 0,
+            "pendingWrites": 0,
+            "estimatedDocumentReads": 1000
+          },
+          "coach-dashboard/ready": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 1019,
+        "documentsReturned": 1053,
+        "estimatedReads": 2050,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "mounts": 2951,
+      "mountNames": {
+        "ColorModeScript": 1,
+        "ChakraProvider": 1,
+        "Provider": 1,
+        "ThemeProvider": 2,
+        "CSSVars": 1,
+        "ColorModeProvider": 1,
+        "CSSReset": 1,
+        "GlobalStyle": 1,
+        "EnvironmentProvider": 1,
+        "BrowserRouter": 1,
+        "Router": 1,
+        "AppResume": 1,
+        "PullToRefresh": 1,
+        "AppErrorBoundary": 1,
+        "App": 1,
+        "AuthProvider": 1,
+        "ToastProvider": 1,
+        "Portal": 15,
+        "DefaultPortal": 15,
+        "AnimatePresence": 49,
+        "ConsentProvider": 2,
+        "Insertion": 1415,
+        "AppContent": 2,
+        "RouteIntentPreloader": 2,
+        "SeoManager": 2,
+        "LanguageRouteSync": 2,
+        "Routes": 2,
+        "RenderedRoute": 2,
+        "CoachActiveRoute": 2,
+        "Navigate": 1,
+        "LazyBackground": 4,
+        "DownloadBoundary": 7,
+        "Navbar": 1,
+        "ButtonContent": 149,
+        "Drawer": 1,
+        "Modal": 20,
+        "IdleMount": 2,
+        "AppLoading": 1,
+        "CookieConsentBanner": 1,
+        "QuickCoachActions": 5,
+        "ButtonIcon": 46,
+        "Menu": 13,
+        "MdOutlineSpaceDashboard": 1,
+        "IconBase": 40,
+        "Trans": 1,
+        "CoachDashboard": 1,
+        "CoachPageAccess": 1,
+        "CacheMigrationNotice": 1,
+        "CoachDashboardView": 1,
+        "ClubLogo": 1,
+        "MdToday": 4,
+        "DashboardCard": 18,
+        "MdOutlineBolt": 3,
+        "MdOutlinePeopleAlt": 4,
+        "MdOutlineRestaurantMenu": 5,
+        "MdOutlinePayments": 2,
+        "AppNavigationArrow": 19,
+        "MdOutlineFitnessCenter": 4,
+        "MdTune": 1,
+        "CardShell": 6,
+        "MdOutlineLibraryBooks": 2,
+        "MdOutlineNoteAlt": 1,
+        "PlanInclusionBadge": 1,
+        "MdOutlineLink": 2,
+        "MdOutlineSchedule": 2,
+        "DeferredViewport": 1,
+        "DeferredWidgetBoundary": 1,
+        "DashboardMessagingBubble": 1,
+        "MessagingBubble": 1,
+        "MdOutlineChat": 1,
+        "MdPlayArrow": 5,
+        "DashboardOfferAlerts": 2,
+        "OfferPaymentPreview": 1,
+        "OfferRenewalAlerts": 1,
+        "CoachDashboardCalendar": 1,
+        "DragAndDropCalendar": 1,
+        "StableCalendar": 1,
+        "Uncontrolled(Calendar)": 1,
+        "Calendar": 1,
+        "Toolbar": 1,
+        "Week": 1,
+        "TimeGrid": 1,
+        "TimeGridHeader": 1,
+        "Header": 7,
+        "DateContentRow": 1,
+        "BackgroundCells": 1,
+        "NoopWrapper": 777,
+        "WeekWrapper": 1,
+        "EventRow": 2,
+        "TimeGutter": 1,
+        "TimeSlotGroup": 192,
+        "DayColumn": 7,
+        "DayColumnWrapper": 7,
+        "EventContainerWrapper": 7,
+        "TimeGridEvent": 1,
+        "Nest": 1,
+        "anonymous": 2,
+        "CoachClubEventWrapper": 1,
+        "ClubCalendarEventPreview": 1,
+        "EventWrapper": 1,
+        "CalendarValidationMark": 1,
+        "GuidedTutorial": 1,
+        "RouteAnalyticsListener": 1,
+        "MenuDivider": 12,
+        "MdClose": 1,
+        "MdArrowBack": 1,
+        "MdArrowForward": 1
+      },
+      "heap": {
+        "usedSize": 74526332,
+        "totalSize": 188153856,
+        "embedderHeapUsedSize": 11860488,
+        "backingStorageSize": 35915385
+      },
+      "execution": {
+        "LayoutDuration": 0.109564,
+        "ScriptDuration": 16.282441,
+        "TaskDuration": 21.712047
+      },
+      "stages": {
+        "painted": {
+          "pageMs": 25203,
+          "mountMs": 24161
+        },
+        "preferences": {
+          "status": "ready",
+          "pageMs": 1721,
+          "mountMs": 679
+        },
+        "preferencesCache": {
+          "status": "ready",
+          "pageMs": 1330,
+          "mountMs": 288
+        },
+        "copilot": {
+          "status": "ready",
+          "pageMs": 1570,
+          "mountMs": 528
+        },
+        "nutrition": {
+          "status": "ready",
+          "pageMs": 24729,
+          "mountMs": 23687,
+          "clients": 1000,
+          "assessments": 0,
+          "feedback": 0
+        },
+        "core": {
+          "status": "ready",
+          "pageMs": 17317,
+          "mountMs": 16275,
+          "completed": 2000,
+          "planned": 2000,
+          "clients": 1000,
+          "detailedClients": 1000,
+          "programs": 5,
+          "sessions": 40,
+          "snapshotChars": 2105080
+        },
+        "copilotCache": {
+          "status": "ready",
+          "pageMs": 1347,
+          "mountMs": 305
+        },
+        "templates": {
+          "status": "ready",
+          "pageMs": 1866,
+          "mountMs": 824,
+          "documents": 5,
+          "jsonCharacters": 1301,
+          "transport": "incremental-api",
+          "changed": 5
+        },
+        "calendar": {
+          "status": "ready",
+          "pageMs": 3286,
+          "mountMs": 2244
+        },
+        "clientQuery": {
+          "status": "ready",
+          "pageMs": 7825,
+          "mountMs": 6783,
+          "documents": 1000,
+          "jsonCharacters": 277558
+        },
+        "roots": {
+          "status": "ready",
+          "pageMs": 7844,
+          "mountMs": 6802,
+          "clients": 1000
+        },
+        "calendarRoots": {
+          "status": "ready",
+          "pageMs": 7848,
+          "mountMs": 6806,
+          "sessions": 40
+        },
+        "details": {
+          "status": "ready",
+          "pageMs": 17254,
+          "mountMs": 16212,
+          "clients": 1000
+        }
+      },
+      "longTasks": [
+        {
+          "start": 279.30000001192093,
+          "duration": 108
+        },
+        {
+          "start": 391.19999998807907,
+          "duration": 87
+        },
+        {
+          "start": 886.3000000119209,
+          "duration": 50
+        },
+        {
+          "start": 1013.8999999761581,
+          "duration": 344
+        },
+        {
+          "start": 1398.5999999642372,
+          "duration": 155
+        },
+        {
+          "start": 1578.800000011921,
+          "duration": 124
+        },
+        {
+          "start": 1721.300000011921,
+          "duration": 132
+        },
+        {
+          "start": 1872.5999999642372,
+          "duration": 166
+        },
+        {
+          "start": 2142.800000011921,
+          "duration": 250
+        },
+        {
+          "start": 2469.699999988079,
+          "duration": 187
+        },
+        {
+          "start": 2672.599999964237,
+          "duration": 192
+        },
+        {
+          "start": 2947.199999988079,
+          "duration": 344
+        },
+        {
+          "start": 3327.699999988079,
+          "duration": 269
+        },
+        {
+          "start": 3608.899999976158,
+          "duration": 216
+        },
+        {
+          "start": 3877.399999976158,
+          "duration": 245
+        },
+        {
+          "start": 4144.899999976158,
+          "duration": 212
+        },
+        {
+          "start": 4363.300000011921,
+          "duration": 57
+        },
+        {
+          "start": 4421.699999988079,
+          "duration": 207
+        },
+        {
+          "start": 4646.899999976158,
+          "duration": 231
+        },
+        {
+          "start": 4883,
+          "duration": 66
+        },
+        {
+          "start": 4954.899999976158,
+          "duration": 210
+        },
+        {
+          "start": 5183.300000011921,
+          "duration": 224
+        },
+        {
+          "start": 5411.099999964237,
+          "duration": 62
+        },
+        {
+          "start": 5476.899999976158,
+          "duration": 199
+        },
+        {
+          "start": 5695.899999976158,
+          "duration": 220
+        },
+        {
+          "start": 5924.599999964237,
+          "duration": 63
+        },
+        {
+          "start": 5993.399999976158,
+          "duration": 208
+        },
+        {
+          "start": 6220.099999964237,
+          "duration": 235
+        },
+        {
+          "start": 6459.899999976158,
+          "duration": 69
+        },
+        {
+          "start": 6534.800000011921,
+          "duration": 191
+        },
+        {
+          "start": 6749.699999988079,
+          "duration": 229
+        },
+        {
+          "start": 6983.199999988079,
+          "duration": 82
+        },
+        {
+          "start": 7067.899999976158,
+          "duration": 196
+        },
+        {
+          "start": 7292.099999964237,
+          "duration": 234
+        },
+        {
+          "start": 7531.699999988079,
+          "duration": 58
+        },
+        {
+          "start": 7597.899999976158,
+          "duration": 212
+        },
+        {
+          "start": 7864.099999964237,
+          "duration": 431
+        },
+        {
+          "start": 8328.199999988079,
+          "duration": 231
+        },
+        {
+          "start": 8608.300000011921,
+          "duration": 486
+        },
+        {
+          "start": 9195.099999964237,
+          "duration": 434
+        },
+        {
+          "start": 9652,
+          "duration": 254
+        },
+        {
+          "start": 9931.599999964237,
+          "duration": 371
+        },
+        {
+          "start": 10350.699999988079,
+          "duration": 353
+        },
+        {
+          "start": 10715.5,
+          "duration": 229
+        },
+        {
+          "start": 10950.599999964237,
+          "duration": 279
+        },
+        {
+          "start": 11255.399999976158,
+          "duration": 406
+        },
+        {
+          "start": 11784.599999964237,
+          "duration": 364
+        },
+        {
+          "start": 12178.300000011921,
+          "duration": 375
+        },
+        {
+          "start": 12648,
+          "duration": 372
+        },
+        {
+          "start": 13043.399999976158,
+          "duration": 361
+        },
+        {
+          "start": 13460.199999988079,
+          "duration": 342
+        },
+        {
+          "start": 13844,
+          "duration": 344
+        },
+        {
+          "start": 14239.599999964237,
+          "duration": 341
+        },
+        {
+          "start": 14602.599999964237,
+          "duration": 355
+        },
+        {
+          "start": 15029.5,
+          "duration": 355
+        },
+        {
+          "start": 15406.300000011921,
+          "duration": 352
+        },
+        {
+          "start": 15804.5,
+          "duration": 341
+        },
+        {
+          "start": 16194.899999976158,
+          "duration": 342
+        },
+        {
+          "start": 16586.099999964237,
+          "duration": 300
+        },
+        {
+          "start": 16902.19999998808,
+          "duration": 289
+        },
+        {
+          "start": 17253.399999976158,
+          "duration": 64
+        },
+        {
+          "start": 17322.399999976158,
+          "duration": 509
+        },
+        {
+          "start": 17926,
+          "duration": 208
+        },
+        {
+          "start": 24729.80000001192,
+          "duration": 463
+        },
+        {
+          "start": 25205,
+          "duration": 215
+        }
+      ],
+      "heartbeatMaxMs": 901.1999999880791,
+      "navigation": [
+        {
+          "name": "http://localhost:5174/coach-dashboard?dashboardPerf",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 387.0999999642372,
+          "navigationId": 2493,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 0.3999999761581421,
+          "domainLookupStart": 0.3999999761581421,
+          "domainLookupEnd": 0.3999999761581421,
+          "connectStart": 0.3999999761581421,
+          "secureConnectionStart": 0,
+          "connectEnd": 0.3999999761581421,
+          "requestStart": 1,
+          "responseStart": 3.399999976158142,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 3.399999976158142,
+          "responseEnd": 7.5,
+          "transferSize": 421,
+          "encodedBodySize": 121,
+          "decodedBodySize": 121,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 27.69999998807907,
+          "domContentLoadedEventStart": 386.80000001192093,
+          "domContentLoadedEventEnd": 386.80000001192093,
+          "domComplete": 387.0999999642372,
+          "loadEventStart": 387.0999999642372,
+          "loadEventEnd": 387.0999999642372,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {}
+        }
+      ],
+      "startup": {
+        "entry": 383.69999998807907,
+        "authStart": 518.3000000119209,
+        "sessionRestored": 557.3000000119209,
+        "admitted": 840.0999999642372,
+        "route": 841.3000000119209,
+        "authObserver": 716.6999999880791,
+        "profileAuthorized": 10715.5,
+        "profilePublished": 10715.5,
+        "firebase": 363.19999998807907
+      },
+      "state": {
+        "ready": true,
+        "path": "/coach-dashboard",
+        "text": "\nLes dernières validations et mouvements importants.\n\nAucune action récente\n\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "cpuSelfTopMs": [
+        {
+          "frame": "(idle) ",
+          "ms": 6843.903
+        },
+        {
+          "frame": "__PRIVATE_compareUtf8Strings http://localhost:PORT/node_modules/.vite/deps/firebase_firestore.js?v=e2c85c04",
+          "ms": 1779.683
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 1338.208
+        },
+        {
+          "frame": "(program) ",
+          "ms": 1321.759
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 1050.904
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 915.665
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 510.234
+        },
+        {
+          "frame": "exports.unstable_now http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 490.737
+        },
+        {
+          "frame": "handleInterpolation http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 417.937
+        },
+        {
+          "frame": "(garbage collector) ",
+          "ms": 391.549
+        },
+        {
+          "frame": "split http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 340.609
+        },
+        {
+          "frame": "createElement http://localhost:PORT/node_modules/.vite/deps/react.js?v=6e6db1fb",
+          "ms": 318.92
+        },
+        {
+          "frame": "splitProps http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 316.903
+        },
+        {
+          "frame": "formatLanguageCode http://localhost:PORT/node_modules/.vite/deps/i18next.js?v=fb9d14f2",
+          "ms": 307.724
+        },
+        {
+          "frame": "diffProperties http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 288.05
+        },
+        {
+          "frame": "css2 http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 287.512
+        },
+        {
+          "frame": "ChakraComponent2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 250.833
+        },
+        {
+          "frame": "(anonymous) ",
+          "ms": 228.288
+        },
+        {
+          "frame": "CoachDashboardView http://localhost:PORT/src/components/CoachDashboard.jsx",
+          "ms": 218.657
+        },
+        {
+          "frame": "walk ",
+          "ms": 213.014
+        },
+        {
+          "frame": "compact http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 204.317
+        },
+        {
+          "frame": "ReactElement http://localhost:PORT/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=17eaa581",
+          "ms": 203.395
+        },
+        {
+          "frame": "baseMerge http://localhost:PORT/node_modules/.vite/deps/esm-Dv_rT-CX.js?v=4e61d547",
+          "ms": 195.684
+        },
+        {
+          "frame": "murmur2 http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 183.597
+        },
+        {
+          "frame": "(anonymous) http://localhost:PORT/node_modules/.vite/deps/firebase_firestore.js?v=e2c85c04",
+          "ms": 179.123
+        },
+        {
+          "frame": "assignAfter http://localhost:PORT/node_modules/.vite/deps/esm-B08_6lV2.js?v=4e61d547",
+          "ms": 171.909
+        },
+        {
+          "frame": "renderWithHooks http://localhost:PORT/node_modules/.vite/deps/react-dom-CdDXHKDI.js?v=4e61d547",
+          "ms": 163.833
+        },
+        {
+          "frame": "fetch ",
+          "ms": 159.036
+        },
+        {
+          "frame": "get http://localhost:PORT/node_modules/.vite/deps/firebase_firestore.js?v=e2c85c04",
+          "ms": 157.417
+        },
+        {
+          "frame": "isNumericId http://localhost:PORT/node_modules/.vite/deps/firebase_firestore.js?v=e2c85c04",
+          "ms": 157.213
+        }
+      ]
+    }
+  ]
+}

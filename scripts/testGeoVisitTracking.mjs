@@ -13,7 +13,7 @@ let location = { key: 'a', pathname: '/coach-dashboard', search: '' };
 const context = vm.createContext({
   console, Date, Math, Number, Promise,
   GEO_PAGE_LOAD_ID: 'test-opening', GEO_PAGE_LOAD_STORAGE_KEY: 'BYL_GEO_PAGE_LOAD_ID',
-  localStorage: { getItem: key => storage.get(key) ?? null },
+  localSessionStorage: { getItem: key => storage.get(key) ?? null },
   useLocation: () => location, useAuth: () => ({ user: { uid: 'one' }, effectiveRole: 'coach' }),
   trackPageView: async payload => { sent.push(payload); return { ok: true }; },
   setTimeout: callback => { const id = ++timerId; timers.set(id, callback); return id; },

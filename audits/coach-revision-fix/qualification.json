@@ -1,0 +1,71 @@
+{
+  "localAfter": {
+    "coldDevelopmentRestart": {
+      "dashboardMountedMs": 6247,
+      "directoryMs": 6919,
+      "calendarRootsMs": 6932,
+      "templatesMs": 7050,
+      "nutritionMs": 8322,
+      "detailsMs": 26104,
+      "coreMs": 26232,
+      "paintedMs": 26342
+    },
+    "ordinaryReload": {
+      "dashboardMountedMs": 464,
+      "directoryMs": 938,
+      "calendarRootsMs": 953,
+      "templatesMs": 1153,
+      "nutritionMs": 2257,
+      "detailsMs": 20071,
+      "coreMs": 20204,
+      "paintedMs": 20329
+    },
+    "serializedStateCharacters": 32175207
+  },
+  "limits": [
+    "Aggregate timings only; no client record saved",
+    "Serialized state size is not network transfer size",
+    "No actual billed reads measured",
+    "Main loading remains above two seconds"
+  ],
+  "checks": [
+    {
+      "name": "before-denied",
+      "exitCode": 0
+    },
+    {
+      "name": "after-denied",
+      "exitCode": 0
+    },
+    {
+      "name": "after-allowed",
+      "exitCode": 0
+    },
+    {
+      "name": "coach",
+      "exitCode": 0
+    },
+    {
+      "name": "p01",
+      "exitCode": 0
+    },
+    {
+      "name": "p02",
+      "exitCode": 0
+    },
+    {
+      "name": "smoke",
+      "exitCode": 0
+    },
+    {
+      "name": "build",
+      "exitCode": 0
+    }
+  ],
+  "runtimeFiles": {
+    "src/components/CoachDashboard.jsx": "61588ef6f1437b49ee927542340d37bdbf4f14bc73e9b2845ebfd0d1b554de1b",
+    "backend/routes/coachProgramRead.js": "b5b660ebc5d179333406ed4910c54a91f277077e2a3b3e8e1f943cfc661ca405"
+  },
+  "deployed": false,
+  "productionRulesChanged": false
+}

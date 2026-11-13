@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-10T16:10:22.722Z",
+  "branch": "codex/firebase-performance-audit",
+  "baseline": "5bdcd1bb3339b7adf3dd5e81311d76200b756ffd",
+  "command": "PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runMigrationLot7B1Sexies.cjs",
+  "testsPassed": 39,
+  "quaterFingerprintsCompared": 50,
+  "quaterDifferences": [],
+  "quinquiesDifferences": [],
+  "productionFilesModifiedInThisLot": false,
+  "sourceSha256": {
+    "BYL_LOT7B1SEXIES_BILAN.md": "2418129a06afcb10a4f93536b3c515ef9fa8bf2ccf4548e263594a374b24bc27",
+    "BYL_LOT7B1SEXIES_DECISION.md": "1c38b1de1612f9449e9947bc3e3441ab4f6e6b2dd47116c055f170d1d340600e",
+    "BYL_LOT7B1SEXIES_MIGRATION.md": "c8aaa8911a614d56cb840b628577c719c796e634486b4f4cf5b5a07bba429e7a",
+    "BYL_LOT7B1SEXIES_PERFORMANCES.md": "1646d5e5ca4ab621471a9015ebd7215fbdb00539caadaa00a8e13079dbfb32e5",
+    "BYL_LOT7B1SEXIES_SECURITE.md": "fda1cfd8c7c54d9a219e452375c7e2262fbbbec21e96136c3b08d897ebd40ea1",
+    "BYL_LOT7B1SEXIES_TESTS.md": "b99cd2581dc2d72984ae21fdbedaec2c441a1622072afc5864a458b1d531e484",
+    "scripts/runMigrationLot7B1Sexies.cjs": "89267f5f05e716fd5491a6f07186d2646f92527b751b804de94c72c53dc26544",
+    "scripts/testMigrationLot7B1Sexies.cjs": "109419e5b7cf9b9990bcb0b68cba334d8a6086401bd16b056f1bbcaa00266fbe",
+    "scripts/fixtures/lot7b1sexies/migration.js": "2585787df2cbacf245371fbeb9b3a946562a8d80c3f9cbe2f4ec57ceb7332a09",
+    "scripts/fixtures/lot7b1sexies/firestore.js": "9f9a78a18e0765cf391e2295c2b7b5a7633afc3b9272ed73feffa2ec8a4f0fd7",
+    "audits/lot7b1sexies/results.json": "5b9647b1e425ab27d671fef03cd86f313f323e2ebeef824a3a9bd9eb4250ba7e"
+  },
+  "metricsSumValidated": true
+}

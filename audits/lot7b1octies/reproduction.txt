@@ -1,0 +1,5 @@
+Sans délai de stabilisation : 41 contrôles réussis sur le premier passage.
+Échec ciblé avant correction (module GuidedTutorial bloqué via CDP) :
+APP_ERROR TypeError: Failed to fetch dynamically imported module: http://localhost:5174/src/components/GuidedTutorial.jsx
+APP_ERROR TypeError: Failed to fetch dynamically imported module: http://localhost:5174/src/components/GuidedTutorial.jsx
+La trace de SEPTIES ne permet pas une attribution rétrospective certaine au même module.

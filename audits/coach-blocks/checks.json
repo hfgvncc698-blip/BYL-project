@@ -1,0 +1,26 @@
+[
+  {
+    "name": "before-1-build",
+    "exitCode": 0
+  },
+  {
+    "name": "after-1-build",
+    "exitCode": 0
+  },
+  {
+    "name": "before-2-build",
+    "exitCode": 0
+  },
+  {
+    "name": "after-2-build",
+    "exitCode": 0
+  },
+  {
+    "name": "before-3-build",
+    "exitCode": 0
+  },
+  {
+    "name": "after-3-build",
+    "exitCode": 0
+  }
+]

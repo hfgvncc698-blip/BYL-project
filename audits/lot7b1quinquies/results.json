@@ -1,0 +1,172 @@
+{
+  "date": "2026-11-10T15:02:52.212Z",
+  "node": "v25.8.1",
+  "chrome": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/157.0.8103.50",
+    "revision": "@049750111b1e5c11565c792b2aeed5541f332bad",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+    "jsVersion": "15.7.112.23"
+  },
+  "results": [
+    {
+      "name": "unresolved data blocks deletion",
+      "passed": true,
+      "durationMs": 3.088000000000079
+    },
+    {
+      "name": "anonymous recovery reads no private record",
+      "passed": true,
+      "durationMs": 1.2087080000000014
+    },
+    {
+      "name": "second account cannot read first account content",
+      "passed": true,
+      "durationMs": 4.036542000000054
+    },
+    {
+      "name": "unknown owner refused before content read",
+      "passed": true,
+      "durationMs": 4.273249999999962
+    },
+    {
+      "name": "explicit confirmation required before read",
+      "passed": true,
+      "durationMs": 2.1653749999999263
+    },
+    {
+      "name": "network cut refuses recovery without reading",
+      "passed": true,
+      "durationMs": 3.6866659999999456
+    },
+    {
+      "name": "revocation before recovery refuses read",
+      "passed": true,
+      "durationMs": 2.2854580000000624
+    },
+    {
+      "name": "club change refuses recovery",
+      "passed": true,
+      "durationMs": 1.7485410000000456
+    },
+    {
+      "name": "late admission after account change reads nothing",
+      "passed": true,
+      "durationMs": 203.81845799999996
+    },
+    {
+      "name": "canonical version race rejects import",
+      "passed": true,
+      "durationMs": 3.2016669999998157
+    },
+    {
+      "name": "revocation at commit rejects import",
+      "passed": true,
+      "durationMs": 2.475791000000072
+    },
+    {
+      "name": "tampered provenance cannot be imported",
+      "passed": true,
+      "durationMs": 3.1375000000000455
+    },
+    {
+      "name": "lost confirmation preserves original draft",
+      "passed": true,
+      "durationMs": 4.122084000000086
+    },
+    {
+      "name": "recovery retry verifies receipt without duplication or publication",
+      "passed": true,
+      "durationMs": 3.7091250000000855
+    },
+    {
+      "name": "second authorized account recovers only its draft",
+      "passed": true,
+      "durationMs": 3.682083000000148
+    },
+    {
+      "name": "two tabs share draft receipt without duplicate import",
+      "passed": true,
+      "durationMs": 7.2498749999999745
+    },
+    {
+      "name": "legacy open connection blocks database deletion",
+      "passed": true,
+      "durationMs": 728.102958
+    },
+    {
+      "name": "blocked request remains live then succeeds after close",
+      "passed": true,
+      "durationMs": 205.63854100000003
+    },
+    {
+      "name": "secondary cleanup failure is resumable and not success",
+      "passed": true,
+      "durationMs": 1.3581669999998667
+    },
+    {
+      "name": "cleanup resume clears IDB local session cache and SW in current tab",
+      "passed": true,
+      "durationMs": 2.889292000000296
+    },
+    {
+      "name": "idempotent cleanup repeats without changing public preference",
+      "passed": true,
+      "durationMs": 1.289292000000387
+    },
+    {
+      "name": "another tab sessionStorage is not cleared by current tab",
+      "passed": true,
+      "durationMs": 1.4487079999998969
+    },
+    {
+      "name": "old tab can recreate cache after nominal cleanup",
+      "passed": true,
+      "durationMs": 3.0430419999997866
+    },
+    {
+      "name": "browser restart preserves verified absence of synthetic private stores",
+      "passed": true,
+      "durationMs": 542.212583
+    },
+    {
+      "name": "reopen during interruption retains evidence and resumes",
+      "passed": true,
+      "durationMs": 528.863417
+    },
+    {
+      "name": "real Firestore SDK persists pending offline write",
+      "passed": true,
+      "durationMs": 3.8417500000000473
+    },
+    {
+      "name": "real Firestore clear rejects running instance",
+      "passed": true,
+      "durationMs": 0.7190000000000509
+    },
+    {
+      "name": "real pending write survives terminate and full browser restart",
+      "passed": true,
+      "durationMs": 537.4557500000001
+    },
+    {
+      "name": "real SDK synthetic purge drops pending data after termination",
+      "passed": true,
+      "durationMs": 3.350082999999813
+    },
+    {
+      "name": "real SDK database remains absent after full restart",
+      "passed": true,
+      "durationMs": 492.65695800000003
+    }
+  ],
+  "writes": 2,
+  "canonicalUnchanged": true,
+  "limits": [
+    "Synthetic authority and provenance manifest, not Firebase authentication",
+    "Real Firebase SDK 12.12.0 pending-write persistence/deletion tested; no internal mutation decoder or recovery qualified",
+    "No actual legacy user data or profile inspected",
+    "API-visible absence is not forensic disk erasure",
+    "Uncooperative old tabs can recreate storage; no global completion guarantee"
+  ]
+}

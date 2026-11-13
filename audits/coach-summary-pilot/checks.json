@@ -1,0 +1,22 @@
+[
+  {
+    "name": "trial",
+    "exitCode": 0
+  },
+  {
+    "name": "before-1",
+    "exitCode": 0
+  },
+  {
+    "name": "after-1",
+    "exitCode": 0
+  },
+  {
+    "name": "before-2",
+    "exitCode": 0
+  },
+  {
+    "name": "after-2",
+    "exitCode": 0
+  }
+]

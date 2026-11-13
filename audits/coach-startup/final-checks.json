@@ -1,0 +1,88 @@
+[
+  {
+    "name": "before-1-build",
+    "exitCode": 0,
+    "ms": 39743
+  },
+  {
+    "name": "after-1-build",
+    "exitCode": 0,
+    "ms": 40371
+  },
+  {
+    "name": "before-2-build",
+    "exitCode": 0,
+    "ms": 40607
+  },
+  {
+    "name": "after-2-build",
+    "exitCode": 0,
+    "ms": 40075
+  },
+  {
+    "name": "before-3-build",
+    "exitCode": 0,
+    "ms": 39899
+  },
+  {
+    "name": "after-3-build",
+    "exitCode": 0,
+    "ms": 41383
+  },
+  {
+    "name": "security-coach",
+    "exitCode": 0,
+    "ms": 12216
+  },
+  {
+    "name": "security-progress",
+    "exitCode": 0,
+    "ms": 9051
+  },
+  {
+    "name": "security-calendar",
+    "exitCode": 0,
+    "ms": 16569
+  },
+  {
+    "name": "security-p01",
+    "exitCode": 0,
+    "ms": 9281
+  },
+  {
+    "name": "security-p02",
+    "exitCode": 0,
+    "ms": 13491
+  },
+  {
+    "name": "security-messaging",
+    "exitCode": 0,
+    "ms": 21261
+  },
+  {
+    "name": "integrated",
+    "exitCode": 1,
+    "ms": 17464,
+    "knownExistingFailure": "Same missing migration notice with baseline AuthContext; see integrated-baseline-auth.log"
+  },
+  {
+    "name": "integrated-drafts",
+    "exitCode": 0,
+    "ms": 22149
+  },
+  {
+    "name": "draft-api",
+    "exitCode": 0,
+    "ms": 9586
+  },
+  {
+    "name": "smoke",
+    "exitCode": 0,
+    "ms": 991
+  },
+  {
+    "name": "build",
+    "exitCode": 0,
+    "ms": 3778
+  }
+]

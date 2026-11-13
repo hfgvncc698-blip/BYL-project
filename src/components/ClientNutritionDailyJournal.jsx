@@ -62,6 +62,7 @@ import {
   nutritionDateKey,
   roundNutritionTotals,
 } from "../utils/nutritionDailyLog";
+import { localizedFoodName } from "../utils/nutritionFoodI18n";
 import { loadCiqual, searchCiqual } from "../utils/ciqualLoader";
 import i18n from "../i18n/index";
 import { manualRationDefaultQuantity } from "../utils/manualRationNutrition";
@@ -221,6 +222,7 @@ export default function ClientNutritionDailyJournal({
   const handledCoachFeedbackFocusRef = useRef(false);
   const coachFeedbackSectionRef = useRef(null);
   const locale = translationI18n.resolvedLanguage || translationI18n.language || "fr";
+  const foodLabel = (food) => localizedFoodName(food, locale);
   const translatedMealLabel = (mealKey, fallback = "") => {
     const keyByMeal = {
       petit_dej: "breakfast",
@@ -524,7 +526,7 @@ export default function ClientNutritionDailyJournal({
       unit: rationReference?.unit || defaultReference?.unit || "g",
       nutritionPer100: ciqualNutritionPer100(row),
     }));
-    setFoodQuery(row.name || "");
+    setFoodQuery(foodLabel(row));
   };
 
   const selectRationFood = (option, mealKey = "") => {
@@ -578,7 +580,7 @@ export default function ClientNutritionDailyJournal({
                 colorScheme={isSelected ? "blue" : "gray"}
                 onClick={() => selectRationFood(option, mealKey)}
               >
-                {option.label}
+                {foodLabel(option.sourceLabel || option.label)}
               </Button>
             );
           })}
@@ -746,12 +748,12 @@ export default function ClientNutritionDailyJournal({
                           minW={0}
                         >
                           <HStack spacing={2}>
-                            <Text noOfLines={2}>{entry.name}</Text>
+                            <Text noOfLines={2}>{foodLabel(entry)}</Text>
                             {entry.source === "extra" ? <Badge size="sm" borderRadius="full" colorScheme="purple">{t("clientNutritionJournal.addition")}</Badge> : null}
                           </HStack>
                         </Checkbox>
                         <InputGroup size="sm">
-                          <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: entry.name })} />
+                          <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: foodLabel(entry) })} />
                           <InputRightElement color={theme.mutedText} fontSize="xs" pointerEvents="none">{entry.unit || "g"}</InputRightElement>
                         </InputGroup>
                       </Grid>
@@ -794,14 +796,14 @@ export default function ClientNutritionDailyJournal({
                         const per100 = ciqualNutritionPer100(row);
                         return (
                           <Box as="button" type="button" key={row.code} w="full" textAlign="left" px={3} py={2} borderBottomWidth="1px" borderBottomColor={theme.borderColor} _hover={{ bg: theme.surfaceBg }} onClick={() => selectCiqualFood(row, currentMeal?.key)}>
-                            <Text fontWeight="800" fontSize="sm">{row.name}</Text>
+                            <Text fontWeight="800" fontSize="sm">{foodLabel(row)}</Text>
                             <Text fontSize="xs" color={theme.mutedText}>{Math.round(per100.kcal)} kcal · {t("coachNutritionJournal.macroShort.protein")} {per100.p.toFixed(1)} g · {t("coachNutritionJournal.macroShort.fat")} {per100.f.toFixed(1)} g · {t("coachNutritionJournal.macroShort.carbs")} {per100.c.toFixed(1)} g / 100 g</Text>
                           </Box>
                         );
                       })}
                     </Box>
                   ) : null}
-                  {hasSelectedFood ? <HStack borderWidth="1px" borderColor={theme.borderColor} borderRadius="12px" py={2} px={3} justify="space-between" gap={3}><Box minW={0}><Text fontWeight="900" fontSize="sm" noOfLines={1}>{extra.name}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.selectedFood")}</Text></Box></HStack> : null}
+                  {hasSelectedFood ? <HStack borderWidth="1px" borderColor={theme.borderColor} borderRadius="12px" py={2} px={3} justify="space-between" gap={3}><Box minW={0}><Text fontWeight="900" fontSize="sm" noOfLines={1}>{foodLabel(extra)}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.selectedFood")}</Text></Box></HStack> : null}
                   {extra.nutritionPer100 ? (() => {
                     const factor = safeNumber(extra.actualQuantity) / 100;
                     return <Text fontSize="sm" color={theme.mutedText}>{t("clientNutritionJournal.forThisQuantity")} <Text as="span" fontWeight="900" color={theme.textColor}>{Math.round(extra.nutritionPer100.kcal * factor)} kcal · {t("coachNutritionJournal.macroShort.protein")} {(extra.nutritionPer100.p * factor).toFixed(1)} g · {t("coachNutritionJournal.macroShort.fat")} {(extra.nutritionPer100.f * factor).toFixed(1)} g · {t("coachNutritionJournal.macroShort.carbs")} {(extra.nutritionPer100.c * factor).toFixed(1)} g</Text></Text>;
@@ -924,10 +926,10 @@ export default function ClientNutritionDailyJournal({
                         fontSize="sm"
                         minW={0}
                       >
-                        <Text noOfLines={2}>{entry.name}</Text>
+                        <Text noOfLines={2}>{foodLabel(entry)}</Text>
                       </Checkbox>
                       <InputGroup size="sm">
-                        <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: entry.name })} />
+                        <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: foodLabel(entry) })} />
                         <InputRightElement color={theme.mutedText} fontSize="xs" pointerEvents="none">{entry.unit || "g"}</InputRightElement>
                       </InputGroup>
                     </Grid>
@@ -999,7 +1001,7 @@ export default function ClientNutritionDailyJournal({
                   const per100 = ciqualNutritionPer100(row);
                   return (
                     <Box as="button" type="button" key={row.code} w="full" textAlign="left" px={3} py={2.5} bg={theme.surfaceBgStrong} borderBottomWidth="1px" borderBottomColor={theme.borderColor} _hover={{ bg: "rgba(37,124,255,0.08)" }} onClick={() => selectCiqualFood(row, extra.mealKey)}>
-                      <Text fontWeight="800" fontSize="sm">{row.name}</Text>
+                      <Text fontWeight="800" fontSize="sm">{foodLabel(row)}</Text>
                       <Text fontSize="xs" color={theme.mutedText}>{Math.round(per100.kcal)} kcal · {t("coachNutritionJournal.macroShort.protein")} {per100.p.toFixed(1)} g · {t("coachNutritionJournal.macroShort.fat")} {per100.f.toFixed(1)} g · {t("coachNutritionJournal.macroShort.carbs")} {per100.c.toFixed(1)} g / 100 g</Text>
                     </Box>
                   );
@@ -1010,7 +1012,7 @@ export default function ClientNutritionDailyJournal({
           {hasSelectedFood ? (
             <Box mt={3} borderWidth="1px" borderColor="rgba(37,124,255,0.35)" bg="rgba(37,124,255,0.06)" borderRadius="16px" p={3}>
               <HStack justify="space-between" align="start" gap={3}>
-                <Box><Text fontWeight="900">{extra.name}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.ciqualReference", { code: extra.ciqualCode })}</Text></Box>
+                <Box><Text fontWeight="900">{foodLabel(extra)}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.ciqualReference", { code: extra.ciqualCode })}</Text></Box>
                 <Button size="xs" variant="ghost" onClick={() => { setExtra(emptyExtra); setFoodQuery(""); }}>{t("clientNutritionJournal.change")}</Button>
               </HStack>
             </Box>
@@ -1073,6 +1075,7 @@ export function CoachNutritionDailySummary({ clientId, variant = "compact", onOp
   const toast = useToast();
   const theme = useNutritionTheme();
   const locale = translationI18n.resolvedLanguage || translationI18n.language || "fr";
+  const foodLabel = (food) => localizedFoodName(food, locale);
   const translatedMealLabel = (mealKey, fallback = "") => {
     const keyByMeal = {
       petit_dej: "breakfast",
@@ -1447,7 +1450,7 @@ export function CoachNutritionDailySummary({ clientId, variant = "compact", onOp
                                             <Badge colorScheme={entry.eaten ? "green" : "gray"} borderRadius="full">{entry.eaten ? t("coachNutritionJournal.eaten") : t("coachNutritionJournal.notEaten")}</Badge>
                                             {entry.source === "extra" ? <Badge colorScheme="purple" borderRadius="full">{t("coachNutritionJournal.clientAddition")}</Badge> : null}
                                           </HStack>
-                                          <Text mt={1} fontWeight="800" fontSize="sm">{entry.name}</Text>
+                                          <Text mt={1} fontWeight="800" fontSize="sm">{foodLabel(entry)}</Text>
                                           {entry.source === "extra" && entry.ciqualCode ? <Text fontSize="xs" color={theme.mutedText}>CIQUAL {entry.ciqualCode}</Text> : null}
                                         </Box>
                                         <Box textAlign="right" flexShrink={0}>

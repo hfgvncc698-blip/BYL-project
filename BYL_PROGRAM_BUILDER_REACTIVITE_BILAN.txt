@@ -1,0 +1,114 @@
+PROGRAMBUILDER — AJOUT ET REMPLACEMENT D'EXERCICES
+13 novembre 2026 — branche codex/firebase-performance-audit
+Correction locale ; aucun déploiement, aucune donnée réelle modifiée.
+
+Constat démontré
+Un historique vide créé à chaque rendu était transmis à chaque ExerciseCardRow.
+Le comparateur React.memo considérait donc toutes les cartes comme modifiées.
+Pour une action sur 25 exercices, 98 à 104 exécutions de cartes étaient observées
+avant l'affichage. Le changement de cible de remplacement invalidait également
+les cartes non concernées. Cela explique une sensibilité à la puissance du CPU.
+Dans un nouveau programme, chaque modification des séances produisait aussi une
+copie JSON complète, alors que ces séances existaient déjà dans le Map mémoire.
+La banque latérale recevait des callbacks recréés lors de chaque sélection.
+
+Corrections intégrées
+- Référence vide stable pour l'historique des cartes sans historique.
+- Comparaison de l'état de remplacement propre à chaque carte.
+- Mémorisation de la banque dans ProgramBuilderPage, avec callbacks stables ; les
+  changements de mode, contexte, langue et d'état interne continuent à s'afficher.
+- Option memoryOnly réservée aux séances du nouveau programme : conservation
+  immédiate dans le Map existant, sans deuxième copie JSON. Aucun changement du
+  contrat des autres utilisateurs du hook ni de la sauvegarde serveur à 900 ms.
+  Le Map est toujours effacé lors des transitions d'identité. Le retrait de la
+  copie secondaire concerne uniquement l'adaptateur mémoire courant, jamais les
+  anciennes données persistantes du navigateur.
+- Suppression/déplacement/réorganisation : les exercices dont linkNext change
+  reçoivent un nouvel objet pour que leur carte se mette à jour correctement.
+  Les versions précédentes de l'état ne sont plus modifiées en place pour ce flag.
+
+Mesures avant/après — fixture synthétique et émulateurs
+Vrai composant ProgramBuilder, AuthProvider, React/Chakra, routes de brouillons
+réelles avec Firebase Auth/Firestore émulés. Chrome headless jetable, mode dev,
+24 exercices initiaux, puis 25–26 ; 16 Ko de détails par exercice.
+Le banc injecte la sélection par les mêmes props que la banque. Il mesure jusqu'à
+la présence du nouvel exercice dans le DOM puis deux requestAnimationFrame.
+La recherche/lecture initiale de la banque n'est pas incluse. CPU normal puis
+ralenti x4 par Chrome : simulation, pas mesure sur l'ordinateur concerné.
+
+Action                     Avant         Après        Rendus avant -> après
+Ajout, CPU normal          383,6 ms       61,2 ms       98 -> 2
+Remplacement, CPU normal   399,4 ms       74,7 ms       100 -> 2
+Ajout, CPU x4              1 606,1 ms     192,4 ms      102 -> 2
+Remplacement, CPU x4       1 740,6 ms     166,9 ms      104 -> 2
+
+Un échantillon par action/condition ; pas de p95 ni garantie sur tous les appareils.
+Les tests ne démontrent pas que toute lenteur rapportée provenait de cette cause.
+Les données réelles du coach n'ont pas été utilisées pour créer/modifier un programme.
+Heap final observé : 231,9 Mo avant, 77,4 Mo après ; GC non forcé, comparaison
+indicative uniquement, ne pas transformer ces valeurs en économie mémoire garantie.
+
+Coûts Firebase/Google
+Aucune requête, écriture, tâche planifiée ou infrastructure ajoutée par la correction.
+Une sauvegarde de brouillon par action mesurée, avant et après.
+Sur le scénario complet du banc : 7 appels program-draft-save, 7 appels
+program-draft-read (incluant les contrôles du banc), 56 opérations SDK de lecture
+et 56 lectures documentaires estimées dans les métriques HTTP, identiques avant/après.
+Les routes, contenu sauvegardé et cadence des brouillons sont inchangés : les
+écritures existantes ne sont pas multipliées. Ce n'est pas une facture ni un relevé
+exhaustif de toutes les lectures navigateur ; aucun montant en euros n'est déduit.
+Les résultats visibles n'attendent toujours pas la sauvegarde distante.
+
+Tests réussis
+1. scripts/testBuilderInteractionCaching.mjs : conservation immédiate et remontage
+   du brouillon en mémoire, suppression explicite, transition d'identité, zéro
+   sérialisation supplémentaire des séances ; comportement par défaut des autres
+   appelants préservé ; édition, historique et sélection actualisent les cartes.
+   Suppression, déplacement et réorganisation mettent à jour les liens sans
+   modifier les anciens objets.
+2. scripts/testPlayerBuilderSync.mjs.
+3. scripts/testExerciseHistoryIdentity.mjs.
+4. scripts/testPlayerExerciseEditing.mjs.
+5. scripts/testPrivateSessionLot7B1Octies.mjs.
+6. Banc avant/après : ajouts, remplacements, contenu sauvegardé, répétitions
+   conservées, travail hors ligne puis synchronisation, programme canonique intact.
+7. Suite intégrée de brouillons : 20 contrôles réussis, dont conflit concurrent,
+   refus d'une version ancienne, restauration, publication explicite synthétique,
+   fermeture/réouverture, deux onglets, changement de compte/club/rôle et révocation.
+   La suite reproduit aussi la persistance des anciennes copies disque comme
+   risque résiduel ; elle ne déclare pas P0-4 corrigé.
+8. Build et budgets de taille, git diff --check : réussis.
+
+Incidents de lancement
+Le lancement sans permission réseau locale n'a pas démarré les émulateurs ; relancé
+avec autorisation du banc local. Une invocation directe de l'ancien test intégré
+sans variables d'émulateurs a été correctement refusée par son garde-fou, puis
+la suite entière a réussi via le runner isolé. Aucun contournement des garde-fous.
+
+Fichiers modifiés pour cette intervention
+src/components/ProgramBuilder.jsx
+src/components/ProgramBuilderPage.jsx
+src/hooks/useSessionDraft.js
+scripts/testBuilderInteractionCaching.mjs
+scripts/runBuilderInteractions.cjs
+scripts/fixtures/builderInteractionsChecks.txt
+Artefacts : audits/builder-interactions/before.json, after.json, regression.json ;
+versions avant correction conservées dans audits/builder-interactions/before/.
+Les autres modifications déjà présentes dans le workspace ne sont pas imputées
+à cette intervention.
+
+Reproduction
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runBuilderInteractions.cjs before
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runBuilderInteractions.cjs after
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runBuilderInteractions.cjs after --regression
+Le runner travaille dans une copie temporaire avec projet demo-byl-performance,
+profils Chrome jetables et émulateurs. Il ne doit pas cibler un projet réel.
+
+Limites
+Pas de nouvelle qualification exhaustive mobile ni de mesure du chargement initial
+de toute la banque ; le banc de performance isole l'édition du vrai Builder.
+Les sauvegardes de programmes très volumineux et les historiques très importants
+peuvent encore être coûteux en CPU : ne pas promettre leur résolution globale.
+Aucune règle, backend métier, tarification, permission ou stratégie de sauvegarde
+serveur n'a été changée. Aucun cache utilisateur persistant supprimé.
+P0-3/P0-4 restent ouverts. Aucun déploiement.

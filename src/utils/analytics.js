@@ -1,3 +1,4 @@
+import { localSessionStorage } from "./privateStorage.js";
 import { getApiBase } from "./apiBase";
 import { auth } from "../firebaseConfig";
 import { getAuthHeaders } from "./authHeaders";
@@ -13,7 +14,7 @@ function fmtDay(d = new Date()) {
 
 function markLocalPageViewDay() {
   try {
-    localStorage.setItem("BYL_LAST_PAGEVIEW_DAY", fmtDay(new Date()));
+    localSessionStorage.setItem("BYL_LAST_PAGEVIEW_DAY", fmtDay(new Date()));
     window.dispatchEvent(new Event("BYL_PAGEVIEW_MARKED"));
   } catch {
     // ignore
@@ -27,10 +28,10 @@ function cleanVisitorPart(value) {
 function getAnonVisitorId() {
   try {
     const key = "BYL_ANON_ID";
-    let id = localStorage.getItem(key);
+    let id = localSessionStorage.getItem(key);
     if (!id) {
       id = crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
-      localStorage.setItem(key, id);
+      localSessionStorage.setItem(key, id);
     }
     return `anon:${id}`;
   } catch {
@@ -115,7 +116,7 @@ export async function trackPageView({
     });
     const data = await response.json().catch(() => ({}));
     try {
-      localStorage.setItem(
+      localSessionStorage.setItem(
         "BYL_LAST_ANALYTICS_RESULT",
         JSON.stringify({
           ok: response.ok && data?.ok !== false,

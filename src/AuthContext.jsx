@@ -1,3 +1,5 @@
+import { admitPrivateSession, lockPrivateSession, privateSessionVersion, privateSessionIdentity, onPrivateSessionChange } from "./utils/privateSession.js";
+import { localSessionStorage, tabSessionStorage } from "./utils/privateStorage.js";
 // src/AuthContext.jsx
 import React, {
   createContext,
@@ -6,6 +8,7 @@ import React, {
   useRef,
   useState,
   useMemo,
+  useSyncExternalStore,
 } from "react";
 import { auth, db } from "./firebaseConfig";
 import {
@@ -29,12 +32,14 @@ import {
   collection,
   getDoc,
   getDocFromCache,
+  getDocFromServer,
   getDocs,
   query,
   where,
   limit,
   setDoc,
   writeBatch,
+  runTransaction,
   serverTimestamp,
   Timestamp,
   onSnapshot,
@@ -71,7 +76,7 @@ export const useAuth = () => {
 };
 
 const TRIAL_DAYS = 14;
-const VIEW_AS_KEY = "BYL_VIEW_AS"; // persistance de la vue choisie (admin/coach)
+const VIEW_AS_KEY = "BYL_VIEW_AS"; // Préférence d’affichage par onglet, sans donnée privée ni droit d’accès.
 const ADMIN_PRO_ACCESS = getProPlanAccess("complete", "unlimited");
 const FULL_PRO_TRIAL_ACCESS = getProPlanAccess("complete", "unlimited");
 const FULL_CLUB_TRIAL_ACCESS = getProPlanAccess("club", "network");
@@ -126,22 +131,6 @@ function getLoginErrorMessage(error) {
   }
   return i18n.t("auth.login.errors.generic", "Échec de la connexion.");
 }
-
-const readCachedUser = () => {
-  if (typeof window === "undefined") return null;
-  try {
-    const cached = JSON.parse(window.localStorage.getItem("user") || "null");
-    if (!cached?.uid || !cached?.role) return null;
-    return {
-      ...cached,
-      trialStartedAt: cached.trialStartedAt ? new Date(cached.trialStartedAt) : null,
-      trialEndsAt: cached.trialEndsAt ? new Date(cached.trialEndsAt) : null,
-      nextInvoiceAt: cached.nextInvoiceAt ? new Date(cached.nextInvoiceAt) : null,
-    };
-  } catch {
-    return null;
-  }
-};
 
 async function createStripeCustomerForRegisteredUser(fbUser, payload) {
   if (!fbUser?.getIdToken) return;
@@ -215,7 +204,7 @@ async function syncAccountLanguage(data = {}) {
     await i18n.changeLanguage(langCode);
   }
   try {
-    localStorage.setItem("i18nextLng", langCode);
+    localSessionStorage.setItem("i18nextLng", langCode);
   } catch {}
 }
 
@@ -447,25 +436,37 @@ function verifiedCoachTrialPatch(data = {}) {
 
 async function syncVerifiedEmailAccount(fbUser, initialData = {}) {
   if (!fbUser?.uid || fbUser.emailVerified !== true) return initialData;
-  if (
-    initialData.emailVerified === true &&
-    initialData.subscriptionStatus !== "pending_verification"
-  ) {
-    return initialData;
-  }
   const userRef = doc(db, "users", fbUser.uid);
-  const trialPatch =
-    initialData.role === "coach" && initialData.subscriptionStatus === "pending_verification"
-      ? verifiedCoachTrialPatch(initialData)
-      : {};
-  const patch = {
-    ...trialPatch,
-    emailVerified: true,
-    emailVerifiedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  await setDoc(userRef, patch, { merge: true });
+  // Another tab may already have activated the trial. Read and write atomically
+  // so a stale profile can never restart it or produce a permission error.
+  const data = await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(userRef);
+    if (!snapshot.exists()) throw new Error("auth/profile-missing");
+    const current = snapshot.data();
+    if (current.emailVerified === true && current.subscriptionStatus !== "pending_verification") {
+      return current;
+    }
+    const trialPatch = current.role === "coach" && current.subscriptionStatus === "pending_verification"
+      ? verifiedCoachTrialPatch(current) : {};
+    const patch = {
+      ...trialPatch,
+      emailVerified: true,
+      emailVerifiedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    transaction.set(userRef, patch, { merge: true });
+    return { ...current, ...patch };
+  }).catch(async (error) => {
+    // Rules may reject a competing activation before the transaction retries.
+    // Accept only a server-confirmed completion; preserve every other failure.
+    if (error?.code !== "permission-denied") throw error;
+    const confirmed = await getDocFromServer(userRef);
+    const current = confirmed.data();
+    if (current?.emailVerified === true && current.subscriptionStatus !== "pending_verification") {
+      return current;
+    }
+    throw error;
+  });
 
   if (
     initialData.role === "coach" &&
@@ -477,8 +478,8 @@ async function syncVerifiedEmailAccount(fbUser, initialData = {}) {
       doc(db, "clubs", clubId),
       {
         status: "trialing",
-        trialStartedAt: trialPatch.trialStartedAt,
-        trialEndsAt: trialPatch.trialEndsAt,
+        trialStartedAt: data.trialStartedAt,
+        trialEndsAt: data.trialEndsAt,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -488,7 +489,7 @@ async function syncVerifiedEmailAccount(fbUser, initialData = {}) {
   }
 
   const updatedSnap = await getDoc(userRef);
-  return updatedSnap.data() || { ...initialData, ...patch };
+  return updatedSnap.data() || data;
 }
 
 async function createRegistrationProfile(fbUser, { firstName, lastName, role = "particulier", birthDate, consent = {} }) {
@@ -652,20 +653,30 @@ async function createRegistrationProfile(fbUser, { firstName, lastName, role = "
 export const AuthProvider = ({ children }) => {
   // Affiche immédiatement le dernier profil validé, puis on le resynchronise
   // en arrière-plan avec Firebase Auth et Firestore.
-  const [user, setUser] = useState(readCachedUser); // <-- doc Firestore normalisé
+  const [user, setUser] = useState(null); // <-- doc Firestore normalisé
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const epoch = useSyncExternalStore(onPrivateSessionChange, privateSessionVersion, privateSessionVersion);
+  const profileScopeRef = useRef(null);
   const unsubUserRef = useRef(null); // pour nettoyer l’ancienne souscription
   const registrationInProgressRef = useRef(false);
 
   /** viewAs = "admin" | "coach" | null (null = auto) */
   const [viewAs, _setViewAs] = useState(() => {
     try {
-      return localStorage.getItem(VIEW_AS_KEY) || null;
+      const saved = tabSessionStorage.getItem(VIEW_AS_KEY);
+      return saved === "admin" || saved === "coach" ? saved : null;
     } catch {
       return null;
     }
   });
+
+  // Also retain an already selected view when this change is loaded via HMR.
+  useEffect(() => {
+    if (user?.role === "admin" && (viewAs === "admin" || viewAs === "coach")) {
+      tabSessionStorage.setItem(VIEW_AS_KEY, viewAs);
+    }
+  }, [user?.role, viewAs]);
 
   /* -- Sélecteur sécurisé pour changer de vue (sans changer les droits réels) -- */
   const setViewAs = (next) => {
@@ -676,20 +687,20 @@ export const AuthProvider = ({ children }) => {
       if (next === "admin" || next === "coach") {
         _setViewAs(next);
         try {
-          localStorage.setItem(VIEW_AS_KEY, next);
+          tabSessionStorage.setItem(VIEW_AS_KEY, next);
         } catch {}
       }
     } else if (user.role === "coach") {
       // coach reste coach
       _setViewAs("coach");
       try {
-        localStorage.setItem(VIEW_AS_KEY, "coach");
+        tabSessionStorage.setItem(VIEW_AS_KEY, "coach");
       } catch {}
     } else {
       // particulier/other : pas de viewAs
       _setViewAs(null);
       try {
-        localStorage.removeItem(VIEW_AS_KEY);
+        tabSessionStorage.removeItem(VIEW_AS_KEY);
       } catch {}
     }
   };
@@ -750,6 +761,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
+        setUser(null);
+        profileScopeRef.current = null;
         // stoppe l’ancien onSnapshot si existant
         if (unsubUserRef.current) {
           unsubUserRef.current();
@@ -762,16 +775,32 @@ export const AuthProvider = ({ children }) => {
           // on s'abonne au doc pour réagir aux mises à jour externes (webhooks/cron/etc.)
           unsubUserRef.current = onSnapshot(
             userRef,
+            // A cached profile is not admission: wait for its server confirmation,
+            // including metadata-only transitions when the document is unchanged.
+            { includeMetadataChanges: true },
             async (snap) => {
+              if (auth.currentUser?.uid !== firebaseUser.uid) return;
+              if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
               if (snap.exists()) {
                 const normalized = normalizeUserDoc(
                   firebaseUser.uid,
                   snap.data(),
                   firebaseUser
                 );
+                const scope = JSON.stringify([normalized.role, normalized.clubId, snap.data().clubIds, normalized.linkedClientId,
+                  normalized.messagingDisabled, snap.data().status, normalized.accountType, normalized.clubRole,
+                  normalized.subscriptionStatus, normalized.hasActiveSubscription, normalized.modules, normalized.proAccess, normalized.trialEndsAt]);
+                if (snap.data().disabled === true || ['disabled','deleted','removed','inactive'].includes(snap.data().status)) {
+                  lockPrivateSession(); setUser(null); await signOut(auth); return;
+                }
+                if (profileScopeRef.current && profileScopeRef.current !== scope) {
+                  lockPrivateSession(); setUser(null); window.location.reload(); return;
+                }
+                profileScopeRef.current = scope;
+                admitPrivateSession(firebaseUser.uid, scope);
                 setUser(normalized);
                 try {
-                  localStorage.setItem("user", JSON.stringify(normalized));
+                  localSessionStorage.setItem("user", JSON.stringify(normalized));
                 } catch {}
 
                 // Ajuster viewAs en fonction du rôle réel
@@ -780,7 +809,7 @@ export const AuthProvider = ({ children }) => {
                   if (viewAs === null) {
                     const saved = (() => {
                       try {
-                        return localStorage.getItem(VIEW_AS_KEY);
+                        return tabSessionStorage.getItem(VIEW_AS_KEY);
                       } catch {
                         return null;
                       }
@@ -792,7 +821,7 @@ export const AuthProvider = ({ children }) => {
                   if (viewAs !== "coach") {
                     _setViewAs("coach");
                     try {
-                      localStorage.setItem(VIEW_AS_KEY, "coach");
+                      tabSessionStorage.setItem(VIEW_AS_KEY, "coach");
                     } catch {}
                   }
                 } else {
@@ -800,7 +829,7 @@ export const AuthProvider = ({ children }) => {
                   if (viewAs !== null) {
                     _setViewAs(null);
                     try {
-                      localStorage.removeItem(VIEW_AS_KEY);
+                      tabSessionStorage.removeItem(VIEW_AS_KEY);
                     } catch {}
                   }
                 }
@@ -813,6 +842,7 @@ export const AuthProvider = ({ children }) => {
               setLoading(false);
             },
             (err) => {
+              lockPrivateSession(); setUser(null);
               console.error("onSnapshot user error:", err);
               setLoading(false);
             }
@@ -820,13 +850,13 @@ export const AuthProvider = ({ children }) => {
         } else {
           setUser(null);
           try {
-            localStorage.removeItem("user");
+            localSessionStorage.removeItem("user");
           } catch {}
           setLoading(false);
           // si déconnecté, on nettoie la vue
           _setViewAs(null);
           try {
-            localStorage.removeItem(VIEW_AS_KEY);
+            tabSessionStorage.removeItem(VIEW_AS_KEY);
           } catch {}
         }
       } catch (err) {
@@ -908,7 +938,7 @@ export const AuthProvider = ({ children }) => {
         const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
         setUser(normalized);
         try {
-          localStorage.setItem("user", JSON.stringify(normalized));
+          localSessionStorage.setItem("user", JSON.stringify(normalized));
         } catch {}
         setDoc(
           ref,
@@ -971,7 +1001,7 @@ export const AuthProvider = ({ children }) => {
         const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
         setUser(normalized);
         try {
-          localStorage.setItem("user", JSON.stringify(normalized));
+          localSessionStorage.setItem("user", JSON.stringify(normalized));
         } catch {}
         setDoc(
           userRef,
@@ -1166,7 +1196,7 @@ export const AuthProvider = ({ children }) => {
     const normalized = normalizeUserDoc(fbUser.uid, latestData, fbUser);
     setUser(normalized);
     try {
-      localStorage.setItem("user", JSON.stringify(normalized));
+      localSessionStorage.setItem("user", JSON.stringify(normalized));
     } catch {}
     queueWelcomeEmail(fbUser, latestData);
     return { verified: true, user: normalized };
@@ -1251,11 +1281,11 @@ export const AuthProvider = ({ children }) => {
     await signOut(auth);
     setUser(null);
     try {
-      localStorage.removeItem("user");
+      localSessionStorage.removeItem("user");
     } catch {}
     _setViewAs(null);
     try {
-      localStorage.removeItem(VIEW_AS_KEY);
+      tabSessionStorage.removeItem(VIEW_AS_KEY);
     } catch {}
     if (navigate) navigate("/login");
   };
@@ -1314,5 +1344,5 @@ export const AuthProvider = ({ children }) => {
     ]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{loading || (auth.currentUser && (!user || !privateSessionIdentity())) ? <div role="status">Vérification de la session… <button onClick={() => signOut(auth)}>Retour à la connexion</button></div> : <React.Fragment key={epoch}>{children}</React.Fragment>}</AuthContext.Provider>;
 };

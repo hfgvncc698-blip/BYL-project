@@ -1,0 +1,29 @@
+{
+  "browser": {
+    "passed": true,
+    "checks": 48,
+    "log": "browser.log"
+  },
+  "api": {
+    "passed": true,
+    "checks": 18,
+    "log": "api.log"
+  },
+  "smoke": {
+    "passed": true,
+    "checks": 53,
+    "log": "smoke.log"
+  },
+  "build": {
+    "passed": true,
+    "budgetsPassed": true,
+    "log": "build.log"
+  },
+  "unit": [
+    "resilientLazy",
+    "privateSession and HTTP no-store",
+    "confirmedProgramWrites"
+  ],
+  "productionDeployed": false,
+  "P0_4_closed": false
+}

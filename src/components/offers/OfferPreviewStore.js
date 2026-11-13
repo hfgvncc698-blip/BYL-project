@@ -1,3 +1,4 @@
+import { localSessionStorage, tabSessionStorage } from "../../utils/privateStorage.js";
 import { useSyncExternalStore } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
@@ -71,8 +72,8 @@ function notifyOtherTabs(uid, creditsOnly = false) {
   try {
     if (channel) channel.postMessage(signal);
     else {
-      localStorage.setItem(storageSignal, JSON.stringify(signal));
-      localStorage.removeItem(storageSignal);
+      localSessionStorage.setItem(storageSignal, JSON.stringify(signal));
+      localSessionStorage.removeItem(storageSignal);
     }
   } catch { /* Isolated tabs revalidate on focus, reconnect or expiry. */ }
 }
@@ -145,7 +146,7 @@ function accept(entry, data) {
   if (!valid(entry)) return;
   if (!data.offers) {
     try {
-      const saved = JSON.parse(sessionStorage.getItem('byl-offer-preview-v2:' + entry.account.uid));
+      const saved = JSON.parse(tabSessionStorage.getItem('byl-offer-preview-v2:' + entry.account.uid));
       if (saved?.offers) data = { ...data, offers: saved.offers };
     } catch { /* Optional local catalogue. */ }
   }

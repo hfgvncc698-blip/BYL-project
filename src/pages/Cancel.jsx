@@ -1,3 +1,4 @@
+import { tabSessionStorage } from "../utils/privateStorage.js";
 // src/pages/Cancel.jsx
 import React, { useEffect, useState } from "react";
 import PaymentResultModal from "../components/PaymentResultModal";
@@ -14,9 +15,9 @@ export default function Cancel() {
       setIsOpen(false);
 
       // 🔑 essaie d'abord de revenir exactement où l'utilisateur était
-      const from = sessionStorage.getItem("BYL_RETURN_TO");
+      const from = tabSessionStorage.getItem("BYL_RETURN_TO");
       if (from) {
-        sessionStorage.removeItem("BYL_RETURN_TO");
+        tabSessionStorage.removeItem("BYL_RETURN_TO");
         navigate(from, { replace: true });
       } else {
         // fallback si rien en mémoire
@@ -35,9 +36,9 @@ export default function Cancel() {
       subMessage={t("payment.cancel.subMessage")}
       buttonText={t("payment.cancel.button")}
       onButtonClick={() => {
-        const from = sessionStorage.getItem("BYL_RETURN_TO");
+        const from = tabSessionStorage.getItem("BYL_RETURN_TO");
         if (from) {
-          sessionStorage.removeItem("BYL_RETURN_TO");
+          tabSessionStorage.removeItem("BYL_RETURN_TO");
           navigate(from, { replace: true });
         } else {
           navigate("/programmes-premium", { replace: true });

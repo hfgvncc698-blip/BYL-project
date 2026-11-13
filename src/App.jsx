@@ -1,7 +1,8 @@
 // src/App.jsx
-import React, { Suspense, lazy } from "react";
+import React, { Suspense } from "react";
+import { resilientLazy as lazy } from "./utils/resilientLazy.jsx";
 import {
-  Box, Button, Flex,
+  Box, Button, Flex, useMediaQuery,
 } from "@chakra-ui/react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -668,10 +669,11 @@ function AppContent() {
   const preloadModulesKey = Array.isArray(user?.modules) ? user.modules.join("|") : "";
   const preloadProModulesKey = Array.isArray(user?.proAccess?.modules) ? user.proAccess.modules.join("|") : "";
   const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
+  const accountActionPath = location.pathname.replace(/\/+$/, "");
   const isAccountActivationRoute =
-    location.pathname === "/activate-account" ||
-    location.pathname === "/reset-password" ||
-    location.pathname === "/verify-email";
+    accountActionPath === "/activate-account" ||
+    accountActionPath === "/reset-password" ||
+    accountActionPath === "/verify-email";
   const shouldTrackRoute =
     !isAccountActivationRoute && consentLoaded && (analyticsOn || !!user?.uid);
   const isSessionPlayerRoute =
@@ -679,6 +681,7 @@ function AppContent() {
     /^\/clients\/[^/]+\/programmes\/[^/]+\/session\/[^/]+\/play(?:\/)?$/.test(location.pathname);
   const isFocusedMessagingRoute =
     location.pathname === "/messages" && new URLSearchParams(location.search).has("conversation");
+  const [mobileNavigationViewport] = useMediaQuery("(max-width: 47.99em)", { ssr: false });
   const showClientMobileNav =
     user?.role === "particulier" &&
     !isSessionPlayerRoute &&
@@ -750,7 +753,8 @@ function AppContent() {
   // Enforce the paywall above every route, including direct URLs and shared tools.
   // Waiting for the fresh profile avoids granting access from a cached login.
   if(authLoading && user?.role==='coach')return <AppLoading label={t('common.loading_space','Chargement de votre espace...')}/>;
-  if(user?.role==='coach'&&!isAdmin&&!hasCoachAccess&&!needsEmailVerification(user)){
+  // Account actions must finish before the subscription guard evaluates access.
+  if(!isAccountActivationRoute&&user?.role==='coach'&&!isAdmin&&!hasCoachAccess&&!needsEmailVerification(user)){
     const billingPaths=['/plans/professionnel','/success','/cancel','/payment-success','/payment-cancel'];
     if(!billingPaths.includes(location.pathname)&&!/^\/checkout\/[^/]+$/.test(location.pathname))return <Navigate to="/plans/professionnel" replace/>;
     return <><Flex as="header" justify="flex-end" p={3}><Button variant="ghost" onClick={()=>logout()}>{t('nav.logout','Se déconnecter')}</Button></Flex><Box as="main" flex="1"><Suspense fallback={<AppLoading label={t('common.loading_page','Chargement de la page...')}/>}><Routes><Route path="/plans/professionnel" element={<PlanProfessionnel/>}/><Route path="/checkout/:productId" element={<Checkout/>}/><Route path="/success" element={<Success/>}/><Route path="/payment-success" element={<Success/>}/><Route path="/cancel" element={<Cancel/>}/><Route path="/payment-cancel" element={<Cancel/>}/></Routes></Suspense></Box></>;
@@ -1215,17 +1219,17 @@ function AppContent() {
           <DashboardMessagingBubble notificationsOnly={location.pathname !== "/user-dashboard" && location.pathname !== "/coach-dashboard"} />
         </Suspense>
       ) : null}
-      {showClientMobileNav ? (
+      {showClientMobileNav && mobileNavigationViewport ? (
         <LazyBackground>
           <ClientMobileNav />
         </LazyBackground>
       ) : null}
-      {showCoachMobileNav ? (
+      {showCoachMobileNav && mobileNavigationViewport ? (
         <LazyBackground>
           <CoachMobileNav />
         </LazyBackground>
       ) : null}
-      {showClubMobileNav ? (
+      {showClubMobileNav && mobileNavigationViewport ? (
         <LazyBackground>
           <ClubMobileNav />
         </LazyBackground>

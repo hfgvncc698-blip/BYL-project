@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+import { localizedFoodName } from "../utils/nutritionFoodI18n";
+import { loadCiqual, searchCiqual } from "../utils/ciqualLoader";
 import NutritionMicroPanel from "./NutritionMicroPanel";
 import { targetForMicroNutrient } from "../utils/rationMicroTargets";
  
@@ -408,6 +411,8 @@ export default function CiqualFoodPicker({
   );
 
   /* ===== State ===== */
+  const { i18n: foodI18n } = useTranslation();
+  const foodLabel = food => localizedFoodName(food, foodI18n.resolvedLanguage || foodI18n.language);
   const [ciqual, setCiqual] = useState([]);
   const [byCode, setByCode] = useState({});
   const [loading, setLoading] = useState(false);
@@ -431,8 +436,7 @@ export default function CiqualFoodPicker({
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
-        const data = await res.json();
+        const data = await loadCiqual();
         const map = {};
         data.forEach((r) => (map[r.code] = r));
         setCiqual(data);
@@ -502,8 +506,7 @@ export default function CiqualFoodPicker({
 
   const results = useMemo(() => {
     if (!query) return [];
-    const q = normalize(query);
-    return ciqual.filter((r) => normalize(r.name).includes(q)).slice(0, 25);
+    return searchCiqual(ciqual, query, 25);
   }, [query, ciqual]);
 
   const addFood = (row) => {
@@ -958,7 +961,7 @@ export default function CiqualFoodPicker({
                 onPointerDown={() => addFood(r)}
               >
                 <Text fontWeight="600" noOfLines={2}>
-                  {r.name}
+                  {foodLabel(r)}
                 </Text>
               </Box>
             ))}
@@ -1054,7 +1057,7 @@ export default function CiqualFoodPicker({
                           >
                             <HStack justify="space-between" align="start">
                               <Text fontWeight="800" lineHeight="1.2" pr={2} noOfLines={2}>
-                                {it.name}
+                                {foodLabel(it)}
                               </Text>
                               <IconButton
                                 size="sm"
@@ -1164,7 +1167,7 @@ export default function CiqualFoodPicker({
                             const n = r?.nutrients || {};
                             return (
                               <Tr key={it.id}>
-                                <Td minW="260px">{it.name}</Td>
+                                <Td minW="260px">{foodLabel(it)}</Td>
                                 <Td minW="170px">
                                   <Select
                                     value={it.meal || "dejeuner"}

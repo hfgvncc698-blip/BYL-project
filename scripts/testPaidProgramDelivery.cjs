@@ -31,6 +31,7 @@ const ref = key => ({
 const collection = name => ({ doc: id => ref(`${name}/${id}`), add: async () => { throw new Error('Paid delivery must not use add()'); } });
 const firestore = Object.assign(() => ({ collection }), { FieldValue: { serverTimestamp: () => 'timestamp' } });
 const context = {
+  assertProgramSize: require('../backend/utils/programDocumentSize.cjs').assertProgramSize,
   admin: { firestore },
   objectifKeyForStorage: value => value, objectifKeyForParams: value => value, toKey: value => value,
   sanitizeProgramName: value => value, formatLabel: value => value,

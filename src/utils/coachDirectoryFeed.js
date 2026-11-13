@@ -2,7 +2,9 @@ import {collection,documentId,limit,or,orderBy,snapshotEqual,startAfter,where} f
 import {db} from '../firebaseConfig';
 import {coachConfirmedSnapshot,clientsConfirmedSnapshot,coachQuery,clientsQuery} from './firestoreMetrics';
 
-// The first 25 authorized roots can paint before the rest of the search index.
+// The Clients page paints its first 25 roots. The Dashboard needs every root
+// for exact totals and legacy identity deduplication: use one shared query,
+// instead of serial pages that eventually read the same complete directory.
 // Each subsequent listener starts strictly after its preceding page. If that
 // boundary moves, discard its old tail before accepting any new full view.
 export function coachDirectoryFeed(target,purge) {
@@ -23,9 +25,9 @@ export function coachDirectoryFeed(target,purge) {
     const listen=pageName==='clients'?clientsConfirmedSnapshot:coachConfirmedSnapshot;
     const filter=or(where('createdBy','==',target),where('coachId','==',target),where('coachIds','array-contains',target));
     function attach(after){
-      const i=pages.length, size=i===0?25:100, page={after,confirmed:false,docs:[]};
+      const i=pages.length, size=pageName==='coach-dashboard'?Infinity:(i===0?25:100), page={after,confirmed:false,docs:[],size};
       pages.push(page);
-      const query=q(collection(db,'clients'),filter,orderBy(documentId()),...(after?[startAfter(after)]:[]),limit(size));
+      const query=q(collection(db,'clients'),filter,orderBy(documentId()),...(after?[startAfter(after)]:[]),...(Number.isFinite(size)?[limit(size)]:[]));
       page.stop=listen(query,snap=>{
         if(pages[i]!==page)return;
         if(snap.metadata.fromCache || snap.metadata.hasPendingWrites){
@@ -41,7 +43,7 @@ export function coachDirectoryFeed(target,purge) {
           attach(boundary);return;
         }
         const tail=pages.at(-1);
-        if(!pages.every(p=>p.confirmed) || tail.docs.length===(pages.length===1?25:100))return;
+        if(!pages.every(p=>p.confirmed) || tail.docs.length===tail.size)return;
         const docs=pages.flatMap(p=>p.docs);
         const next=new Map(docs.map(d=>[d.id,d]));
         const changes=[];

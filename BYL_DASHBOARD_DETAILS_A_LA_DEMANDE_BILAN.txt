@@ -1,0 +1,172 @@
+DASHBOARD COACH — DÉTAILS À LA DEMANDE ET RÉSUMÉS MÉMOIRE
+13 novembre 2026 — codex/firebase-performance-audit — aucun déploiement
+
+Décision utilisateur : coût total inférieur recherché, coût initial mesuré accepté.
+Résultat : gain de délai démontré sur le cas réel ; cible de 2 s pour tout le
+Dashboard non atteinte. Économie monétaire globale non démontrée : la solution
+réduit les volumes mais ajoute des lectures initiales. Ne pas la présenter comme
+une baisse certaine de facture. P0-3/P0-4 restent ouverts.
+
+1. CAUSE ET CORRECTION
+Les prescriptions complètes (exercices, médias et descriptions) dominaient la
+lecture Firestore et le transport, alors que le Dashboard n'utilise qu'une partie
+de ces champs. Sur le second lot de 31 dossiers réel, les prescriptions
+représentaient 13 908 889 octets JSON ; les historiques 752 716 octets.
+
+Le Dashboard reçoit maintenant une projection conservant les champs nécessaires
+aux calculs de progression, titres, durées, reprise et décisions Copilot. Les
+historiques canoniques restent interrogés : aucune approximation des compteurs.
+ProgramView/SessionPlayer chargent les détails complets via leurs parcours
+existants. Une projection ne doit jamais remplacer le document canonique.
+
+Le backend conserve les projections en mémoire, dans un cache limité à 32 Mio de
+JSON (ce n'est pas une limite de RSS). Chaque réutilisation exige les contrôles
+d'autorisation actuels et une lecture des métadonnées Firestore : projet, chemin
+et updateTime exact doivent correspondre. Une modification externe ou ancienne
+change cette version ; une suppression retire le programme des résultats.
+Pas de document de synthèse persistant, de nouvel écouteur ni de tâche planifiée.
+Durée de réutilisation maximale : 24 h. Redémarrage, éviction ou nouvelle version
+peuvent refaire payer la lecture initiale. Chaque instance possède son cache.
+
+Les lectures restent bornées à 32 simultanées par requête ; le premier groupe de
+clients visibles reste prioritaire. L'ajustement Copilot relit le document entier
+dans une transaction, vérifie que la séance examinée n'a pas changé, puis applique
+la correction à la source complète. Images/champs inconnus sont préservés. Une
+réponse tardive après fermeture de session n'actualise pas l'interface. Le code
+d'ajustement est importé à la demande pour respecter le budget JavaScript.
+
+2. CAS RÉEL — APPLICATION LOCALE, LECTURE SEULE
+36 clients, 95 programmes assignés, 57 modèles de programmes.
+Mesures depuis le début de navigation (pageMs), non depuis le seul montage React.
+Pas de throttling artificiel, version de développement, service local avec ses
+lectures Firestore habituelles. Aucun contenu client sauvegardé dans ce rapport.
+Échantillons ponctuels ; pas de p95 ni de garantie de service.
+
+                                  Avant             Après
+Données principales               14,517–18,538 s    13,896 s cache serveur vide
+Rafraîchissement suivant                             3,082 s puis 3,572 s
+Clients récents                   6,737–10,497 s     6,722 s cache serveur vide
+Rafraîchissement suivant                             1,902 s puis 2,282 s
+État logique Dashboard JSON       24 114 429 chars   3 477 146 chars
+Second groupe, réponse JSON       14 789 655 octets  1 611 461 octets
+Prescriptions du second groupe    13 908 889 octets  728 797 octets
+Lecture du second groupe          ~6,6–7,1 s         6,826 s initial ; 0,752–0,948 s ensuite
+Requêtes de détails               2                 2 ; aucun fallback
+
+Agrégats confirmés identiques : 425 effectuées, 258 prévues, 36 clients détaillés,
+57 modèles, 277 séances calendrier. Ils ne sont pas remplacés par des estimations.
+Les octets JSON et caractères d'état ne sont ni la mémoire réelle du navigateur,
+ni les octets gRPC facturés. Les 95 lectures initiales supplémentaires attendues
+sur ce cas découlent des 95 programmes ; aucune facture réelle n'a été consultée.
+Le rafraîchissement n'est pas un retour à chaud SPA : le document est rechargé,
+mais le processus backend et son cache de projections restent disponibles.
+
+3. BANC ÉMULATEURS — MÊMES DONNÉES AVANT/APRÈS
+Chrome jetable, Auth/Firestore émulés, 36 dossiers, 72 programmes, prescriptions
+synthétiques contenant des médias volumineux ; deux visites avec profils neufs
+et même processus backend. Route normale sans dashboardPerf, compteur Actifs
+confirmé à 36, pas seulement affichage d'un squelette. Les médias synthétiques
+sont plus répétitifs que le cas réel : ne pas extrapoler leurs ratios de volume.
+
+                                      Avant froid / suivant   Après froid / suivant
+Données principales                   3,062 / 2,100 s         2,108 / 1,260 s
+Lectures estimées routes HTTP         1 683 / 1 683            1 755 / 1 683
+Lectures estimées navigateur           114 / 120                112 / 120
+Appels SDK navigateur                 45 / 46                  45 / 45
+Documents retournés navigateur        97 / 85                  99 / 85
+Écritures navigateur observées        2 / 1                    2 / 1
+Appels API initiés                    9 / 9                    9 / 9
+Octets réponses API achevées           14 365 045 / idem        2 919 / idem
+Heap utilisé observé (Mo décimaux)     75,80 / 74,47            83,56 / 74,52
+Temps exécution JS (s)                1,204 / 1,074            1,228 / 0,998
+
+Les différences de snapshots navigateur dépendent de l'ordonnancement ; elles
+ne prouvent pas une économie de lectures. Heap mesuré sans GC forcé : aucune
+baisse mémoire démontrée. Les 9 requêtes comprennent des attentes ; 7 achevées
+(dont un 404 préexistant identique) au point d'observation. Les métriques HTTP
+ne comprennent pas tous les coûts possibles des écouteurs/règles/index/retries.
+Le banc montre +72 lectures initiales, zéro écriture supplémentaire de résumé,
+puis le même nombre de lectures documentaires. Les écritures navigateur listées
+appartiennent au parcours existant, pas au cache serveur.
+
+Artefacts : audits/dashboard-outlines/{before,after}-development-normal-mode.json
+Reproduction : PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node
+scripts/runDashboardOutlines.cjs before --normal-mode (puis after --normal-mode).
+Le runner construit une copie isolée ; les mutations concernent uniquement les
+fixtures. Les fichiers before nécessaires sont conservés dans son dossier audit.
+
+4. COÛTS ET CONDITIONS
+Un cache vide ajoute une lecture complète par programme après sa projection de
+métadonnées. Une consultation avec cache valide garde le nombre de documents lus
+mais réduit leur taille transférée. Les historiques restent lus. Une modification
+Copilot ajoute normalement une lecture transactionnelle à son écriture existante ;
+les retries peuvent en ajouter. Aucun nouveau service Google, aucune écriture de
+résumé et aucun stockage Firestore supplémentaire.
+
+Seuil économique à qualifier : coût des lectures initiales/évictions/actions
+comparé au coût du trafic évité sur les consultations répétées. Ce seuil dépend
+de la région, du trafic réellement facturable, des quotas et du nombre d'instances.
+Si le trafic était gratuit, la baisse de volume peut ne pas compenser les lectures
+supplémentaires. Le coût total inférieur demandé n'est donc pas encore prouvé.
+Ne pas convertir ces estimations en économie de facture ou montant exact.
+Documentation : https://firebase.google.com/docs/firestore/pricing
+Le nombre de lectures facturées et le trafic sont des postes distincts.
+
+5. TESTS EXÉCUTÉS — RÉUSSIS
+- testDashboardPrescriptionOutline.mjs : tailles, formats, décisions Copilot,
+  préservation des champs complets et refus d'une séance modifiée.
+- testDashboardOutlineCache.cjs : coût froid/chaud, updateTime, suppression,
+  historique canonique, limite mémoire et remise à zéro après redémarrage.
+- testCoachDashboardProjection.cjs : parité des vrais helpers sur 0/10/100/1000
+  historiques, dates anciennes, reprise, visibilité, répétition, correction.
+- testCoachProgramBatchLot8B.mjs : regroupement, cache partagé, fallback limité,
+  refus 400/401/403, rejet de session fermée.
+- testRecentClientPriority.mjs, testCoachProgressPaint.mjs,
+  testDashboardActivity.mjs, testDashboardTimingActivity.mjs,
+  testCoachDashboardLoading.mjs, testPrivateSessionLot7B1Octies.mjs,
+  testCoachDashboardTransport.cjs : réussis.
+- Application intégrée sur émulateurs : suppression puis restauration d'une
+  validation distante (Actifs 36 -> 35 -> 36), ajustement transactionnel,
+  média complet conservé, ancienne revue rejetée, invalidation par version sans
+  révision parent, tentative d'un autre coach refusée en 403 malgré cache rempli.
+- npm run build : réussi ; budgets respectés (CoachDashboard 69,7 / 70 Kio gzip,
+  total initial 498,2 / 520 Kio), aucun seuil relevé.
+- git diff --check : réussi.
+
+Pas de test mobile intégré spécifique à cette dernière projection, ni de campagne
+exhaustive multi-instance ou de nouvelle qualification complète P0-1/P0-2.
+Aucune règle modifiée ; ne pas présenter ces tests ciblés comme une nouvelle
+certification globale de sécurité. Aucun échec restant dans la suite ciblée.
+
+6. ESSAIS ÉCARTÉS ET LIMITES
+La mise en parallèle des deux lots pénalisait les clients récents : retirée.
+La déduplication des chaînes/objets gagnait beaucoup sur médias synthétiques mais
+peu sur le réel : retirée du code actif, conservée sous audits/dashboard-shared-text
+pour traçabilité. Un premier build dépassait le budget du chunk Dashboard ; la
+mise à la demande du code d'ajustement a corrigé cet échec sans relever le budget.
+
+Le premier passage après redémarrage reste ~14 s. Les historiques représentent
+encore ~0,75 Mo pour les 31 derniers dossiers et sont relus pour leur exactitude.
+La cible globale <2 s et la baisse monétaire ne sont pas acquises. Les anciens
+clients API gardent leur format historique. Les entrées expirées non réutilisées
+peuvent rester en mémoire jusqu'à éviction ; aucune garantie d'effacement physique.
+Aucun nettoyage de cache utilisateur, migration ou déploiement réalisé.
+
+7. FICHIERS DE CETTE CORRECTION
+backend/utils/dashboardOutlineCache.js
+backend/utils/coachDashboardBundles.js
+backend/routes/coachProgramRead.js
+src/utils/dashboardPrescriptionSummary.js
+src/utils/dashboardPrescriptionWrite.js
+src/utils/applyDashboardAdjustment.js
+src/utils/coachProgramBatch.js
+src/components/CoachDashboard.jsx
+scripts/runDashboardOutlines.cjs
+scripts/testDashboardPrescriptionOutline.mjs
+scripts/testDashboardOutlineCache.cjs
+scripts/testCoachDashboardProjection.cjs
+et artefacts du banc. Les autres modifications déjà présentes dans le workspace
+ne sont pas attribuées à cette correction.
+
+Conclusion : amélioration locale mesurée, fonctionnalités testées préservées ;
+validation nécessaire avant une éventuelle publication, qui reste interdite.

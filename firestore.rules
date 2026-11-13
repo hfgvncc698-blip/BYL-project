@@ -934,7 +934,8 @@ service cloud.firestore {
     }
 
     match /coachPageTemplateRevisions/{coachUid} {
-      allow get: if isAdmin() || (hasCoachAccess() && request.auth.uid == coachUid);
+      allow get: if signedIn() && activeClubProfile(currentUser()) &&
+        (isAdmin() || (hasCoachAccess() && request.auth.uid == coachUid));
     }
 
     match /coachDashboardSummaries/{summaryId} {

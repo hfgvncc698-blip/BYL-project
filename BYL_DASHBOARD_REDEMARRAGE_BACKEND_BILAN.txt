@@ -1,0 +1,130 @@
+DASHBOARD COACH — PREMIÈRE CONSULTATION APRÈS REDÉMARRAGE
+13 novembre 2026 — branche codex/firebase-performance-audit
+Aucun déploiement. P0-3/P0-4 restent ouverts.
+
+RÉSULTAT
+Correction intégrée : supprimer le double accès initial aux prescriptions lorsque
+le cache mémoire serveur est vide. Gain réel observé modeste, pas de promesse de
+2 secondes : 15,089 s avant contre 14,257 s après. Les prescriptions volumineuses
+restent transférées depuis Firestore à chaque reconstruction du cache serveur.
+Les lectures supplémentaires initiales de l'optimisation précédente disparaissent.
+
+CAUSE ET MODIFICATION
+Avant : requête des métadonnées de chaque collection de programmes, puis lecture
+individuelle de chaque document absent du cache. Au redémarrage, tous sont absents.
+Après : si aucune entrée réutilisable n'existe pour cette collection et ce projet,
+requête canonique complète directement, construction des mêmes résumés et stockage
+en mémoire. Sinon, conservation de la requête de métadonnées/updateTime et lecture
+ciblée des versions absentes. Un dossier nouvellement consulté bénéficie du même
+traitement que le démarrage. Une collection vide reste une requête vide.
+
+L'indice de présence dans le cache ne fournit ni données ni autorisation. Chaque
+requête reste dans la transaction existante, après contrôle actuel des droits et
+des dossiers. Les historiques canoniques sont toujours relus. Chaque réutilisation
+de résumé exige une version Firestore actuelle. Aucune modification du frontend,
+des règles, des fonctionnalités, du nombre d'écouteurs ou des écritures métier.
+Le plafond de 32 lectures simultanées reste inchangé. Aucun cache disque ajouté.
+
+Fichiers de cette intervention :
+- backend/utils/dashboardOutlineCache.js : index mémoire par projet/collection,
+  nettoyé lors des expirations/évictions/redémarrages.
+- backend/utils/coachDashboardBundles.js : choix de lecture froide/chaude.
+- scripts/testDashboardOutlineCache.cjs : vérifications complémentaires.
+- scripts/runDashboardColdStart.cjs : banc avant/après isolé, dérivé du banc existant.
+- audits/dashboard-cold-start/ : référence avant et résultats synthétiques.
+Les autres changements déjà présents dans le workspace sont préservés.
+
+MESURE RÉELLE EN LOCAL, LECTURE SEULE
+Même compte : 36 dossiers, 95 programmes assignés, 57 modèles.
+Un nouveau processus backend est lancé pour chaque mesure froide ; pas de purge
+navigateur. Le frontend est celui de développement. Mesures pageMs depuis la
+navigation, collectées via le diagnostic opt-in puis diagnostic retiré de l'URL.
+Pas de contenu personnel enregistré dans les artefacts de cette intervention.
+
+                                   Avant froid    Après froid    Après chaud
+Clients récents                    7,996 s        7,772 s        2,120 s
+Activité confirmée                 15,050 s       14,232 s       3,432 s
+Dashboard principal                15,089 s       14,257 s       3,464 s
+Rendu suivant                      15,395 s       14,398 s       3,632 s
+Deux appels programmes cumulés     13,988 s       12,875 s       2,456 s
+Lecture serveur du second appel    6,660 s        6,075 s        0,957 s
+Requêtes de détails                2              2              2
+Réponse JSON second appel          1 421 115 o    1 421 115 o    1 421 115 o
+
+Même résultat confirmé : 425 effectuées, 258 prévues, 277 séances calendrier,
+36 dossiers détaillés, 95 prescriptions, état JSON 3 477 146 caractères.
+Échantillons ponctuels, pas de p95 ni de preuve statistique d'un gain de 0,832 s.
+La suppression de 95 lectures supplémentaires découle du nombre de prescriptions
+et du chemin exécuté ; ce n'est pas une mesure de facture réelle.
+Le rafraîchissement chaud garde le processus backend : ce n'est pas un redémarrage.
+
+ÉMULATEURS ET COÛTS
+36 dossiers / 72 programmes / 1 560 validations synthétiques, médias volumineux.
+Profils Chrome jetables, Firebase Auth/Firestore émulés, mode Dashboard normal.
+Deux campagnes avant/après (cold puis warm dans chaque processus isolé).
+
+                                Avant froid      Après froid
+Principal, campagne 1            2,190 s          2,476 s
+Principal, campagne 2            3,136 s          2,042 s
+Principal chaud, campagne 2      1,389 s          1,379 s
+Premier contenu campagne 2       1,857 s          1,451 s
+Stabilisation réseau campagne 2  4,672 s          4,519 s
+Lectures SDK HTTP                197              125
+Documents retournés HTTP         1 747            1 675
+Lectures estimées HTTP           1 755            1 683
+Lectures estimées HTTP à chaud   1 683            1 683
+Nouvelles écritures de résumé    0                0
+Appels API observés              9                9
+
+Campagne 1 après réalisée avec une compilation concurrente ; campagne 2 répétée.
+Conserver les deux résultats : pas de gain de délai systématique prouvé sur le
+banc. Le gain déterministe est 72 lectures évitées au démarrage, aucune lecture
+ajoutée à chaud. Le petit surcoût de métadonnées du cache n'est pas un coût Firebase.
+Les 2 écritures navigateur initiales puis 1 à chaud du parcours existant restent
+identiques. Lectures navigateur estimées 108/114 à froid en campagne 2, 120/120 à
+chaud : variation de réception des écouteurs au point d'observation. Aucun nouveau
+chemin de lecture navigateur ajouté. Le banc mesure une estimation documentaire,
+pas les frais réels de règles/index/répétitions réseau ni la facture Google.
+
+Campagne 2 : trafic navigateur total développement ~35,20 Mo inchangé (modules
+inclus), somme des réponses HTTP instrumentées ~2,88 ko compressés ; ces octets ne
+mesurent pas le transfert Firestore→backend. Heap JS à froid 56,97→56,10 Mo, chaud
+94,06→73,50 Mo : instantanés sensibles au GC, aucune économie mémoire garantie.
+Temps JS froid 1,250→1,221 s. Pas de déplacement de nouvelles écritures au backend.
+Les historiques dominent toujours les 1 683 lectures estimées restantes du banc.
+
+TESTS RÉUSSIS
+- Deux campagnes intégrées avant/après, compteur exact 36.
+- Suppression/revalidation distante, invalidation par updateTime sans révision
+  parent, refus d'un coach étranger, modification transactionnelle conservant les
+  médias et rejet d'une séance devenue obsolète.
+- Cache : zéro lecture individuelle froide, cache chaud, modification ciblée,
+  historique actuel, suppression, ajout, TTL, redémarrage, isolation des projets.
+- testDashboardPrescriptionOutline.mjs
+- testCoachDashboardProjection.cjs (0/10/100/1 000 historiques)
+- testCoachProgramBatchLot8B.mjs ; testRecentClientPriority.mjs
+- testPrivateSessionLot7B1Octies.mjs
+- testDashboardActivity.mjs ; testCoachDashboardTransport.cjs
+- testDashboardTimingActivity.mjs ; testCoachProgressPaint.mjs
+- testCoachDashboardLoading.mjs
+- npm run build : tous les budgets gzip respectés, CoachDashboard 69,4/70 Kio.
+Aucun échec final. Aucun contre-test complet P0-3/P0-4 prétendu ici.
+
+Reproduction :
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runDashboardColdStart.cjs before --normal-mode
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runDashboardColdStart.cjs after --normal-mode
+Les snapshots avant contiennent uniquement les deux utilitaires concernés. Le
+runner reprend le frontend actuel : il faut conserver la même révision/workspace
+pour une comparaison identique. Les résultats run1 sont archivés séparément.
+
+LIMITE ET SUITE TECHNIQUE
+L'optimisation supprime un gaspillage mais ne résout pas le transfert initial des
+prescriptions. Pour un gain majeur après chaque redémarrage, il faudra qualifier
+un résumé exact disponible indépendamment de la mémoire de ce processus : version
+source vérifiée, autorisations actuelles, invalidation et reprise fiables, coût de
+création/mises à jour chiffré. Une simple prélecture au démarrage déplacerait les
+coûts vers les périodes sans utilisateur ; elle n'est pas ajoutée.
+Aucun résumé persistant ni service externe introduit dans cette étape. Le backend
+local reste lancé avec la correction ; aucune publication, suppression de données
+ou modification des règles de production. Synchronisation des modèles encore
+limitée par les éléments non publiés décrits dans le rapport précédent.

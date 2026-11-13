@@ -27,7 +27,7 @@ assert.equal(await pool.run(() => 'retry'), 'retry');
 const dashboard = readFileSync(new URL('../src/components/CoachDashboard.jsx', import.meta.url), 'utf8');
 assert.doesNotMatch(dashboard, /DASHBOARD_DETAIL_CLIENT_LIMIT/);
 assert.match(dashboard, /Promise.all\(quickDashboardClients.map/);
-assert.ok(dashboard.indexOf('const quickCalendarPromise') < dashboard.indexOf('const pSnap = await programmesSnapPromise'));
+assert.ok(dashboard.indexOf('const quickCalendarPromise') < dashboard.indexOf('await programmesSnapPromise;'));
 assert.ok(dashboard.indexOf('const sessionSnapsPromise') < dashboard.indexOf('const clientSnaps = await clientSnapsPromise'));
 assert.match(dashboard, /\[nutritionClientIdsKey, effectiveCoachUid, effectiveClubId/);
 assert.doesNotMatch(dashboard, /nutritionLoadKeyRef/);
@@ -36,7 +36,7 @@ assert.match(dashboard, /if \(!alive\) return/);
 assert.match(dashboard, /DASHBOARD_DATA_CACHE_VERSION = 10/);
 assert.match(dashboard, /source.roots.fresh\(\) && source.calendar.fresh\(\) && readDashboardDataCache\(cacheScope/);
 assert.doesNotMatch(dashboard, /query\(collection\(db, "clients"\), or\(/);
-assert.ok(dashboard.indexOf('const detailedClientsPromise') < dashboard.indexOf('const pSnap = await programmesSnapPromise'));
+assert.ok(dashboard.indexOf('const detailedClientsPromise') < dashboard.indexOf('await programmesSnapPromise;'));
 assert.doesNotMatch(dashboard, /DASHBOARD_DATA_CACHE_(?:CLIENT|PROGRAM|SESSION)_LIMIT/);
 assert.doesNotMatch(dashboard, /compactDashboardProgram/);
 assert.match(dashboard, /dashboardDataMemoryCache.size > 2/);
@@ -66,88 +66,15 @@ assert.deepEqual(selectSnapshotEvictions([
 assert.equal(await readDashboardSnapshot(key), null, 'no IndexedDB never prevents a server load');
 assert.equal(await writeDashboardSnapshot(key, entry), false);
 
-// Small asynchronous IDB adapter exercises our transaction handling. Browser
-// integration measurements separately verify the actual IndexedDB implementation.
-const stores = new Map([['snapshots', new Map()], ['metadata', new Map()]]);
-let failTransactions = false;
-let stallReads = false;
-const database = {
-  close() {},
-  transaction(names, mode) {
-    if (failTransactions) throw new Error('storage-disabled');
-    const work = new Map([...stores].map(([name, data]) => [name, new Map(data)]));
-    let pending = 0;
-    let aborted = false;
-    const transaction = {
-      abort() { aborted = true; transaction.onabort?.(); },
-      objectStore(name) {
-        const data = work.get(name);
-        const request = reader => {
-          pending++;
-          const result = {};
-          if (stallReads && mode === 'readonly') return result;
-          setImmediate(() => {
-            if (aborted) return;
-            result.result = reader();
-            result.onsuccess?.();
-            pending--;
-            if (!pending) setImmediate(() => {
-              if (aborted || pending) return;
-              if (mode === 'readwrite') for (const [storeName, value] of work) stores.set(storeName, value);
-              transaction.oncomplete?.();
-            });
-          });
-          return result;
-        };
-        return {
-          get: id => request(() => data.get(id)),
-          getAll: () => request(() => [...data.values()]),
-          put(value, id = value.key) { data.set(id, value); },
-          delete(id) { data.delete(id); },
-        };
-      },
-    };
-    return transaction;
-  },
-};
-globalThis.indexedDB = { open() {
-  const request = {};
-  setImmediate(() => { request.result = database; request.onsuccess?.(); });
-  return request;
-} };
+// Persistent snapshots are quarantined under A+D. Even an available database
+// must not be opened, overwritten or deleted by an application cache call.
+let opens=0, deletes=0;
+const inherited={nutrition:'private-A'};
+globalThis.indexedDB={open(){opens++;throw Error('must-not-open');},deleteDatabase(){deletes++;}};
 try {
-  const cache = await import('../src/utils/dashboardSnapshotCache.js?transaction-test');
-  const full = { savedAt: Date.now(), data: { clients: [{ programmes: [{ sessions: [{ exercises: ['retained'] }] }] }] } };
-  assert.equal(await cache.writeDashboardSnapshot(key, full), true);
-  assert.deepEqual(await cache.readDashboardSnapshot(key), full);
-  assert.equal(await cache.readDashboardSnapshot('byl:coach-dashboard:data:10:coach-B:solo'), null);
-  assert.equal(await cache.writeDashboardSnapshot(key, { ...full, savedAt: full.savedAt - 1 }), false);
-  assert.deepEqual(await cache.readDashboardSnapshot(key), full, 'older completions cannot overwrite a newer snapshot');
-  const large = { savedAt: Date.now(), data: { exercises: 'complete-exercise-data'.repeat(20_000) } };
-  assert.equal(await cache.writeDashboardSnapshot(key, large), true);
-  assert.deepEqual(await cache.readDashboardSnapshot(key), large, 'compression is lossless');
-  assert.equal(stores.get('snapshots').get(key).encoding, 'gzip');
-  assert.ok(stores.get('metadata').get(key).size < 10_000);
-  stores.get('snapshots').set(key, 'invalid-json');
-  assert.equal(await cache.readDashboardSnapshot(key), null);
-  failTransactions = true;
-  assert.equal(await cache.readDashboardSnapshot(key), null);
-  assert.equal(await cache.writeDashboardSnapshot(key, full), false);
-  failTransactions = false;
-  stallReads = true;
-  assert.equal(await cache.readDashboardSnapshot(key), null, 'stalled storage falls back within the read deadline');
+  assert.equal(await readDashboardSnapshot(key),null);
+  assert.equal(await writeDashboardSnapshot(key,entry),false);
+  assert.equal(opens,0);assert.equal(deletes,0);
+  assert.deepEqual(inherited,{nutrition:'private-A'});
 } finally { delete globalThis.indexedDB; }
-console.log('Coach dashboard OK: all 126 reads processed, max 24 concurrent, rejection/retry, stable nutrition scope and cache version.');
-console.log('Snapshot cache OK: scoped keys, version, expiry, size budget, partial rejection and unavailable-storage fallback.');
-
-// A slow client retains cached details; a finished filtered-out client disappears.
-const cachedRows = [{ id: 'slow', value: 'cached' }, { id: 'hidden' }, { id: 'ready', value: 'old' }];
-assert.deepEqual(mergeCompletedClientRows(cachedRows, new Set(['hidden', 'ready', 'new']), [
-  { id: 'ready', value: 'fresh' }, { id: 'new', value: 'fresh' },
-]), [{ id: 'slow', value: 'cached' }, { id: 'ready', value: 'fresh' }, { id: 'new', value: 'fresh' }]);
-assert.equal(cachedRows[2].value, 'old', 'progressive updates do not mutate cached rows');
-const clientsSource = readFileSync(new URL('../src/components/Clients.jsx', import.meta.url), 'utf8');
-const clientLoad = clientsSource.slice(clientsSource.indexOf('const fetchData'));
-assert.ok(clientLoad.includes("await source.roots.read('clients')") && clientLoad.indexOf('await source.roots.read') < clientLoad.indexOf('const cached=readPageDataCacheEntry'));
-const dashboardLoad = dashboard.slice(dashboard.indexOf('const fetchData'));
-assert.ok(dashboardLoad.includes('source.roots.read') && dashboardLoad.indexOf('source.roots.read') < dashboardLoad.indexOf('hydrateDashboardData(cachedDashboardData)'));
+console.log('Coach dashboard OK: 126 reads, 24 concurrent, stable scope; legacy IndexedDB untouched and unread.');

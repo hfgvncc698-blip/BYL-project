@@ -1,0 +1,38 @@
+[
+  {
+    "label": "before",
+    "repetition": 1,
+    "exitCode": 0,
+    "ms": 43765
+  },
+  {
+    "label": "after",
+    "repetition": 1,
+    "exitCode": 0,
+    "ms": 44005
+  },
+  {
+    "label": "before",
+    "repetition": 2,
+    "exitCode": 0,
+    "ms": 43110
+  },
+  {
+    "label": "after",
+    "repetition": 2,
+    "exitCode": 0,
+    "ms": 46375
+  },
+  {
+    "label": "before",
+    "repetition": 3,
+    "exitCode": 0,
+    "ms": 42352
+  },
+  {
+    "label": "after",
+    "repetition": 3,
+    "exitCode": 0,
+    "ms": 43970
+  }
+]

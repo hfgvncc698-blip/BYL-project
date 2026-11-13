@@ -1,0 +1,92 @@
+ const keys=['echauffement','corps','bonus','retourCalme'];
+ const kinds=['musculation','cardio','gainage','stretching','ergometre','mobilisation articulaire'];
+ const makeExercise=(id,n)=>({id,nom:'Fixture '+id,type:kinds[n%kinds.length],__collection:kinds[n%kinds.length],
+  'Séries':3,'Répétitions':8+n%9,'Charge (kg)':10+n,'Durée (min:sec)':30+n,'Repos (min:sec)':45,
+  Distance:100+n,Watts:80+n,optionsOrder:['Séries','Répétitions','Charge (kg)','Repos (min:sec)'],
+  notesEnabled:true,notes:'Notes '+id,useAdvancedSets:n%2===0,linkNext:n%4===0,
+  sets:Array.from({length:3},(_,i)=>({_id:id+'-set-'+i,reps:8+i,chargeKg:10+i,restSec:45})),
+  details:'Description spécifique '+id+' '+('x'.repeat(300))});
+ const fixtureSessions=Array.from({length:6},(_,i)=>({name:'Fixture séance '+(i+1),useSections:true,
+  ...Object.fromEntries(keys.map((key,k)=>[key,Array.from({length:key==='corps'?24:key==='bonus'?2:3},(_,j)=>makeExercise('s'+i+'-'+key+'-'+j,i*40+k*24+j))]))}));
+ const multiTarget={programId:'private',clientId:null,coachId:'coach'};
+ const initial=await request('read',token,{target:multiTarget});
+ const base=(await request('read',token,{target})).draft.value;
+ await request('save',token,{target:multiTarget,scope:initial.scope,revision:initial.revision,baseVersion:initial.baseVersion,operationId:crypto.randomUUID(),value:{...base,programName:'Fixture multisessions',sessions:fixtureSessions}});
+ const restore=async()=>{
+  await cdp.send('Page.navigate',{url:url+'/?program=private'});
+  await waitFor(cdp,"!!window.q && q.status().includes('Brouillon disponible')");
+  await ev("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Reprendre le brouillon serveur')).click()");
+  await waitFor(cdp,"q.title()==='Fixture multisessions' && document.querySelectorAll('[data-rfd-draggable-id^=\"sess-\"]').length===6");
+ };
+ await restore();
+ let expected=fixtureSessions;const samples=[];
+ const selectSection=async(i,key)=>{
+  await ev(`(async()=>{document.querySelector('[data-rfd-draggable-id="sess-${i}"]').click();await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));})()`);
+  const k=keys.indexOf(key);
+  await ev(`document.querySelector('[data-tour="builder-sections"]').nextElementSibling.querySelectorAll('button')[${k}].click()`);
+  await waitFor(cdp,`document.querySelector('[data-tour="builder-exercises"]').textContent.includes(${JSON.stringify(expected[i][key][0].nom)})`);
+ };
+ const total=ss=>ss.reduce((n,s)=>n+keys.reduce((m,k)=>m+s[k].length,0),0);
+ for(const viewport of [1440,390]){
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width:viewport,height:1000,deviceScaleFactor:1,mobile:viewport===390});
+  await cdp.send('Emulation.setCPUThrottlingRate',{rate:viewport===390?4:1});
+  for(let i=0;i<6;i++){
+   const key=keys[(i+(viewport===390?2:0))%4];await selectSection(i,key);
+   for(const action of ['add','replace']){
+    const before=structuredClone(expected),index=action==='replace'?Math.min(1,before[i][key].length-1):null;
+    const old=index===null?null:before[i][key][index];
+    const incoming=Array.from({length:action==='add'?3:1},(_,j)=>makeExercise('v'+viewport+'-'+i+'-'+action+'-'+j,i+j+2));
+    const marker=incoming.at(-1).nom;const httpBefore=counters.http;
+    const timing=await ev(`(async()=>{window.__rowRenders=0;const begin=performance.now();builderSelect(${JSON.stringify(incoming)},${index});
+     await new Promise((resolve,reject)=>{const loop=()=>{if(document.querySelector('[data-tour="builder-exercises"]').textContent.includes(${JSON.stringify(marker)}))requestAnimationFrame(()=>requestAnimationFrame(resolve));else if(performance.now()-begin>20000)reject(Error('paint timeout'));else requestAnimationFrame(loop);};loop();});
+     return {paintMs:performance.now()-begin,rowRenders:window.__rowRenders};})()`);
+    await waitFor(cdp,"q.status().includes('Synchronisé avec BYL')");
+    const saved=await request('read',token,{target:multiTarget});const actual=saved.draft.value.sessions;
+    assert.equal(actual.length,6);assert.equal(actual[i][key].length,before[i][key].length+(action==='add'?3:0));
+    for(let s=0;s<6;s++)for(const section of keys){
+     if(s!==i||section!==key)assert.deepEqual(actual[s][section],before[s][section],'unrelated session/section unchanged');
+    }
+    if(action==='add'){
+     assert.deepEqual(actual[i][key].slice(0,before[i][key].length),before[i][key]);
+     assert.deepEqual(actual[i][key].slice(-3).map(e=>e.nom),incoming.map(e=>e.nom));
+    }else{
+     const replaced=actual[i][key][index];assert.equal(replaced.nom,marker);assert.notEqual(replaced.id,old.id);
+     for(const field of ['notes','notesEnabled','useAdvancedSets','sets','linkNext','optionsOrder'])assert.deepEqual(replaced[field],old[field],field+' preserved');
+     for(let j=0;j<before[i][key].length;j++)if(j!==index)assert.deepEqual(actual[i][key][j],before[i][key][j]);
+    }
+    const ids=actual.flatMap(s=>keys.flatMap(k=>s[k].map(e=>e.id)));assert.equal(new Set(ids).size,ids.length,'unique exercise identities');
+    expected=actual;samples.push({viewport,cpuRate:viewport===390?4:1,session:i+1,section:key,action,...timing,saveCalls:counters.http-httpBefore-1,totalExercises:total(actual)});
+   }
+  }
+ }
+ await cdp.send('Emulation.setCPUThrottlingRate',{rate:1});
+ await check('all six sessions restored after reload',async()=>{
+  await restore();
+  const saved=await request('read',token,{target:multiTarget});assert.deepEqual(saved.draft.value.sessions,expected);
+  for(let i=0;i<6;i++){await selectSection(i,'corps');assert(await ev(`document.querySelector('[data-tour="builder-exercises"]').textContent.includes(${JSON.stringify(expected[i].corps[0].nom)})`));}
+ });
+ await check('offline add in sixth session synchronizes all sessions intact',async()=>{
+  await selectSection(5,'corps');
+  await cdp.send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
+  await ev(`builderSelect([${JSON.stringify(makeExercise('offline-unique',5))}])`);
+  await waitFor(cdp,"q.status().includes('En attente de synchronisation')");assert.equal(await ev('q.warning()'),true);
+  await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
+  await waitFor(cdp,"q.status().includes('Synchronisé avec BYL')");
+  const saved=await request('read',token,{target:multiTarget});
+  assert.deepEqual(saved.draft.value.sessions.slice(0,5),expected.slice(0,5));
+  assert.deepEqual(saved.draft.value.sessions[5].corps.slice(0,-1),expected[5].corps);
+  assert.equal(saved.draft.value.sessions[5].corps.at(-1).nom,'Fixture offline-unique');expected=saved.draft.value.sessions;
+ });
+ await check('explicit canonical save preserves six sessions and completes draft',async()=>{
+  await ev("[...document.querySelectorAll('button')].find(b=>/^(Enregistrer|Enregistrer les modifications|Save)$/.test(b.textContent.trim())).click()");
+  let canonical;
+  for(let n=0;n<100;n++){canonical=(await db.doc('programmes/private').get()).data();if(canonical.nomProgramme==='Fixture multisessions')break;await sleep(100);}
+  assert.equal(canonical.nomProgramme,'Fixture multisessions');assert.equal(canonical.sessions.length,6);
+  assert.equal(total(canonical.sessions),total(expected));
+  for(let i=0;i<6;i++)for(const k of keys){
+   assert.deepEqual(canonical.sessions[i][k].map(e=>[e.id,e.nom,e.notes,e.linkNext]),expected[i][k].map(e=>[e.id,e.nom,e.notes,e.linkNext]));
+  }
+  let saved;for(let n=0;n<50;n++){saved=await request('read',token,{target:multiTarget});if(!saved.draft)break;await sleep(100);}assert.equal(saved.draft,null);
+ });
+ const output={initialSessions:6,initialExercises:total(fixtureSessions),finalExercises:total(expected),samples,results,measured,limits:['Synthetic fixtures only; actual Builder with selection props, not bank search','One sample per action/section/viewport; CPU x4 simulation','Emulator metrics, no real billed operations']};
+ fs.writeFileSync(process.env.BUILDER_RESULT,JSON.stringify(output,null,2));console.log('RESULT',JSON.stringify({initialExercises:output.initialExercises,finalExercises:output.finalExercises,samples,results}));

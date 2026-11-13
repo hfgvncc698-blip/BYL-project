@@ -234,6 +234,7 @@ export default function ProgramsPage() {
   const [assignedClientsMap, setAssignedClientsMap] = useState(
     () => initialProgramsPageCache?.assignedClientsMap || {}
   );
+  const [assignmentsReady, setAssignmentsReady] = useState(false);
   const [loading, setLoading] = useState(() => !initialProgramsPageCache);
 
   useLayoutEffect(() => {
@@ -265,6 +266,7 @@ export default function ProgramsPage() {
   const assignmentBusyRef = useRef(false);
   const [duplicatingProgramId, setDuplicatingProgramId] = useState(null);
   const [programSearch, setProgramSearch] = useState("");
+  const [programPage, setProgramPage] = useState(0);
   const [libraryFilter, setLibraryFilter] = useState('templates');
   const libraryText = libraryLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || libraryLabels.fr;
   const draftLabel = libraryDraftLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || libraryDraftLabels.fr;
@@ -360,6 +362,11 @@ export default function ProgramsPage() {
       return searchableText.includes(queryText);
     });
   }, [prettyGoal, prettyProgramName, programSearch, programmes, libraryFilter]);
+  const programPageCount = Math.max(1, Math.ceil(filteredProgrammes.length / 25));
+  const currentProgramPage = Math.min(programPage, programPageCount - 1);
+  const visibleProgrammes = filteredProgrammes.slice(currentProgramPage * 25, (currentProgramPage + 1) * 25);
+  useEffect(() => { setProgramPage(0); }, [programSearch, libraryFilter, effectiveCoachUid]);
+
 
   const openBaseProgram = useCallback(
     (baseProg) => {
@@ -401,13 +408,84 @@ export default function ProgramsPage() {
 	  const fetchData = useCallback(async ({ force = false } = {}) => {
 	    if (!effectiveCoachUid) return;
         const load = beginPageLoad();
+        setAssignmentsReady(false);
+        let readsActive = true;
 	    try {
-      const clientSnapsPromise = Promise.all([
+      // Admin previews retain their existing SDK path. Grouping is cost-qualified
+      // for the ordinary coach rules; never infer authorization from this cache.
+      const groupedPromise = isAdmin ? Promise.resolve(null) : apiFetch('/programs/program-assignments', {
+        method: 'POST', timeoutMs: 45000, body: JSON.stringify({ coachId: effectiveCoachUid }),
+      }).then(value => {
+        if (!Array.isArray(value?.clients) || !value?.assignments || typeof value.assignments !== 'object')
+          throw new Error('Invalid assignment response');
+        for (const client of value.clients) {
+          const count = getCachedAssignedProgramCount(client);
+          if (typeof client.id !== 'string' || !client.id ||
+              ((count == null || count > 0) && !Array.isArray(value.assignments[client.id])))
+            throw new Error('Incomplete assignment response');
+        }
+        return value;
+      }).catch(error => {
+        if (error.status === 404) return null; // Older local/API version only.
+        throw error; // Never repeat a denied or failed scan through the SDK.
+      });
+      const clientSnapsPromise = groupedPromise.then(value => value
+        ? [{ docs: value.clients.map(client => ({ id: client.id, data: () => client })) }]
+        : Promise.all([
         getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(200))),
         getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
         getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
-      ]);
+      ]));
       void clientSnapsPromise.catch(() => {});
+      const clientListPromise = clientSnapsPromise.then(clientSnaps => {
+      const clientsById = new Map();
+      clientSnaps.forEach((snap) => {
+        snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));
+      });
+      const clientList = [...clientsById.values()].sort((a, b) =>
+        getClientDisplayName(a).localeCompare(getClientDisplayName(b), "fr", { sensitivity: "base" })
+      );
+        return clientList;
+      });
+      const assignmentsPromise = clientListPromise.then(async clientList => {
+        const grouped = await groupedPromise;
+        if (!readsActive || !load.current()) return { counts: {}, map: {} };
+      const counts = {};
+      const map = {};
+      const clientsToInspect = clientList.filter((clientData) => {
+        const count = getCachedAssignedProgramCount(clientData);
+        return count == null || count > 0;
+      });
+
+      await runLimited(clientsToInspect, async (clientData) => {
+        if (!readsActive || !load.current()) return;
+        const subSnap = grouped
+          ? { docs: (grouped.assignments[clientData.id] || []).map(program => ({ id: program.id, data: () => program })) }
+          : await getDocs(collection(db, "clients", clientData.id, "programmes"));
+        subSnap.docs.forEach((d) => {
+          const prog = d.data() || {};
+          const baseId = prog.programId || prog.programID || prog.baseId;
+          if (!baseId) return;
+
+          counts[baseId] = (counts[baseId] || 0) + 1;
+          if (!map[baseId]) map[baseId] = [];
+
+          map[baseId].push({
+            clientId: clientData.id,
+            prenom: clientData.prenom || clientData.firstName || "",
+            nom: clientData.nom || clientData.lastName || "",
+            assignedProgramId: d.id,
+            isAuto: isAutoProgramme(prog),
+            fallbackName: prettyProgramName(prog),
+          });
+        });
+      }, 24);
+
+        return { counts, map };
+      });
+      // A template failure must not leave a concurrent read rejection unhandled.
+      void assignmentsPromise.catch(() => {});
+
 
 	      const cachedEntry = force || forceFresh
 	        ? null
@@ -438,15 +516,8 @@ export default function ProgramsPage() {
       // Display templates before the independent client queries and histories.
       setProgrammes(progs);
       setLoading(false);
-      const clientSnaps = await clientSnapsPromise;
+      const clientList = await clientListPromise;
       if (!load.current()) return;
-      const clientsById = new Map();
-      clientSnaps.forEach((snap) => {
-        snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));
-      });
-      const clientList = [...clientsById.values()].sort((a, b) =>
-        getClientDisplayName(a).localeCompare(getClientDisplayName(b), "fr", { sensitivity: "base" })
-      );
       for (const program of progs) {
         const owner = resolvePreparedClient(program, clientList);
         if (owner) {
@@ -464,38 +535,13 @@ export default function ProgramsPage() {
 	      };
 	      if (!cached) writePageDataCache(programsPageCacheKey, initialPayload);
 
-      const counts = {};
-      const map = {};
-      const clientsToInspect = clientList.filter((clientData) => {
-        const count = getCachedAssignedProgramCount(clientData);
-        return count == null || count > 0;
-      });
-
-      await runLimited(clientsToInspect, async (clientData) => {
-        const subSnap = await getDocs(collection(db, "clients", clientData.id, "programmes"));
-        subSnap.docs.forEach((d) => {
-          const prog = d.data() || {};
-          const baseId = prog.programId || prog.programID || prog.baseId;
-          if (!baseId) return;
-
-          counts[baseId] = (counts[baseId] || 0) + 1;
-          if (!map[baseId]) map[baseId] = [];
-
-          map[baseId].push({
-            clientId: clientData.id,
-            prenom: clientData.prenom || clientData.firstName || "",
-            nom: clientData.nom || clientData.lastName || "",
-            assignedProgramId: d.id,
-            isAuto: isAutoProgramme(prog),
-            fallbackName: prettyProgramName(prog),
-          });
-        });
-      }, 12);
+      const { counts, map } = await assignmentsPromise;
 
       if (!load.current()) return;
       setProgrammes(progs);
       setClients(clientList);
       setAssignedCounts(counts);
+      setAssignmentsReady(true);
       setAssignedClientsMap(map);
 	      const nextPayload = {
 	        programmes: progs,
@@ -507,6 +553,7 @@ export default function ProgramsPage() {
 	      writePageDataCache(programsPageCacheKey, nextPayload);
           load.ready({ programs: progs.length, clients: clientList.length });
     } catch (err) {
+      readsActive = false;
       if (!load.current()) return;
       load.error();
       console.error("Erreur chargement programmes:", err);
@@ -516,7 +563,7 @@ export default function ProgramsPage() {
     } finally {
       if (load.current()) setLoading(false);
     }
-	  }, [beginPageLoad, forceFresh, toast, effectiveCoachUid, programsPageCacheKey, t, prettyProgramName]);
+	  }, [beginPageLoad, forceFresh, toast, effectiveCoachUid, programsPageCacheKey, t, prettyProgramName, isAdmin]);
 
   useEffect(() => {
     if (!authLoading && effectiveCoachUid) fetchData();
@@ -740,11 +787,11 @@ export default function ProgramsPage() {
           },
           {
             label: t("dashboard.assigned_programs_short", "Assignés"),
-            value: programSummary.assigned,
+            value: assignmentsReady ? programSummary.assigned : "…",
           },
           {
             label: t("programs.toAssign", "À assigner"),
-            value: programSummary.unassigned,
+            value: assignmentsReady ? programSummary.unassigned : "…",
           },
         ].map((item) => (
           <Box
@@ -1061,9 +1108,9 @@ export default function ProgramsPage() {
             </Thead>
             <Tbody>
               {filteredProgrammes.length > 0 ? (
-                filteredProgrammes.map((p) => {
+                visibleProgrammes.map((p) => {
                   const nbSessions = getSessionCount(p);
-                  const nbAssigned = assignedCounts[p.id] || 0;
+                  const nbAssigned = assignmentsReady ? assignedCounts[p.id] || 0 : null;
                   const goalForSubtitle = p.objectifUI || p.objectif || "";
                   const activeWeeksLabel = formatProgramActiveWeeks(p, t);
 
@@ -1100,13 +1147,13 @@ export default function ProgramsPage() {
                           colorScheme="gray"
                           borderRadius="full"
                           onClick={() => {
-                            if (nbAssigned <= 0) return;
+                            if (nbAssigned == null || nbAssigned <= 0) return;
                             setSelectedAssignedBaseProgramId(p.id);
                             assignedToModal.onOpen();
                           }}
                           title={nbAssigned > 0 ? t("dashboard.see_assigned_list", "Voir la liste") : ""}
                         >
-                          {isClientProgram(p) && nbAssigned === 0 ? draftLabel : `${nbAssigned} ${nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}`}
+                          {nbAssigned == null ? t("common.loading", "Chargement...") : isClientProgram(p) && nbAssigned === 0 ? draftLabel : `${nbAssigned} ${nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}`}
                         </Badge>
                       </Td>
 
@@ -1179,9 +1226,9 @@ export default function ProgramsPage() {
         <Box>
           <VStack spacing={3} align="stretch">
             {filteredProgrammes.length > 0 ? (
-              filteredProgrammes.map((p) => {
+              visibleProgrammes.map((p) => {
                 const nbSessions = getSessionCount(p);
-                const nbAssigned = assignedCounts[p.id] || 0;
+                const nbAssigned = assignmentsReady ? assignedCounts[p.id] || 0 : null;
                 const goalForSubtitle = p.objectifUI || p.objectif || "";
                 const activeWeeksLabel = formatProgramActiveWeeks(p, t);
 
@@ -1226,13 +1273,13 @@ export default function ProgramsPage() {
                         colorScheme="gray"
                         borderRadius="full"
                         onClick={() => {
-                          if (nbAssigned <= 0) return;
+                          if (nbAssigned == null || nbAssigned <= 0) return;
                           setSelectedAssignedBaseProgramId(p.id);
                           assignedToModal.onOpen();
                         }}
                         title={nbAssigned > 0 ? t("dashboard.see_assigned_list", "Voir la liste") : ""}
                       >
-                        {isClientProgram(p) && nbAssigned === 0 ? draftLabel : `${nbAssigned} ${nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}`}
+                        {nbAssigned == null ? t("common.loading", "Chargement...") : isClientProgram(p) && nbAssigned === 0 ? draftLabel : `${nbAssigned} ${nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}`}
                       </Badge>
 
                       <Badge variant="subtle" colorScheme="gray" borderRadius="full">
@@ -1306,6 +1353,13 @@ export default function ProgramsPage() {
           </VStack>
         </Box>
         )}
+        {programPageCount > 1 && <HStack justify="center" mt={4}>
+          <Button data-testid="programs-previous-page" size="sm" isDisabled={currentProgramPage === 0}
+            onClick={() => setProgramPage(currentProgramPage - 1)}>{t("calendar.previous", "Préc.")}</Button>
+          <Text data-testid="programs-page-number">{currentProgramPage + 1} / {programPageCount}</Text>
+          <Button data-testid="programs-next-page" size="sm" isDisabled={currentProgramPage >= programPageCount - 1}
+            onClick={() => setProgramPage(currentProgramPage + 1)}>{t("calendar.next", "Suiv.")}</Button>
+        </HStack>}
       </Box>
     </Box>
   );

@@ -24,6 +24,8 @@ import {
   Wrap,
   WrapItem,
   Collapse,
+  AlertDialog, AlertDialogOverlay, AlertDialogContent,
+  AlertDialogHeader, AlertDialogBody, AlertDialogFooter,
 } from "@chakra-ui/react";
 import {
   computeMicronutrientTargets,
@@ -1645,6 +1647,9 @@ export default function RationAutoGenerator(props) {
   } = props;
 
   const toast = useToast();
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetRevision, setResetRevision] = useState(0);
+  const resetCancelRef = useRef(null);
   const mounted = useRef(false);
   const autoInitDone = useRef(false);
   const microInitDone = useRef(false);
@@ -3054,6 +3059,7 @@ export default function RationAutoGenerator(props) {
       });
     }
   }, [
+    resetRevision,
     blocked,
     kcalIndicatif,
     initialState,
@@ -3846,12 +3852,36 @@ export default function RationAutoGenerator(props) {
     <Box>
       <HStack justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
         <Heading size="md">{i18n.t("auto.RationAutoGenerator.ration_auto", "Ration auto")}</Heading>
+        <HStack spacing={2} flexWrap="wrap">
+        <Button size="sm" variant="outline" colorScheme="blue"
+          isDisabled={blocked || !(kcalIndicatif > 0) || !(kcalTarget > 0)}
+          onClick={() => setResetOpen(true)}>
+          {i18n.t("auto.RationAutoGenerator.recalculate", "Recalculer la ration")}
+        </Button>
         <MealSelectionMenu inline value={selectedMeals} disabled={blocked} onApply={meals => {
           manualMealSelection.current = true;
           redistributeRequested.current = true;
           setSelectedMeals([...meals]);
         }} />
+        </HStack>
       </HStack>
+      <AlertDialog isOpen={resetOpen} leastDestructiveRef={resetCancelRef} onClose={() => setResetOpen(false)} isCentered>
+        <AlertDialogOverlay>
+          <AlertDialogContent mx={4}>
+            <AlertDialogHeader>{i18n.t("auto.RationAutoGenerator.resetTitle", "Recalculer la ration ?")}</AlertDialogHeader>
+            <AlertDialogBody>{i18n.t("auto.RationAutoGenerator.resetDescription", "Les aliments et quantités que vous avez modifiés seront remplacés par une nouvelle ration calculée à partir des besoins actuels du dossier. Les repas choisis et les contraintes alimentaires sont conservés.")}</AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={resetCancelRef} onClick={() => setResetOpen(false)}>{i18n.t("auto.RationAutoGenerator.resetCancel", "Annuler")}</Button>
+              <Button ml={3} colorScheme="blue" isDisabled={blocked || !(kcalIndicatif > 0) || !(kcalTarget > 0)} onClick={() => {
+                if (blocked || !(kcalIndicatif > 0) || !(kcalTarget > 0)) return;
+                redistributeRequested.current = true;
+                setResetRevision(revision => revision + 1);
+                setResetOpen(false);
+              }}>{i18n.t("auto.RationAutoGenerator.resetConfirm", "Recalculer")}</Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
 
       {headerCards}
 

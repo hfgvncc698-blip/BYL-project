@@ -1,0 +1,22 @@
+PASS programs encrypted roundtrip
+PASS history encrypted roundtrip
+PASS nutrition encrypted roundtrip
+PASS messages encrypted roundtrip
+PASS drafts encrypted roundtrip
+PASS club encrypted roundtrip
+PASS progress encrypted roundtrip
+PASS random IV for repeated plaintext
+PASS tampered ciphertext rejected
+PASS record substitution rejected
+PASS scope change rejected uid
+PASS scope change rejected role
+PASS scope change rejected club
+PASS scope change rejected revision
+PASS wrong recovery secret rejected
+PASS late encryption after logout rejected
+PASS late unlock rejected
+PASS late decryption rejected
+PASS late network response cannot deliver after identity transition
+PASS fresh instance locked until secret supplied (restart model)
+PASS independent instances cannot share private data with distinct secrets (tab model)
+{"passed":21,"engine":"v25.8.1","times":[{"payloadBytes":10000,"sealMs":0.28,"openMs":0.29,"jsonEnvelopeBytes":35865},{"payloadBytes":100000,"sealMs":2.24,"openMs":0.42,"jsonEnvelopeBytes":357668},{"payloadBytes":1000000,"sealMs":26.33,"openMs":3.85,"jsonEnvelopeBytes":3569246}],"heapUsed":50070608,"limitation":"Prototype WebCrypto Node only. No browser, IDB transaction, SDK cache, application auth or migration integration."}

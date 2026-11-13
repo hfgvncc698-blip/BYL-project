@@ -1,0 +1,87 @@
+DASHBOARD — DIAGNOSTIC DE L'ATTENTE RÉELLE
+13 novembre 2026 — codex/firebase-performance-audit
+
+Observation du Dashboard local existant, en lecture via son panneau diagnostic.
+Aucun contenu client copié dans ce rapport, aucune mutation métier effectuée.
+Aucun déploiement et aucun changement backend, de prix ou de règle Firestore.
+
+Avant : racines clients 1,111 s ; modèles 1,195 s ; nutrition 2,600 s.
+Première requête des détails : 5,561 s ; clients récents prêts à 6,737 s.
+Deux requêtes de détails : durée cumulée 13,119 s ; activité prête à 14,414 s ;
+core à 14,517 s. La préparation de l'objet Dashboard produit environ 24,1 millions
+de caractères JSON (indication de volume en mémoire, pas de transfert réseau).
+Le squelette calendrier est déjà présent à 0,934 s : ce n'est pas sa disponibilité
+métier complète. Ces observations reproduisent l'ordre de grandeur signalé.
+
+Cause démontrée
+La priorité exclusive récemment ajoutée aux clients récents sérialisait les deux
+requêtes 5 + 31 dossiers. Le total exact Actifs attend nécessairement les deux.
+Cette stratégie ajoutait leurs durées, alors que le pool existant permet déjà
+jusqu'à trois requêtes simultanées. Les fixtures légères masquaient ce compromis.
+
+Correction ciblée
+CoachDashboard conserve le petit groupe visible en premier et la publication
+immédiate de ses résultats, mais passe exclusiveFirst:false au chargeur.
+Les requêtes suivantes n'attendent plus la résolution de la première.
+Le pool reste limité à trois requêtes. Aucun document ou appel supplémentaire
+sur le parcours nominal ; aucune écriture ou écoute supplémentaire.
+La priorité n'est plus une réservation exclusive des ressources : elle garantit
+l'ordre d'admission, pas que la première réponse arrivera avant toutes les autres.
+Chaque requête conserve son contrôle serveur ; en cas d'erreur, des requêtes déjà
+admises peuvent avoir commencé, contrairement à l'ancien arrêt séquentiel.
+Aucune garantie de coût identique pour tous les parcours d'erreur n'est revendiquée.
+
+Émulateurs et navigateur synthétique, sans mode diagnostic
+36 dossiers : compteur confirmé 1,868 -> 1,683 s (une exécution par version).
+9 appels API, 45 opérations SDK navigateur, 1 683 lectures backend HTTP estimées
+avant et après. 2 écritures navigateur communes au parcours ; aucune ajoutée.
+Le compteur instrumental de snapshots varie (97 -> 119 documents retournés,
+114 -> 92 lectures estimées), malgré les mêmes opérations. Ce compteur dépend
+également des callbacks initiaux/vides ; il ne représente pas une facture réelle.
+La suppression puis le rétablissement d'une validation actualisent bien le total.
+
+Tests
+PASS testRecentClientPriority : mode exclusif conservé dans le chargeur ; nouveau
+contre-test du mode Dashboard concurrent : même ordre d'admission, mêmes quatre
+lots pour 100 dossiers, mêmes résultats, aucun doublon, concurrence <=3.
+PASS testDashboardTimingActivity, testDashboardActivity, testCoachProgramBatchLot8B,
+testPrivateSessionLot7B1Octies, testCoachProgressPaint, testCoachDashboardLoading.
+PASS git diff --check sur les fichiers concernés.
+Vite compile ; npm run build reste bloqué sur le budget CoachDashboard 70,1 KiB
+pour 70 KiB (limite préexistante, non relevée). Pas de build complet validé.
+
+Fichiers de cette correction
+src/components/CoachDashboard.jsx
+scripts/testRecentClientPriority.mjs
+scripts/runDashboardRequestOverlap.cjs
+Preuves synthétiques : audits/dashboard-request-overlap/*.json.
+
+Limites
+Les requêtes restent lourdes. Cette correction ne promet pas moins de 2 secondes
+sur le poste utilisateur. Les durées réelles comprennent serveur, réseau et
+lecture du corps JSON : elles ne permettent pas de séparer leurs contributions.
+Les protections et les fonctionnalités sont conservées. P0-3/P0-4 restent ouverts.
+
+DÉCISION APRÈS CONTRE-MESURE LOCALE — ESSAI RETIRÉ
+La section « Correction ciblée » décrit l'essai, PAS l'état final conservé.
+Sur la page locale : core 14,517 -> 13,019 s ; activité 14,414 -> 12,937 s ;
+clients récents 6,737 -> 12,937 s. Deux requêtes réussies dans les deux cas.
+La somme des durées des requêtes parallèles atteint 23,047 s (les durées se
+chevauchent ; ce n'est pas le délai utilisateur). Le volume de l'objet et les
+statistiques finales sont identiques. Cette mesure ne sépare pas le coût serveur
+et le transfert ; elle ne démontre pas une origine précise de leur ralentissement.
+
+Le gain global insuffisant et la régression des cartes prioritaires justifient
+le retrait intégral du changement de production. CoachDashboard est identique
+au snapshot avant cet essai (cmp réussi). Seuls banc, tests et rapport sont ajoutés.
+Les corrections du bug activity sans mode diagnostic restent en place.
+
+Conclusion : aucune amélioration réelle suffisante n'est revendiquée. Les
+mesures sur fixtures légères ne doivent plus être utilisées comme validation du
+poste utilisateur. La prochaine piste est un contrat de lecture Dashboard qui
+ne transporte que les éléments nécessaires aux indicateurs, avec récupération
+du contenu complet avant toute action nécessitant une prescription modifiable.
+Il faudra prouver la parité des statistiques, gérer les formats historiques et
+mesurer les consultations suivantes pour éviter de déplacer/augmenter les coûts.
+Aucun résumé persistant ni nouvelle stratégie de facturation n'a été introduit.
+Aucun déploiement.

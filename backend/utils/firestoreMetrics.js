@@ -6,6 +6,10 @@ const { randomUUID } = require('node:crypto');
 const enabled = process.env.BYL_FIRESTORE_METRICS === '1';
 const context = new AsyncLocalStorage();
 const routes = new Map([
+  ...['discover','authorize','import','receipt','cleanup-plan','checkpoint'].map(action => ['/api/cache-migration/'+action, 'cache-migration-'+action]),
+  ['/api/program-drafts/read','program-draft-read'],
+  ['/api/program-drafts/save','program-draft-save'],
+  ['/api/program-drafts/complete','program-draft-complete'],
   ['/api/clubs/summary','club-summary'], ['/api/clubs/calendar-period','club-calendar'],
   ['/api/clubs/calendar-participants','calendar-participants'], ['/api/clubs/group-class-clients','class-directory'],
   ['/api/clubs/my-group-classes','member-classes'], ['/api/clubs/payment-dues','payment-dues'],
@@ -22,6 +26,8 @@ const routes = new Map([
   ['/api/messaging/club/send', 'club-send'],
   ['/api/analytics/admin/geo', 'admin-geo'],
   ['/api/programs/dashboard-templates', 'dashboard-templates'],
+  ['/api/programs/program-assignments','program-assignments'],
+  ['/api/programs/nutrition-list','nutrition-list'],
   ['/api/programs/client-list-summary','client-list-summary'],
   ['/api/programs/dashboard-client-programs','dashboard-client-programs'],
 ]);
@@ -41,7 +47,7 @@ function totals(scope, activity) {
 // the query, credentials, or contents enter metrics.
 const coachReadDomains=new Set(['clients','users','programmes','sessionsEffectuees','nutrition_assessments','nutrition_feedback','coachClientListViews','messagingRevocations']);
 function listDomain(row,ref,result) {
-  if(!['dashboard-templates','client-list-summary','dashboard-client-programs'].includes(row.activity))return;
+  if(!['nutrition-list','program-assignments','dashboard-templates','client-list-summary','dashboard-client-programs'].includes(row.activity))return;
   const reference=Array.isArray(result)?result[0]?.ref:result.ref;
   const name=reference?.parent?.id || result.docs?.[0]?.ref.parent.id || ref?._queryOptions?.collectionId || ref?.id;
   const key=coachReadDomains.has(name)?name:'other';

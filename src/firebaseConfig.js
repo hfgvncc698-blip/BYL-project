@@ -1,13 +1,12 @@
 // src/firebaseConfig.js
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
-  getFirestore,
   initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
+  memoryLocalCache,
+  terminate,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { trimPersistedPageCaches } from "./utils/persistedPageCache.js";
+import { getAuth, beforeAuthStateChanged, onAuthStateChanged } from "firebase/auth";
+import { lockPrivateSession } from "./utils/privateSession.js";
 import {
   initializeAppCheck,
   ReCaptchaEnterpriseProvider,
@@ -25,10 +24,6 @@ const firebaseConfig = {
   measurementId: "G-2X9GZWE2B0",
 };
 
-// Recover space before Firebase starts its multi-tab coordination writes.
-if (typeof window !== "undefined") {
-  try { trimPersistedPageCaches(window.localStorage); } catch { /* storage disabled */ }
-}
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // App Check becomes active as soon as the reCAPTCHA Enterprise site key is
@@ -58,26 +53,33 @@ const firestoreSettings = {
   ignoreUndefinedProperties: true,
 };
 
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, {
-    ...firestoreSettings,
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  });
-} catch (error) {
-  console.warn("[Firebase] Persistent Firestore cache unavailable, using default cache.", error);
-  try {
-    firestoreDb = initializeFirestore(app, firestoreSettings);
-  } catch {
-    firestoreDb = getFirestore(app);
-  }
-}
+// Fail closed if another initializer already owns an incompatible SDK cache.
+const firestoreDb = initializeFirestore(app, {
+  ...firestoreSettings,
+  localCache: memoryLocalCache(),
+});
 
 export const db = firestoreDb;
 
 // --- Auth ---
 export const auth = getAuth(app);
 
+// End the old SDK before a different principal can access its memory cache.
+// A fresh realm also retires component globals and pending callbacks. We never
+// clear IndexedDB here: inherited mutations/drafts require explicit migration.
+let previousPrincipal = auth.currentUser?.uid || null;
+beforeAuthStateChanged(auth, async next => {
+  if (previousPrincipal && previousPrincipal !== next?.uid) {
+    lockPrivateSession();
+    await terminate(db);
+  }
+});
+onAuthStateChanged(auth, next => {
+  if (previousPrincipal && previousPrincipal !== next?.uid && typeof window !== 'undefined') {
+    lockPrivateSession();
+    window.location.replace(next ? window.location.href : '/login');
+    return;
+  }
+  previousPrincipal = next?.uid || null;
+});
 export default app;

@@ -1,3 +1,4 @@
+import { registerCiqualTranslations, ciqualFoodAliases } from "./nutritionFoodI18n.js";
 // src/utils/ciqualLoader.js
 let _cache = null;
 
@@ -7,7 +8,8 @@ const normalize = (s = "") =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[’']/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[œŒ]/g, "oe")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
     .replace(/\s+/g, " ");
 
@@ -15,6 +17,7 @@ const getFoodName = (item) => String(item?.name ?? item?.alim_nom_fr ?? "").trim
 
 const canonicalToken = (token) => {
   const aliases = {
+    eggs: "egg", oeufs: "oeuf", apples: "apple", raw: "cru", cooked: "cuit",
     pates: "pate",
     crue: "cru",
     crues: "cru",
@@ -23,7 +26,8 @@ const canonicalToken = (token) => {
     cuites: "cuit",
     cuits: "cuit",
   };
-  return aliases[token] || token;
+  const canonical = aliases[token] || token;
+  return /^ال[\u0621-\u064a]{2,}$/.test(canonical) ? canonical.slice(2) : canonical;
 };
 
 const canonicalTokens = (value) => normalize(value).split(" ").filter(Boolean).map(canonicalToken);
@@ -48,8 +52,9 @@ const queryFoodIntent = (query) => {
   };
 };
 
-function relevanceScore(item, query, intent) {
-  const rawName = getFoodName(item);
+function relevanceScore(item, query, intent, alias) {
+  const rawName = alias || getFoodName(item);
+  const sourceCandidate = normalize(getFoodName(item));
   const candidate = normalize(rawName);
   if (!candidate) return null;
 
@@ -62,7 +67,7 @@ function relevanceScore(item, query, intent) {
   if (!containsAllTokens(candidateTokens, queryTokens)) return null;
 
   const phraseIndex = tokenSequenceIndex(candidateTokens, queryTokens);
-  const mainTokens = canonicalTokens(rawName.split(/[,;(]/, 1)[0]);
+  const mainTokens = canonicalTokens(rawName.split(/[,;،(]/, 1)[0]);
   const mainName = mainTokens.join(" ");
   const canonicalQuery = queryTokens.join(" ");
   const canonicalCandidate = candidateTokens.join(" ");
@@ -87,11 +92,11 @@ function relevanceScore(item, query, intent) {
 
   // À pertinence lexicale comparable, les aliments simples passent avant
   // leurs versions séchées, concentrées ou déjà intégrées à une préparation.
-  if (/\b(cru|crue|crus|crues)\b/.test(candidate)) score += 1_000;
-  if (/\bnature\b/.test(candidate)) score += 350;
-  if (/\b(seche|sechee|seches|deshydrate|deshydratee|concentre|concentree)\b/.test(candidate)) score -= 1_100;
-  if (/\b(puree|compote|soupe|salade|tarte|jus|nectar)\b/.test(candidate)) score -= 650;
-  if (/\b(preemballe|preemballee|appertise|appertisee)\b/.test(candidate)) score -= 400;
+  if (/\b(cru|crue|crus|crues)\b/.test(sourceCandidate)) score += 1_000;
+  if (/\bnature\b/.test(sourceCandidate)) score += 350;
+  if (/\b(seche|sechee|seches|deshydrate|deshydratee|concentre|concentree)\b/.test(sourceCandidate)) score -= 1_100;
+  if (/\b(puree|compote|soupe|salade|tarte|jus|nectar)\b/.test(sourceCandidate)) score -= 650;
+  if (/\b(preemballe|preemballee|appertise|appertisee)\b/.test(sourceCandidate)) score -= 400;
 
   // Pour un terme court comme « pomme », un nom composé (« pomme de terre »)
   // est moins pertinent qu'un aliment dont « pomme » est le nom principal.
@@ -106,13 +111,28 @@ function relevanceScore(item, query, intent) {
   return score;
 }
 
+let loading;
 export async function loadCiqual() {
   if (_cache) return _cache;
-  const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
-  if (!res.ok) throw new Error("Impossible de charger ciqual_2025.json");
-  const data = await res.json();
-  _cache = Array.isArray(data) ? data : [];
-  return _cache;
+  if (loading) return loading;
+  loading = (async () => {
+    const read = async path => {
+      const res = await fetch(path, { cache: "force-cache" });
+      if (!res.ok) throw new Error(`Impossible de charger ${path}`);
+      return res.json();
+    };
+    const [rows, results] = await Promise.all([
+      read("/ciqual_2025.json"),
+      Promise.allSettled(["en", "es", "de", "it", "ar", "ru"].map(lang => read(`/ciqual-locales/${lang}.json`))),
+    ]);
+    const catalogs = results.filter(result => result.status === "fulfilled").map(result => result.value);
+    registerCiqualTranslations(rows, Object.fromEntries(catalogs.map(catalog => [catalog.language, catalog])));
+    // Keep the original foods available during a translation download failure;
+    // a later call retries the missing catalogs instead of caching an incomplete load.
+    if (catalogs.length === results.length) _cache = rows;
+    return rows;
+  })().finally(() => { loading = null; });
+  return loading;
 }
 
 export function searchCiqual(list, q, limit = 20) {
@@ -121,7 +141,10 @@ export function searchCiqual(list, q, limit = 20) {
   const intent = queryFoodIntent(q);
 
   return (list || [])
-    .map((item, index) => ({ item, index, score: relevanceScore(item, nq, intent) }))
+    .map((item, index) => {
+      const scores = ciqualFoodAliases(item).map(name => relevanceScore(item, nq, intent, name)).filter(score => score != null);
+      return { item, index, score: scores.length ? Math.max(...scores) : null };
+    })
     .filter((entry) => entry.score != null)
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, limit)

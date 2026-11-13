@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 // src/components/ExerciseCard.jsx
 import React, {
   useRef,
@@ -203,7 +204,7 @@ const readNested = (obj, paths = []) => {
 
 const parseLocalStorageJson = (key) => {
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = localSessionStorage.getItem(key);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {

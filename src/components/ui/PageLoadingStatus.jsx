@@ -12,7 +12,7 @@ export default function PageLoadingStatus({ state }) {
         isIndeterminate={!reducedMotion} value={reducedMotion ? 100 : undefined}
         aria-label={t("common.loading", "Chargement…")} />
     )}
-    {state.hasCache && state.status === "error" && <Text role="status" fontSize="xs" color="gray.500">
+    {state.debug && state.hasCache && state.status === "error" && <Text role="status" fontSize="xs" color="gray.500">
       {t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")}
     </Text>}
   </>;

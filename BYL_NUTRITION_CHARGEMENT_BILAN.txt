@@ -1,0 +1,163 @@
+NUTRITION COACH — CHARGEMENT MESURÉ
+13 novembre 2026 — codex/firebase-performance-audit
+Aucun déploiement. Uniquement données synthétiques et émulateurs pour les tests.
+
+RÉSULTAT
+Disponibilité des données réelles de la liste et de tous ses compteurs, depuis
+la navigation d'un Chrome jetable froid, application compilée :
+Clients / bilans     Avant         Après final
+12 / 24              1,046 s       0,558 s
+100 / 200            1,368 s       0,531 s
+500 / 1 000          3,979 s       1,546 s
+Premier contenu utile = données principales dans cette page : ce ne sont pas
+des temps de skeleton. Une première passe groupée obtenait 0,650 / 0,567 / 1,359 s.
+Pas de garantie générale sous 2 s en production : réseau local, CPU non ralenti,
+un utilisateur actif par scénario, deux bilans par dossier. Le temps d'attente
+humain pour saisir ses identifiants n'est pas inclus.
+La stabilisation réseau finale prend 3,96 / 3,73 / 3,71 s après, et inclut
+le délai artificiel d'observation du banc et les composants communs.
+
+CAUSES ET CORRECTIONS
+1. Un appel SDK nutrition_assessments par dossier après trois recherches
+   d'appartenance ; aller-retour navigateur répété jusqu'à 500 fois.
+   Nouveau POST /api/programs/nutrition-list : même périmètre et mêmes documents
+   canoniques, lectures bornées à 24 simultanées côté serveur, transaction et
+   projection pour la liste. Aucun résumé persistant, index ou migration.
+2. Chargement intégral des rations/enquêtes dans le navigateur pour afficher
+   noms, objectifs, dates, partage et statut. La réponse groupée contient les
+   seuls champs nécessaires, dont la présence de ration/enquête, pas leur détail.
+   Les détails continuent d'être lus dans les écrans existants à leur ouverture.
+   La projection Firestore lit encore ration/foodSurvey côté serveur pour
+   préserver leur présence exacte ; ne pas prétendre supprimer tout ce trafic.
+3. Toutes les cartes mobile ET toutes les lignes desktop étaient montées.
+   Une seule variante responsive, 25 bilans affichés par page, recherche sur
+   toute la liste, statistiques sur tous les bilans, pagination sans requête.
+   Clé React = dossier + bilan, car l'ID de bilan seul n'est pas globalement unique.
+
+Un essai de rendu seul et concurrence SDK augmentée restait à 3,116 s pour 500 :
+audits/nutrition-loading/render-only-compiled.json. Cette concurrence augmentée
+n'est pas conservée. Le fallback ancien SDK reste à 12.
+
+COÛTS : COMPTEURS OBSERVÉS ET MODÈLE, PAS FACTURE RÉELLE
+Périmètre Nutrition hors Auth/navigation/messagerie communs :
+Clients    Lectures documentaires explicites avant   API après
+12         36                                       39
+100        300                                      303
+500        1 500                                    1 503
+Le +3 correspond à deux vérifications du marqueur de révocation et au profil.
+Une seule tentative transactionnelle observée, zéro écriture de la route.
+
+Les règles Firestore des requêtes navigateur consultent aussi le profil.
+Ces lectures dépendantes sont facturables mais absentes du compteur SDK.
+Modèle conservateur : seulement une lecture de profil par requête (N+3),
+sans ajouter le dossier parent consulté par les règles des bilans :
+12 : minimum 51 avant, 39 après
+100 : minimum 403 avant, 303 après
+500 : minimum 2 003 avant, 1 503 après.
+Ce modèle n'est pas une mesure de facturation réelle ni un comptage interne
+des règles de l'émulateur. Source vérifiée :
+https://firebase.google.com/docs/firestore/pricing
+Aucun tarif monétaire prétendument exact sans région, quotas et facture.
+
+SDK navigateur total observé : 16/104/504 appels avant -> 1 après,
+38/302/1502 lectures estimées avant -> 2 après (Auth commun).
+Les lectures ont été déplacées vers le serveur, et sont comptées ci-dessus :
+elles n'ont pas disparu. L'appel API Nutrition est nouveau (1), il remplace
+le parcours SDK. Les opérations serveur SDK Nutrition sont 18/106/506,
+documents retournés 37/301/1501, dont un profil. Requêtes propriétaires
+identiques, déduplication des dossiers, pas de nouveaux listeners.
+Écritures serveur observées : 0. Écriture navigateur commune Auth : 1 avant/après.
+Pas de nouveau service Google ni de stockage facturable ajouté.
+Les retries transactionnels, erreurs, trafic inter-région et charge simultanée
+du backend peuvent modifier les coûts réels : non garantis par ce banc.
+Admin utilise toujours le chemin SDK, non qualifié en performance ici.
+Les limites historiques de 500 dossiers par requête propriétaire sont conservées.
+
+RENDUS, MÉMOIRE, TRANSFERT
+Composants montés avant -> après :
+12 : 1203 -> 789 ; 100 : 7187 -> 810 ; 500 : 34380 -> 805.
+Heap JS observé (MB décimaux) :
+12 : 18,8 -> 18,6 ; 100 : 49,1 -> 17,8 ; 500 : 133,2 -> 19,0.
+Temps JS, cas 500 : 1,706 -> 0,212 s.
+Transfert observé CDP, page complète :
+12 : 2319754 -> 2319420 octets
+100 : 2325406 -> 2320657 octets
+500 : 2348783 -> 2325946 octets.
+Ce compteur navigateur n'est pas une mesure complète des flux gRPC du serveur
+ni de toute la facturation réseau Firestore.
+Réponse compressée Nutrition : 430 / 1650 / 6938 octets.
+Temps de la route : 115 / 209 / 1195 ms.
+
+SÉCURITÉ ET FONCTIONNALITÉS
+Identité Firebase vérifiée, révocation vérifiée avant et dans la transaction,
+profil et abonnement actuels, droit Nutrition selon les variantes existantes
+(modules, proAccess, package, flags, trial), coach limité à son UID.
+Les IDs de clients sont déterminés par les requêtes autorisées côté serveur.
+Aucun droit déduit d'un cache. Réponse private/no-store. Cache mémoire existant
+et barrière d'identité conservés. Pas de modification des règles.
+Réponses tardives rejetées par le ticket existant.
+Déconnexion HTTP : arrêt des nouvelles lectures en attente ; lectures déjà
+en cours non annulables. Pas d'affirmation de purge rétroactive.
+Fallback SDK uniquement sur 404 d'une ancienne API. Pas de second scan après
+401/403/503 ; erreur visible et bouton Réessayer existant.
+Ce choix peut réduire la disponibilité si l'API est indisponible ; il évite le
+double coût et ne transforme pas un échec en liste vide confirmée.
+
+Création, suppression, liens dossier/bilan, traductions, partage, filtres et
+statistiques conservés. Aucun changement du catalogue CIQUAL ou des calculs.
+Aucune publication, mutation métier automatique ni donnée réelle utilisée.
+P0-3/P0-4 restent ouverts, non traités ici.
+
+TESTS
+PASS scripts/testNutritionLoading.mjs : droits pro, refus de liaison,
+confirmation tardive sans double écriture.
+PASS scripts/testNutritionPageLoading.mjs : exécution du loader réel,
+parité des lignes/requêtes, propriétaires historiques dédupliqués, dossier vide,
+refus, réponses tardives, réponse groupée, fallback 404 uniquement.
+PASS scripts/testNutritionProjection.cjs : mêmes noms/statuts/partage/dates,
+ration et enquête détaillées exclues.
+PASS scripts/testNutritionList.cjs sur émulateurs : propriétaire, chevauchement
+des trois formats, dossier étranger, admin, correction/suppression canonique,
+transfert de dossier/changement de club, rôle, disabledByClub, révocation,
+retrait du droit Nutrition, projection sans notes privées.
+PASS application compilée et Chrome jetable : 12/100/500, compteurs globaux,
+pagination 2/40, recherche d'un client hors page initiale, mobile, zéro nouvelle
+lecture SDK durant ces interactions.
+PASS scripts/testPrivateSessionLot7B1Octies.mjs : isolation epoch,
+réponse API tardive, préservation/quarantaine des anciens caches.
+PASS npm run build : budgets respectés.
+ÉCHEC testGlobalLoading.mjs : banc VM incompatible avec l'import actuel de
+assertPrivateTicket dans privateSession (stub ne l'exporte pas).
+Échec avant exécution des assertions, non modifié par cette intervention.
+Le premier essai d'interaction recherche échouait avec les clés de bilan
+dupliquées ; correction des clés puis contre-test intégré réussi.
+Pas de validation exhaustive de tous les écrans nutrition ni de chaque scénario
+multi-appareil/panne réseau en interface : les détails n'ont pas été modifiés.
+
+FICHIERS DE CETTE INTERVENTION
+src/pages/CoachNutritionPage.jsx
+backend/routes/coachProgramRead.js (ajout isolé nutrition-list)
+backend/utils/nutritionList.js
+backend/utils/firestoreMetrics.js (activité nutrition-list)
+scripts/runNutritionLoading.cjs
+scripts/testNutritionPageLoading.mjs
+scripts/testNutritionProjection.cjs
+scripts/testNutritionList.cjs
+audits/nutrition-loading/*
+BYL_NUTRITION_CHARGEMENT_BILAN.txt
+Les autres modifications déjà présentes dans le workspace sont préservées.
+
+REPRODUCTION
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runNutritionLoading.cjs before --compiled
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runNutritionLoading.cjs after --compiled
+La seconde commande inclut les tests API sécurité sur les mêmes émulateurs.
+Le banc crée un checkout temporaire, superpose les modifications locales,
+utilise un projet demo, des identités synthétiques et des profils Chrome jetables.
+Les snapshots avant sont conservés ; ne pas confondre avec HEAD déjà modifié.
+Mesures brutes before-compiled.json, after-compiled.json et comparison.json.
+
+LOCAL / PRODUCTION
+L'API locale est redémarrée pour activer la route, sans requête authentifiée
+sur les données réelles. Frontend local reprend la modification par Vite.
+Aucun déploiement. Un refresh réel dépendra aussi des bilans, du réseau et de
+la charge serveur ; les temps émulateurs ne sont pas une garantie production.

@@ -1,0 +1,512 @@
+{
+  "date": "2026-11-10T16:10:22.722Z",
+  "node": "v25.8.1",
+  "chrome": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/157.0.8103.50",
+    "revision": "@049750111b1e5c11565c792b2aeed5541f332bad",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+    "jsVersion": "15.7.112.23"
+  },
+  "results": [
+    {
+      "name": "unresolved data blocks deletion",
+      "passed": true,
+      "durationMs": 3.2511249999997744
+    },
+    {
+      "name": "anonymous recovery reads no private record",
+      "passed": true,
+      "durationMs": 2.9084170000000995
+    },
+    {
+      "name": "Firebase Auth login B",
+      "passed": true,
+      "durationMs": 10.353625000000193
+    },
+    {
+      "name": "second account cannot read first account content",
+      "passed": true,
+      "durationMs": 34.192165999999816
+    },
+    {
+      "name": "unknown owner refused before content read",
+      "passed": true,
+      "durationMs": 22.100167000000056
+    },
+    {
+      "name": "proposal displayed without private read until explicit confirmation",
+      "passed": true,
+      "durationMs": 26.51583299999993
+    },
+    {
+      "name": "network cut refuses recovery without reading",
+      "passed": true,
+      "durationMs": 2.6737499999999272
+    },
+    {
+      "name": "revocation before recovery refuses read",
+      "passed": true,
+      "durationMs": 27.108040999999957
+    },
+    {
+      "name": "Firebase Auth disabled token refuses admission",
+      "passed": true,
+      "durationMs": 12.85895900000014
+    },
+    {
+      "name": "club change refuses recovery",
+      "passed": true,
+      "durationMs": 19.214708999999857
+    },
+    {
+      "name": "late admission after account change reads nothing",
+      "passed": true,
+      "durationMs": 224.25070800000003
+    },
+    {
+      "name": "canonical version race rejects import",
+      "passed": true,
+      "durationMs": 41.975167000000056
+    },
+    {
+      "name": "revocation at commit rejects import",
+      "passed": true,
+      "durationMs": 31.395582999999988
+    },
+    {
+      "name": "tampered provenance cannot be imported",
+      "passed": true,
+      "durationMs": 16.30883300000005
+    },
+    {
+      "name": "lost confirmation preserves original draft",
+      "passed": true,
+      "durationMs": 117.95333400000027
+    },
+    {
+      "name": "recovery retry verifies receipt without duplication or publication",
+      "passed": true,
+      "durationMs": 54.57041699999991
+    },
+    {
+      "name": "second authorized account recovers only its draft",
+      "passed": true,
+      "durationMs": 2898.468708
+    },
+    {
+      "name": "actual recovered server contents and unpublished flag",
+      "passed": true,
+      "durationMs": 10.062165999999706
+    },
+    {
+      "name": "P0-4 raw legacy programme and nutrition remain readable before purge after restart",
+      "passed": true,
+      "durationMs": 508.50579199999993
+    },
+    {
+      "name": "two tabs share draft receipt without duplicate import",
+      "passed": true,
+      "durationMs": 58.251916999999594
+    },
+    {
+      "name": "two current tabs acknowledge cleanup and clear their own session storage",
+      "passed": true,
+      "durationMs": 1092.7462079999996
+    },
+    {
+      "name": "old contexts prevent global completion",
+      "passed": true,
+      "durationMs": 8.86962500000027
+    },
+    {
+      "name": "legacy open connection blocks database deletion",
+      "passed": true,
+      "durationMs": 992.1925419999989
+    },
+    {
+      "name": "legacy tab does not acknowledge coordination",
+      "passed": true,
+      "durationMs": 1076.4626669999998
+    },
+    {
+      "name": "blocked request remains live then succeeds after close",
+      "passed": true,
+      "durationMs": 207.67108299999927
+    },
+    {
+      "name": "secondary cleanup failure is resumable and not success",
+      "passed": true,
+      "durationMs": 2.403249999999389
+    },
+    {
+      "name": "cleanup resume clears IDB local session cache and SW in current tab",
+      "passed": true,
+      "durationMs": 15.985875000000306
+    },
+    {
+      "name": "idempotent cleanup repeats without changing public preference",
+      "passed": true,
+      "durationMs": 7.94695800000045
+    },
+    {
+      "name": "another tab sessionStorage is not cleared by current tab",
+      "passed": true,
+      "durationMs": 3.046249999999418
+    },
+    {
+      "name": "old tab can recreate cache after nominal cleanup",
+      "passed": true,
+      "durationMs": 6.323749999999563
+    },
+    {
+      "name": "browser restart preserves verified absence of synthetic private stores",
+      "passed": true,
+      "durationMs": 517.1470410000002
+    },
+    {
+      "name": "reopen during interruption retains evidence and resumes",
+      "passed": true,
+      "durationMs": 906.7178750000003
+    },
+    {
+      "name": "real Firestore SDK persists pending offline write",
+      "passed": true,
+      "durationMs": 3.3344579999993584
+    },
+    {
+      "name": "real Firestore clear rejects running instance",
+      "passed": true,
+      "durationMs": 0.4986669999998412
+    },
+    {
+      "name": "real pending write survives terminate and full browser restart",
+      "passed": true,
+      "durationMs": 574.9122499999994
+    },
+    {
+      "name": "real SDK synthetic purge drops pending data after termination",
+      "passed": true,
+      "durationMs": 3.280125000001135
+    },
+    {
+      "name": "real SDK database remains absent after full restart",
+      "passed": true,
+      "durationMs": 751.3943330000002
+    },
+    {
+      "name": "same tab A then B never receives prior recovered content",
+      "passed": true,
+      "durationMs": 88.13137499999903
+    },
+    {
+      "name": "restart B raw targeted stores absent before final receipt",
+      "passed": true,
+      "durationMs": 694.898541999999
+    }
+  ],
+  "writes": 2,
+  "counters": {
+    "http": 34,
+    "sdkReads": 111,
+    "documentsReturned": 102,
+    "writes": 5,
+    "transactions": 31
+  },
+  "samples": [
+    {
+      "action": "/authority",
+      "status": 403,
+      "durationMs": 31.219833000000108,
+      "sdkReads": 2,
+      "documentsReturned": 2,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 403,
+      "durationMs": 15.652791999999863,
+      "sdkReads": 2,
+      "documentsReturned": 1,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 20.809583000000202,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 403,
+      "durationMs": 11.183958000000075,
+      "sdkReads": 2,
+      "documentsReturned": 2,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 403,
+      "durationMs": 1.2215839999998934,
+      "sdkReads": 0,
+      "documentsReturned": 0,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 403,
+      "durationMs": 10.359334000000217,
+      "sdkReads": 2,
+      "documentsReturned": 2,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 218.47045800000024,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 14.810209000000214,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/recover",
+      "status": 409,
+      "durationMs": 23.74545799999987,
+      "sdkReads": 5,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 13.955041999999594,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/recover",
+      "status": 403,
+      "durationMs": 11.69183299999986,
+      "sdkReads": 2,
+      "documentsReturned": 2,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 13.059790999999677,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 11.32858299999998,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 12.374166999999943,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/recover",
+      "status": 200,
+      "durationMs": 31.052042000000256,
+      "sdkReads": 5,
+      "documentsReturned": 3,
+      "writes": 2
+    },
+    {
+      "action": "/receipt",
+      "status": 403,
+      "durationMs": 17.06329199999982,
+      "sdkReads": 5,
+      "documentsReturned": 5,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 13.249874999999975,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/recover",
+      "status": 200,
+      "durationMs": 19.63520900000003,
+      "sdkReads": 5,
+      "documentsReturned": 5,
+      "writes": 0
+    },
+    {
+      "action": "/receipt",
+      "status": 200,
+      "durationMs": 16.97875000000022,
+      "sdkReads": 5,
+      "documentsReturned": 5,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 14.469750000000204,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 16.98591600000009,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/recover",
+      "status": 200,
+      "durationMs": 2032.0723750000002,
+      "sdkReads": 5,
+      "documentsReturned": 3,
+      "writes": 2
+    },
+    {
+      "action": "/receipt",
+      "status": 200,
+      "durationMs": 33.36083400000007,
+      "sdkReads": 5,
+      "documentsReturned": 5,
+      "writes": 0
+    },
+    {
+      "action": "/recover",
+      "status": 200,
+      "durationMs": 2845.258833,
+      "sdkReads": 10,
+      "documentsReturned": 8,
+      "writes": 0
+    },
+    {
+      "action": "/receipt",
+      "status": 200,
+      "durationMs": 25.88145799999984,
+      "sdkReads": 5,
+      "documentsReturned": 5,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 403,
+      "durationMs": 10.330457999999453,
+      "sdkReads": 2,
+      "documentsReturned": 2,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 11.5214160000005,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/recover",
+      "status": 200,
+      "durationMs": 16.722667,
+      "sdkReads": 5,
+      "documentsReturned": 5,
+      "writes": 0
+    },
+    {
+      "action": "/receipt",
+      "status": 200,
+      "durationMs": 18.05279099999916,
+      "sdkReads": 5,
+      "documentsReturned": 5,
+      "writes": 0
+    },
+    {
+      "action": "/cleanup-final",
+      "status": 403,
+      "durationMs": 4.330500000000029,
+      "sdkReads": 0,
+      "documentsReturned": 0,
+      "writes": 0
+    },
+    {
+      "action": "/cleanup-final",
+      "status": 403,
+      "durationMs": 2.5271670000001905,
+      "sdkReads": 0,
+      "documentsReturned": 0,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 200,
+      "durationMs": 38.25362500000119,
+      "sdkReads": 3,
+      "documentsReturned": 3,
+      "writes": 0
+    },
+    {
+      "action": "/authority",
+      "status": 403,
+      "durationMs": 22.311792000000423,
+      "sdkReads": 2,
+      "documentsReturned": 2,
+      "writes": 0
+    },
+    {
+      "action": "/cleanup-final",
+      "status": 200,
+      "durationMs": 15.36737499999981,
+      "sdkReads": 1,
+      "documentsReturned": 1,
+      "writes": 1
+    }
+  ],
+  "heap": {
+    "usedSize": 827524,
+    "totalSize": 1572864,
+    "embedderHeapUsedSize": 1506392,
+    "backingStorageSize": 8018
+  },
+  "serverMemory": {
+    "rss": 157614080,
+    "heapTotal": 52068352,
+    "heapUsed": 46027680,
+    "external": 23948139,
+    "arrayBuffers": 283127
+  },
+  "actualBilledReads": null,
+  "canonicalUnchanged": true,
+  "limits": [
+    "Firebase Auth/Firestore emulators; trusted synthetic provenance absent from general legacy drafts",
+    "Real Firebase SDK 12.12.0 pending-write persistence/deletion tested; no internal mutation decoder or recovery qualified",
+    "No actual legacy user data or profile inspected",
+    "API-visible absence is not forensic disk erasure",
+    "Completion withheld without external disposable-profile isolation; no general browser-only guarantee"
+  ]
+}

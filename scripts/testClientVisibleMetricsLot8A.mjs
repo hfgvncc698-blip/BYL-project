@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {selectClientMetricRows as select} from '../src/utils/clientVisibleMetrics.js';
+const rows=Array.from({length:500},(_,i)=>({id:'c'+i}));
+assert.equal(select(rows,[],false).length,25);
+assert.deepEqual(select(rows,rows.slice(25,50).map(c=>c.id),false),rows.slice(25,50));
+assert.deepEqual(select(rows,['c499'],false),[rows[499]]);
+assert.equal(select(rows,['foreign'],false).length,25);
+assert(select(rows,['foreign'],false).every(c=>rows.includes(c)));
+assert.equal(select(rows,[],true),rows);
+assert.deepEqual(select([],['c0'],false),[]);
+console.log('PASS visible metrics: first page, next page, search, authorized intersection, exhaustive filters, empty directory');
+
+const {clientListPage}=await import('../src/utils/clientVisibleMetrics.js');
+const directory=Array.from({length:500},(_,i)=>({id:'c'+i,prenom:'Client',nom:String(i).padStart(4,'0')}));
+const documentOrder=[...directory].sort((a,b)=>a.id.localeCompare(b.id));
+const partial=documentOrder.slice(0,25);
+assert.notDeepEqual(clientListPage(partial).rows.map(c=>c.id),directory.slice(0,25).map(c=>c.id));
+assert.deepEqual(clientListPage(documentOrder).rows,directory.slice(0,25),'final enrichment must match visible name order');
+assert.deepEqual(clientListPage(documentOrder,'',1).rows,directory.slice(25,50));
+assert.deepEqual(clientListPage(documentOrder,'0499',12).rows,[directory[499]],'search clamps stale page');
+assert.deepEqual(clientListPage(documentOrder,'no match').rows,[],'empty search never fetches fallback clients');
+assert.equal(clientListPage([]).pageCount,1);
+assert.equal(clientListPage([{id:'a',prenom:'Élodie',nom:'Test'}],'elodie').rows.length,1);
+console.log('PASS canonical first page versus partial ID order; pagination, search, empty results and accents.');

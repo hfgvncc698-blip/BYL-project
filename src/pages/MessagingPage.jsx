@@ -136,6 +136,8 @@ function ProfessionalMessagingPage() {
               {loading ? <Flex py={10} justify="center"><Spinner size="sm" /></Flex> : (
                 <MessagingContactList
                   contacts={filteredContacts}
+                  initialVisibleCount={50}
+                  resetKey={`${search}:${directoryOpen}`}
                   selectedId={selectedContact?.id}
                   onSelect={selectContact}
                   onDelete={removeConversation}

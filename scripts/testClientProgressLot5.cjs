@@ -11,6 +11,8 @@ async function main(){
   const {initializeAuth,connectAuthEmulator,inMemoryPersistence,signInWithEmailAndPassword}=await import('firebase/auth');
   const {initializeFirestore,connectFirestoreEmulator,doc,getDocFromServer,updateDoc,disableNetwork,enableNetwork,onSnapshot,deleteDoc}=await import('firebase/firestore');
   await prepareAuth();
+  // Lot 7 admission requires a current profile, including in the synthetic fixture.
+  await db.doc('users/owner').set({role:'particulier'});
   const owner='owner',root=db.doc('clients/lot5-devices'),program=root.collection('programmes').doc('threshold'),history=program.collection('sessionsEffectuees');
   await db.recursiveDelete(root);
   await root.set({authUid:owner});await program.set({title:'Synthetic'});
@@ -62,6 +64,8 @@ async function main(){
   const profile=db.doc('users/administrator');
   await root.update({clubId:'fixture-a'});
   await profile.set({role:'coach',subscriptionStatus:'active',hasActiveSubscription:true,clubId:'fixture-a'});
+  // Lot 7 requires a real current membership, not a profile clubId alone.
+  await db.doc('clubs/fixture-a/members/administrator').set({status:'active'});
   assert.ok((await getDocFromServer(foreign.ref)).exists());
   await profile.update({clubId:'fixture-b'});
   await assert.rejects(getDocFromServer(foreign.ref),e=>e.code==='permission-denied');

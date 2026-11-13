@@ -1,0 +1,377 @@
+{
+  "samples": [
+    {
+      "rate": 1,
+      "action": "add",
+      "paintMs": 383.60000002384186,
+      "rowRenders": 98,
+      "http": 1,
+      "exercises": 25
+    },
+    {
+      "rate": 1,
+      "action": "replace",
+      "paintMs": 399.39999997615814,
+      "rowRenders": 100,
+      "http": 1,
+      "exercises": 25
+    },
+    {
+      "rate": 4,
+      "action": "add",
+      "paintMs": 1606.0999999642372,
+      "rowRenders": 102,
+      "http": 1,
+      "exercises": 26
+    },
+    {
+      "rate": 4,
+      "action": "replace",
+      "paintMs": 1740.5999999642372,
+      "rowRenders": 104,
+      "http": 1,
+      "exercises": 26
+    }
+  ],
+  "results": [
+    {
+      "name": "actual AuthProvider and ProgramBuilder open",
+      "passed": true,
+      "durationMs": 340.3460839999998
+    },
+    {
+      "name": "actual builder auto-saves a server draft",
+      "passed": true,
+      "durationMs": 1074.1708749999998
+    },
+    {
+      "name": "offline edit and reconnect preserve draft",
+      "passed": true,
+      "durationMs": 1385.650708000001
+    }
+  ],
+  "measured": [
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "e672d594-84e3-4de5-8133-91c341c2093a",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 43,
+      "status": 200,
+      "responseBytes": 98,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "e77dbc30-bd1b-4ef7-9fd4-fb804bd5a5e3",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 50,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "ded47e7c-2561-47ec-9793-6dd0ccc1f513",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 25,
+      "status": 200,
+      "responseBytes": 786,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "641b8527-e9c7-4f00-be55-7b0678258b93",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 56,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "9f4d9498-daec-4a80-9134-2318338e5277",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 74,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "8e3b74cb-21ba-40c5-b3b6-2f8719c456a0",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 37,
+      "status": 200,
+      "responseBytes": 410683,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "3cccee9b-8c28-4bca-9a7f-cea7335f7e40",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 50,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "800180d7-4bee-44e0-bc34-a0f460296106",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 23,
+      "status": 200,
+      "responseBytes": 410671,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "370a5917-3a05-40d3-b89b-74400ab629f1",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 28,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "4c8841a3-0d9e-45cd-b086-f21591f9a251",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 20,
+      "status": 200,
+      "responseBytes": 427050,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "0f22c500-f589-4cc9-a1fd-9c879feb483b",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 30,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "28b7c197-170d-40fb-bb8f-fe2f8229cf28",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 25,
+      "status": 200,
+      "responseBytes": 427051,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "5a8aa276-7c93-4523-b58c-cf0f9e7f904d",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 47,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "54cd7b64-5478-423e-9149-c3e84bba404e",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 27,
+      "status": 200,
+      "responseBytes": 427042,
+      "unestimatedSdkReads": 0
+    }
+  ],
+  "counters": {
+    "http": 14
+  },
+  "heap": {
+    "usedSize": 231948440,
+    "totalSize": 278036480,
+    "embedderHeapUsedSize": 10933400,
+    "backingStorageSize": 28341964
+  },
+  "limits": [
+    "Actual Builder isolated from exercise bank; no production data",
+    "Single samples per CPU/action, not p95",
+    "Emulator estimates, no billed-cost claim"
+  ]
+}

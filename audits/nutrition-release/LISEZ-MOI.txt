@@ -1,0 +1,46 @@
+QUALIFICATION FRONTEND — 13 novembre 2026
+
+Base : 02ad24f87b782e0591dd5dbc28f348f61ecb7811
+HTML public identique au SHA-256 de la capture utilisateur :
+a9065b233dde1f64baf8196979e1f20c827b7599b5d83592fde19f93caff38e0
+249/249 fichiers JavaScript et CSS actifs téléchargés depuis le site public
+sont identiques octet pour octet au build isolé. Les paramètres publics de
+compilation API et géocodage ont été reproduits sans appeler ces services.
+Cela démontre l'équivalence du frontend compilé, pas l'historique Git du serveur
+ni la version de son backend. SSH automatique refusé, diagnostic via HTTPS public.
+
+PRÉPARATION
+Sources exportées du commit ; dépendances exactes via npm ci --offline.
+Patch nutrition appliqué : cinq fichiers existants, nouveaux catalogues de six
+langues et libellés de rations. Aucun changement des autres lots ajouté.
+Recherche CIQUAL et traductions testées : 3484 aliments, six langues, nutriments
+inchangés, reprise après indisponibilité d'un catalogue. Compilation réussie.
+Les règles, Auth, caches et changements de sécurité en cours ne sont pas inclus.
+Les problèmes P0-3/P0-4 ne sont pas déclarés corrigés.
+
+PAQUET
+146 fichiers compilés/catalogues modifiés, archive de 1477115 octets.
+Les noms des bundles changent en cascade avec leurs imports ; ce nombre n'est
+pas le nombre de composants métier modifiés. Aucun fichier backend dans le paquet.
+Les ressources statiques nécessitent un transfert réseau, sans traduction Google
+à l'exécution ni nouvelle opération Firestore introduite par le déploiement.
+
+USAGE DEPUIS LE DÉPÔT
+bash scripts/deploy-nutrition-only.sh --check
+Vérifie le paquet local uniquement ; déjà exécuté avec succès.
+
+bash scripts/deploy-nutrition-only.sh --deploy
+Demande la confirmation PUBLIER NUTRITION, puis les authentifications SSH/sudo.
+N'a PAS été exécuté. Aucun déploiement n'a eu lieu.
+Le script distant exige que les 249 empreintes et l'index correspondent encore.
+Il copie la release existante, superpose uniquement le paquet nutrition, vérifie
+les fichiers puis bascule le lien frontend. Tous les anciens fichiers sont gardés.
+La release précédente reste disponible et une commande de retour arrière est affichée.
+Aucun redémarrage, modification Nginx, backend ou commande Firebase.
+Ne pas lancer simultanément un autre script de déploiement : les anciens scripts
+ne partagent pas le verrou de cette publication.
+
+LIMITES DES TESTS
+Syntaxe des scripts et intégrité locale vérifiées ; pas de publication testée
+sur le serveur réel, pas de navigation post-publication. Si les empreintes ont
+changé, ne pas contourner le refus : refaire la qualification.

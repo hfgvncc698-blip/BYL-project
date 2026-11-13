@@ -1,7 +1,9 @@
+import { useProgramDraft } from "../hooks/useProgramDraft";
+import { programFingerprint } from "../utils/programFingerprint";
+import { localSessionStorage } from "../utils/privateStorage.js";
 import { EXERCISE_PARAMETER_LABELS, orderExerciseOptions } from "../utils/exerciseParameterOrder";
 import { duplicateBuilderExercise } from "../utils/duplicateBuilderExercise";
 import useSessionDraft, { clearSessionDrafts } from "../hooks/useSessionDraft";
-import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/ProgramBuilder.jsx
 import React, {
   useState,
@@ -109,25 +111,6 @@ import { apiFetch } from "../utils/api";
 import PageBackButton from "./ui/PageBackButton";
 
 /* ------------------ utils ------------------ */
-function useDebouncedCallback(callback, deps, delay) {
-  const timeout = useRef();
-  const running = useRef(null);
-  const latest = useRef(callback);
-  latest.current = callback;
-  const run = async () => {
-    clearTimeout(timeout.current);
-    if (running.current) { await running.current; await new Promise(resolve => setTimeout(resolve, 0)); }
-    const request = Promise.resolve().then(() => latest.current());
-    running.current = request;
-    try { await request; } finally { if (running.current === request) running.current = null; }
-  };
-  useNavigationSave(run);
-  useEffect(() => {
-    timeout.current = setTimeout(() => { run().catch(error => console.error('Autosave failed', error)); }, delay);
-    return () => clearTimeout(timeout.current);
-  }, [...(deps || []), delay]);
-}
-
 const PROGRAM_SAVE_TIMEOUT_MS = 5000;
 const PROGRAM_SYNC_TIMEOUT_MS = 12000;
 const MOBILE_EXERCISE_AUTO_SCROLLER_OPTIONS = {
@@ -1951,6 +1934,8 @@ const buildAutoFollowUpdate = (nextVal, existingOptions = {}) => {
   };
 };
 
+const EMPTY_EXERCISE_HISTORY = Object.freeze([]);
+
 function BuilderExerciseHistoryPanel({ items = [], loading = false, textMute, t, language }) {
   const [open, setOpen] = useState(false);
   const [activeView, setActiveView] = useState("history");
@@ -2823,7 +2808,7 @@ const ExerciseCardRow = memo(
       prev.t === next.t &&
       prev.index === next.index &&
       prev.expanded === next.expanded &&
-      prev.replaceIndex === next.replaceIndex &&
+      (prev.replaceIndex === prev.index) === (next.replaceIndex === next.index) &&
       prev.weightUnit === next.weightUnit &&
       prev.speedUnit === next.speedUnit &&
       prev.distanceUnit === next.distanceUnit &&
@@ -2930,6 +2915,7 @@ export default function ProgramBuilder({
   const [preparedAlreadyValidated, setPreparedAlreadyValidated] = useState(false);
   const cycleValidationOperation = useRef(null);
   const loadedTemplateRevision = useRef(0);
+  const loadedProgramFingerprint = useRef(null);
   const validationText = cycleValidationLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || cycleValidationLabels.fr;
   const historyClientId = clientId || preparedClientId;
   const [programmeGoal, setProgrammeGoal] = useSessionDraft(draftKey("programmeGoal"), "");
@@ -2952,7 +2938,7 @@ export default function ProgramBuilder({
       bonus: [],
       retourCalme: [],
     },
-  ]);
+  ], { memoryOnly: true });
 
   useEffect(() => {
     if (!sessions.some(session => session.useSections !== true)) return;
@@ -2972,6 +2958,7 @@ export default function ProgramBuilder({
   const assignmentOperationRef = useRef(null);
   const assignmentBusyRef = useRef(false);
   const [assigningProgram, setAssigningProgram] = useState(false);
+  const [builderAccessDenied, setBuilderAccessDenied] = useState(false);
   const [hasModifications, setHasModifications] = useState(false);
 
   const progressionPlan = useMemo(
@@ -2983,17 +2970,17 @@ export default function ProgramBuilder({
   const demoRestoreRef = useRef(null);
 
   const [weightUnit, setWeightUnit] = useState(() => {
-    const ls = localStorage.getItem("byl_weight_unit");
+    const ls = localSessionStorage.getItem("byl_weight_unit");
     return ["kg", "lbs"].includes(ls) ? ls : "kg";
   });
 
   const [speedUnit, setSpeedUnit] = useState(() => {
-    const ls = localStorage.getItem("byl_speed_unit");
+    const ls = localSessionStorage.getItem("byl_speed_unit");
     return ["kmh", "mph"].includes(ls) ? ls : "kmh";
   });
 
   const [distanceUnit, setDistanceUnit] = useState(() => {
-    const ls = localStorage.getItem("byl_distance_unit");
+    const ls = localSessionStorage.getItem("byl_distance_unit");
     return ["m", "mi"].includes(ls) ? ls : "m";
   });
 
@@ -3209,7 +3196,7 @@ export default function ProgramBuilder({
     (u) => {
       const next = ["kg", "lbs"].includes(u) ? u : "kg";
       setWeightUnit(next);
-      localStorage.setItem("byl_weight_unit", next);
+      localSessionStorage.setItem("byl_weight_unit", next);
       markDirty();
     },
     [markDirty]
@@ -3219,7 +3206,7 @@ export default function ProgramBuilder({
     (u) => {
       const next = ["kmh", "mph"].includes(u) ? u : "kmh";
       setSpeedUnit(next);
-      localStorage.setItem("byl_speed_unit", next);
+      localSessionStorage.setItem("byl_speed_unit", next);
       markDirty();
     },
     [markDirty]
@@ -3229,7 +3216,7 @@ export default function ProgramBuilder({
     (u) => {
       const next = ["m", "mi"].includes(u) ? u : "m";
       setDistanceUnit(next);
-      localStorage.setItem("byl_distance_unit", next);
+      localSessionStorage.setItem("byl_distance_unit", next);
       markDirty();
     },
     [markDirty]
@@ -3250,6 +3237,7 @@ export default function ProgramBuilder({
       setPreparedClientId(data.preparedForClientId || null);
       setPreparedAlreadyValidated(Boolean(data.validatedCycleAssignmentId));
       loadedTemplateRevision.current = data._rev || 0;
+      loadedProgramFingerprint.current = programFingerprint(data);
 
       const rawSessions =
         Array.isArray(data.sessions) && data.sessions.length
@@ -3342,9 +3330,9 @@ export default function ProgramBuilder({
         setSpeedUnit(units.speed);
         setDistanceUnit(units.distance);
 
-        localStorage.setItem("byl_weight_unit", units.weight);
-        localStorage.setItem("byl_speed_unit", units.speed);
-        localStorage.setItem("byl_distance_unit", units.distance);
+        localSessionStorage.setItem("byl_weight_unit", units.weight);
+        localSessionStorage.setItem("byl_speed_unit", units.speed);
+        localSessionStorage.setItem("byl_distance_unit", units.distance);
 
         setSessions(incomingState.sessions);
         setIsSaved(true);
@@ -3354,69 +3342,8 @@ export default function ProgramBuilder({
   };
   useEffect(() => {
     if (!programDocRef) return undefined;
-    return onSnapshot(programDocRef, (snap) => programSnapshotHandlerRef.current(snap));
+    return onSnapshot(programDocRef, (snap) => programSnapshotHandlerRef.current(snap), () => setBuilderAccessDenied(true));
   }, [programDocRef]);
-
-  useDebouncedCallback(
-    async () => {
-      if (!activeWeeksDirty || activeWeeksSaving || !programDocRef || !isCoach) return;
-      const nextWeeks = sanitizeActiveWeeks(programActiveWeeks);
-      try {
-        setActiveWeeksSaving(true);
-        const saveRequest = updateDoc(programDocRef, {
-            activeWeeks: nextWeeks,
-            durationWeeks: nextWeeks,
-            ...(isAssignedClientProgram
-              ? buildAssignedProgressionUpdate(
-                  progressionStrategy,
-                  buildProgressionPlan(nextWeeks, progressionStrategy)
-                )
-              : {}),
-            updatedAt: serverTimestamp(),
-            _rev: Date.now(),
-          });
-        await awaitSaved(saveRequest);
-        if (!isAssignedClientProgram && programId) {
-          await syncSavedProgram(programId);
-        }
-        setProgramActiveWeeks(nextWeeks);
-        setProgramActiveWeeksInput(String(nextWeeks));
-        setActiveWeeksDirty(false);
-        ignoreSnapsUntilRef.current = Date.now() + 1500;
-        if (!hasModifications) setIsSaved(true);
-      } catch (error) {
-        console.error("[program-builder] active weeks save failed", error);
-        setIsSaved(false);
-        toast({
-          title: t("programBuilder.toasts.errorTitle", "Erreur"),
-          description: t(
-            "programBuilder.toasts.activeWeeksError",
-            "La durée active n’a pas pu être enregistrée."
-          ),
-          status: "error",
-          duration: 3500,
-          position: "bottom",
-        });
-        throw error;
-      } finally {
-        setActiveWeeksSaving(false);
-      }
-    },
-    [
-      activeWeeksDirty,
-      activeWeeksSaving,
-      hasModifications,
-      isAssignedClientProgram,
-      isCoach,
-      programActiveWeeks,
-      programDocRef,
-      programId,
-      progressionStrategy,
-      t,
-      toast,
-    ],
-    500
-  );
 
   useEffect(() => {
     loadAssignableClients();
@@ -3568,112 +3495,25 @@ export default function ProgramBuilder({
     markDirty,
   ]);
 
-  /* --------- Autosave --------- */
-  useDebouncedCallback(
-    async () => {
-      if (hasModifications && !saving && !savingRef.current && programDocRef && !isFirstLoad.current) {
-        savingRef.current = true;
-        const savedEditTime = localEditTimeRef.current;
-        const savedRevision = Date.now();
-        try {
-          setSaving(true);
-
-          const nbSeances = sessions?.length || 1;
-          const defaultName = makeDefaultProgramName(objectifUI, programmeGoal, nbSeances);
-
-          const finalName =
-            !nameTouchedRef.current &&
-            isLegacyAutoName(programName, objectifUI, programmeGoal, nbSeances)
-              ? defaultName
-              : programName || defaultName;
-
-          const sessionsToSave = applyAutoSessionNumbering(sessions, t).map((sess) => {
-            const s = structuredClone(sess);
-            if (s.useSections) {
-              sectionDefs.forEach(({ key }) => {
-                s[key] = (s[key] || []).map((ex) => serializeExerciseForSave(ex));
-              });
-            } else {
-              s.exercises = (s.exercises || []).map((ex) => serializeExerciseForSave(ex));
-            }
-            return s;
-          });
-
-          await awaitSaved(
-            updateDoc(programDocRef, {
-              nomProgramme: finalName,
-              name: finalName,
-              objectif: programmeGoal || "",
-              ...(objectifUI ? { objectifUI } : {}),
-              activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
-              durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
-              ...(isAssignedClientProgram
-                ? buildAssignedProgressionUpdate(progressionStrategy, progressionPlan)
-                : buildProgressionTemplateUpdate(progressionStrategy)),
-              ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
-              displayUnits: sanitizeDisplayUnits({
-                weight: weightUnit,
-                speed: speedUnit,
-                distance: distanceUnit,
-              }),
-              sessions: sessionsToSave,
-              ...(isAssignedClientProgram
-                ? {
-                    seances: deleteField(),
-                    totalSessions: sessionsToSave.length,
-                    nbSeances: sessionsToSave.length,
-                  }
-                : {}),
-              updatedAt: serverTimestamp(),
-              _rev: savedRevision,
-            })
-          );
-          loadedTemplateRevision.current = savedRevision;
-          if (!isAssignedClientProgram && programId) {
-            await syncSavedProgram(programId);
-          }
-
-          if (localEditTimeRef.current === savedEditTime) {
-            setIsSaved(true);
-            setHasModifications(false);
-          }
-          ignoreSnapsUntilRef.current = Date.now() + 1500;
-        } catch (error) {
-          console.error("[program-builder] autosave failed", error);
-          setIsSaved(false);
-          throw error;
-        } finally {
-          savingRef.current = false;
-          setSaving(false);
-        }
-      }
-    },
-    [
-      programName,
-      programmeGoal,
-      objectifUI,
-      programActiveWeeks,
-      progressionStrategy,
-      progressionPlan,
-      isAssignedClientProgram,
-      programId,
-      autoProgressionEnabled,
-      sessions,
-      programOptions,
-      weightUnit,
-      speedUnit,
-      distanceUnit,
-      t,
-      hasModifications,
-      saving,
-      programDocRef,
-    ],
-    900
-  );
+  const serverDraftValue = useMemo(() => ({programName,programmeGoal,objectifUI,programActiveWeeks,progressionStrategy,
+    autoProgressionEnabled,programOptions,sessions,weightUnit,speedUnit,distanceUnit}),
+    [programName,programmeGoal,objectifUI,programActiveWeeks,progressionStrategy,autoProgressionEnabled,programOptions,sessions,weightUnit,speedUnit,distanceUnit]);
+  const serverDraft = useProgramDraft({programId:isNewRoute&&!programId?null:programDocRef?.id||null,
+    clientId:clientId||null,coachId:adminCoachId||user?.uid},serverDraftValue,hasModifications||activeWeeksDirty, saved => {
+      setProgramName(saved.programName||'');setProgrammeGoal(saved.programmeGoal||'');setObjectifUI(saved.objectifUI||'');
+      setProgramActiveWeeks(saved.programActiveWeeks||4);setProgramActiveWeeksInput(String(saved.programActiveWeeks||4));
+      setProgressionStrategy(saved.progressionStrategy||'linear');setAutoProgressionEnabled(saved.autoProgressionEnabled!==false);
+      setProgramOptions(saved.programOptions||{});setSessions(saved.sessions||[]);
+      setWeightUnit(saved.weightUnit||'kg');setSpeedUnit(saved.speedUnit||'kmh');setDistanceUnit(saved.distanceUnit||'m');markDirty();
+    });
+  const saveBuilderDoc = (ref,patch) => updateDoc(ref,patch,undefined,{expectedFingerprint:loadedProgramFingerprint.current});
 
   /* --------- Créer / Enregistrer --------- */
   const saveProgramme = useCallback(async () => {
     if (savingRef.current) return;
+    if (!navigator.onLine || serverDraft.status === 'Conflit à résoudre' || serverDraft.status === 'Accès refusé' || serverDraft.remote) {
+      toast({title:'Publication indisponible',description:'Reconnectez-vous et résolvez le brouillon avant de publier.',status:'warning'});return;
+    }
     savingRef.current = true;
     const savedEditTime = localEditTimeRef.current;
     const savedRevision = Date.now();
@@ -3683,6 +3523,7 @@ export default function ProgramBuilder({
         const syncResult = !isAssignedClientProgram
           ? await syncSavedProgram(programId)
           : { syncedAssignments: 0 };
+        await serverDraft.complete();
         if (localEditTimeRef.current !== savedEditTime) return;
         if (syncResult.pending) return;
         toast({
@@ -3784,6 +3625,7 @@ export default function ProgramBuilder({
           position: "bottom",
         });
 
+        await serverDraft.complete();
         clearSessionDrafts(draftScope);
         navigate(HOME_PATH, { replace: true });
         return;
@@ -3791,7 +3633,7 @@ export default function ProgramBuilder({
 
       if (programDocRef) {
         await awaitSaved(
-          updateDoc(programDocRef, {
+          saveBuilderDoc(programDocRef, {
             nomProgramme: finalName,
             name: finalName,
             objectif: programmeGoal || "",
@@ -3823,6 +3665,7 @@ export default function ProgramBuilder({
         const syncResult = !isAssignedClientProgram && programId
           ? await syncSavedProgram(programId)
           : { syncedAssignments: 0 };
+        await serverDraft.complete();
 
         if (localEditTimeRef.current !== savedEditTime) return;
         setIsSaved(true);
@@ -3861,6 +3704,7 @@ export default function ProgramBuilder({
       setSaving(false);
     }
   }, [
+    serverDraft,
     programDocRef,
     programId,
     clientId,
@@ -4053,7 +3897,7 @@ export default function ProgramBuilder({
         const [m] = list.splice(result.source.index, 1);
         list.splice(result.destination.index, 0, m);
         list.forEach((ex, i) => {
-          if (i === list.length - 1) ex.linkNext = false;
+          if (i === list.length - 1 && ex.linkNext) list[i] = { ...ex, linkNext: false };
         });
         sess[key] = list;
       });
@@ -4072,8 +3916,7 @@ export default function ProgramBuilder({
         const [m] = from.splice(idx, 1);
         if (m) {
           if (idx > 0) from[idx - 1] = { ...from[idx - 1], linkNext: false };
-          m.linkNext = false;
-          to.push(m);
+          to.push({ ...m, linkNext: false });
         }
         sess[fromKey] = from;
         sess[toKey] = to;
@@ -4141,8 +3984,9 @@ export default function ProgramBuilder({
         const list = [...(sess[key] || [])];
         const prev = list[eIdx - 1];
         list.splice(eIdx, 1);
-        if (prev) prev.linkNext = false;
-        if (list.length) list[list.length - 1].linkNext = false;
+        if (prev?.linkNext) list[eIdx - 1] = { ...prev, linkNext: false };
+        const last = list.length - 1;
+        if (last >= 0 && list[last].linkNext) list[last] = { ...list[last], linkNext: false };
         sess[key] = list;
       });
       markDirty();
@@ -4491,7 +4335,7 @@ export default function ProgramBuilder({
             speedStep={speedStep}
             dragHandleProps={drProv.dragHandleProps}
             showClientHistory={Boolean(historyClientId)}
-            historyItems={exerciseHistoryByKey.get(ex?.id || `${eIdx}`) || []}
+            historyItems={exerciseHistoryByKey.get(ex?.id || `${eIdx}`) || EMPTY_EXERCISE_HISTORY}
             historyLoading={historyLoading}
             historyLanguage={historyLanguage}
           />
@@ -4604,6 +4448,8 @@ export default function ProgramBuilder({
   const compactProgressionWeeks = progressionPlan.slice(0, 8);
   const hiddenProgressionWeeksCount = Math.max(0, progressionPlan.length - compactProgressionWeeks.length);
 
+  if (builderAccessDenied || serverDraft.status === 'Accès refusé') return <Box role="alert">Accès au programme refusé.</Box>;
+
   return (
     <Box
       bg={pageBg}
@@ -4623,6 +4469,13 @@ export default function ProgramBuilder({
       gridColumn={{ base: "1 / -1", md: "auto" }}
       gridArea={{ base: "1 / 1 / auto / -1", md: "auto" }}
     >
+      <Box role="status" p={3} borderWidth="1px" borderRadius="md">
+        <Text>{serverDraft.status}</Text>
+        <Text fontSize="sm">Hors ligne, vos modifications restent dans cet onglet. Les modifications non synchronisées peuvent être perdues à la fermeture. Un brouillon synchronisé ne publie pas le programme.</Text>
+        {serverDraft.remote && <Button onClick={serverDraft.restore}>Reprendre le brouillon serveur</Button>}
+        {serverDraft.status === 'Échec de sauvegarde' && <Button onClick={serverDraft.retry}>Réessayer la sauvegarde</Button>}
+        {serverDraft.status === 'Conflit à résoudre' && <Text>Une autre version existe. Vos modifications locales sont conservées. La publication est bloquée pour éviter de l’écraser.</Text>}
+      </Box>
       <Flex as="fieldset" disabled={validatingCycle} border={0} p={0} m={0} minW={0} direction="column" minH="100%" w="100%" maxW="100%">
         <Box
           as="main"

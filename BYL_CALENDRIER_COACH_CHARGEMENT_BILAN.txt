@@ -1,0 +1,180 @@
+CALENDRIER COACH — MESURES ET OPTIMISATIONS
+13 novembre 2026 — codex/firebase-performance-audit
+
+RÉSULTAT ET LIMITE
+Objectif partiellement atteint : les premiers événements sont visibles sous
+2 secondes sur le banc compilé, mais la réconciliation complète des grandes
+données reste au-dessus. Aucun gain spectaculaire du premier affichage démontré.
+Aucun déploiement, aucune donnée réelle, aucune modification des règles,
+du backend, des écritures ou des requêtes Firebase pour cette intervention.
+
+MESURES AVANT / APRÈS FINAL
+Chrome jetable froid, application réelle compilée, Auth et Firestore émulés,
+réseau local non ralenti, Europe/Paris, desktop 1440 x 1000.
+Fixture : trois formats de propriétaire, deux programmes et deux validations
+par client ; événements canoniques sur 40, 1000 ou 5000 jours d'historique.
+
+Clients / événements | premiers événements avant -> après | core avant -> après
+12 / 40              | 1,051 -> 1,228 s                   | 1,188 -> 1,436 s
+100 / 1000           | 1,078 -> 1,086 s                   | 1,514 -> 1,785 s
+500 / 5000           | 1,604 -> 1,739 s                   | 3,882 -> 3,647 s
+
+Les petits scénarios ont des temps égaux ou moins bons dans cette passe.
+Ne pas présenter ces variations comme une accélération systématique.
+Le gain de réconciliation sur la plus grande fixture est modeste (~0,24 s).
+Plusieurs essais intermédiaires sont conservés, pas sélectionnés pour embellir
+le résultat : after-first-compiled.json, after-render-compiled.json.
+La mesure finale utilise la version avec rapprochement indexé par client.
+
+La grille vide apparaît après 0,87 / 0,56 / 0,63 s environ (voir JSON brut).
+Ce n'est pas le premier contenu utile.
+coreMs est le marqueur global de réconciliation des données sport/calendrier
+du Dashboard, pas le chargement de tous ses blocs.
+Le marqueur calendarData final survient à environ 1,350 / 1,686 / 3,535 s
+sur l'horloge navigation du navigateur (valeurs exactes dans calendarTiming).
+L'horloge extérieure du banc et l'horloge performance.now du navigateur
+n'ont pas le même point zéro : ne pas soustraire directement ces colonnes.
+Les enrichissements nutrition/autres blocs continuent ensuite ; la stabilisation
+réseau du scénario 500 reste autour de 11,5 s et inclut une fenêtre d'observation.
+Ne pas annoncer le Dashboard entièrement chargé en 1,74 s.
+
+CAUSES IDENTIFIÉES
+- L'abonnement calendrier partagé fournit les événements indépendamment des
+  détails des programmes. Ce mécanisme déjà présent donne un premier affichage
+  rapide ; il ne constitue pas un gain nouveau de cette intervention.
+- L'affichage initial attend les dossiers autorisés ; cette vérification reste
+  nécessaire et n'a pas été contournée.
+- La réconciliation finale attend aussi les données de progression/validation
+  de tous les dossiers : les anciennes validations ne possèdent pas toutes
+  un événement canonique qui permettrait de les ignorer sans risque.
+  Cas 500 final : racines disponibles vers 1,4 s, détails des programmes
+  vers 3,5 s, réconciliation juste après. 16 appels groupés programmes.
+- Le sous-arbre React du calendrier recevait de nouvelles fonctions/objets à
+  chaque rendu du Dashboard, même lorsque les données calendrier ne changeaient pas.
+- Sans bilan nutritionnel, la fusion nutrition/calendrier clonait quand même
+  toute la liste des événements lors des changements des clients.
+- Chaque événement planifié cherchait sa validation dans tous les clients.
+- Le marqueur "calendar" ne prouvait que le montage du composant, pas ses données.
+
+CORRECTIONS INTÉGRÉES
+Uniquement src/components/CoachDashboard.jsx :
+1. Mémoïsation du sous-arbre calendrier, avec toutes les dépendances capturées :
+   événements, culture/traductions, formats, composants, identité, mode tactile,
+   sélection, création et marqueur. Aucune comparaison qui ignore des callbacks.
+2. Réutilisation directe de sessions lorsque les lignes nutritionnelles sont
+   absentes ; dès qu'elles existent, fusion métier originale conservée.
+3. Index mémoire des validations par client. La recherche conserve l'ordre
+   original, les liens explicites, les restrictions de visibilité, la première
+   correspondance et l'ensemble des identifiants déjà consommés.
+4. Marqueurs distincts calendarShell et calendarData ; calendarRoots reste
+   l'étape de préparation des événements canoniques.
+
+CONTRE-TEST DU RAPPROCHEMENT
+scripts/testCoachCalendarMatching.mjs exécute les blocs réellement extraits de
+la source avant/après. 5000 événements / 1000 validations / 500 clients :
+4 500 500 passages dans le prédicat avant, 9 500 après.
+Même liste fusionnée, mêmes IDs consommés et mêmes clés visibles, avec aussi
+anciens indices manquants, famille de programmes et visibilité restreinte.
+Les temps de ce micro-test VM instrumenté ne sont PAS les temps de l'application.
+
+COÛTS
+Calendrier seul, compteur dédié coach-dashboard/listener-snapshot/sessions :
+40 / 1000 / 5000 lectures documentaires estimées AVANT et APRÈS.
+Les callbacks peuvent aussi livrer un état de cache partiel :
+documents retournés cumulés 40/1032/5035 avant, 40/1013/5031 après.
+Ces états de cache ne sont pas des lectures serveur nouvelles.
+L'abonnement existant est conservé, aucun listener ou appel API ajouté.
+La navigation semaine précédente / aujourd'hui ajoute zéro appel SDK dans
+le contre-test intégré.
+
+Dashboard entier, contexte identique, hors interactions post-mesure :
+appels SDK navigateur : 21 / 109 / 509 avant ET après.
+appels API démarrés : 8 / 11 / 23 avant ET après.
+lectures serveur estimées, somme des lignes HTTP instrumentées :
+72 / 521 / 2557 avant ET après.
+écritures backend observées : 0 avant/après.
+écritures navigateur communes : 2 avant/après ; aucune écriture ajoutée.
+Le test distant écrit explicitement un seul événement synthétique après
+l'arrêt des compteurs de performance initiaux.
+
+Le wrapper global donne des estimations navigateur variables selon les
+notifications cache/metadata : 64/1178/5975 avant, 63/1197/5979 après.
+Ces valeurs brutes sont conservées ; elles ne prouvent pas un surcoût ou une
+économie. Le compteur par ressource et le jeu de requêtes inchangé sont les
+éléments probants du périmètre calendrier. Les lectures dépendantes des règles
+ne sont pas une facture mesurée. Aucune économie monétaire annoncée.
+Le mécanisme préexistant firstWeek peut lancer une lecture prioritaire si le
+snapshot complet tarde ; il n'a pas été modifié et son coût conditionnel reste.
+Aucun nouveau résumé persistant, index, service Google ou migration.
+
+CPU / MÉMOIRE / RÉSEAU, DASHBOARD ENTIER
+Cas 500 :
+temps JS cumulé CDP 1,908 -> 1,668 s ;
+temps total des tâches CDP 6,994 -> 6,768 s ;
+heap JS ponctuel 83,9 -> 60,9 MB décimaux.
+Le GC rend une capture heap variable : pas de garantie de consommation maximale.
+Octets réseau observés CDP :
+12 : 2807868 -> 2808074 ;
+100 : 2815850 -> 2816053 ;
+500 : 2849620 -> 2850891.
+Légère hausse de taille du code, pas de nouvelle donnée Google demandée.
+CDP ne constitue pas une facture réseau complète ni un relevé gRPC serveur.
+
+TESTS RÉUSSIS
+- npm run build final : compilation réussie et budgets respectés.
+- Application compilée sur 12/100/500 clients, 40/1000/5000 événements.
+- Semaine précédente et retour aujourd'hui : événements présents, zéro SDK ajouté.
+- Événement modifié depuis l'émulateur : affichage actualisé, détail ouvrable.
+- Passage mobile sur le scénario 12 dans l'application réelle.
+- testCoachCalendarMatching.mjs : parité de réconciliation réelle avant/après.
+- testCoachCalendarMove.mjs : déplacement et restrictions.
+- testCoachSessionCalendarStatus.mjs : validation, passé/futur, manquée.
+- testDedupeCalendarCompletions.mjs : liens, notes et séances distinctes.
+- testNutritionCalendarHistory.mjs : historique, dédoublonnage, propriété.
+- testCoachSharedCalendar.cjs : cours attribués, révocation/réattribution.
+- testCalendarEventAppearance.mjs : états, annulations et couleurs.
+- testClientMobileCalendar.mjs : sélection, filtrage et sept langues.
+- testConfirmedCalendarEvent.mjs : accusé, périmètre, dates, statut.
+- testPrivateSessionLot7B1Octies.mjs : barrière d'identité et réponse tardive.
+- Vérification locale des utilitaires Europe/Paris : semaines de 167/169 heures,
+  récurrence commençant avant la semaine, événement chevauchant, période vide.
+
+ÉCHECS ET LIMITES
+- testCoachCalendarLiveSync.mjs échoue avant ses assertions : son ancien banc VM
+  ne fournit pas "source", désormais requis par le composant. Échec constaté
+  AVANT modification. Le test intégré de modification distante passe.
+- Le premier sélecteur du test navigateur attendait "Précédent" au lieu de
+  "Préc." : corrigé dans le banc ; les interactions passent ensuite.
+- Pas de qualification complète multi-onglets/multi-appareils ou coupure réseau
+  nouvelle ici ; aucune modification de leurs mécanismes.
+- Pas de test sur les données privées de l'utilisateur ni mesure en production.
+- La réconciliation complète des grands historiques ne respecte PAS encore 2 s.
+- Aucun gain concluant du premier événement ; les surcoûts CPU évitables sont
+  réduits, mais le chemin réseau des détails reste dominant.
+- P0-3/P0-4 toujours ouverts ; aucun déploiement autorisé.
+
+SUITE TECHNIQUE
+Pour confirmer tout le calendrier en moins de 2 s sur les grands historiques,
+il faudrait qualifier un accès ciblé aux validations de la période visible,
+compatible avec les anciens formats sans événement canonique. Il faut d'abord
+prouver qu'il ne perd aucune séance et ne double pas les lectures déjà utilisées
+pour la progression. Aucun nouveau scan, résumé payant ou migration introduit
+pour annoncer artificiellement la cible.
+L'utilisation du cache autorisé et la synchronisation existante restent intactes.
+
+ARTEFACTS ET REPRODUCTION
+scripts/runCoachCalendarLoading.cjs
+scripts/testCoachCalendarMatching.mjs
+audits/coach-calendar-loading/before/* : source exacte avant cette intervention
+audits/coach-calendar-loading/before-compiled.json
+audits/coach-calendar-loading/after-compiled.json
+audits/coach-calendar-loading/comparison.json
+BYL_CALENDRIER_COACH_CHARGEMENT_BILAN.txt
+
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runCoachCalendarLoading.cjs before --compiled
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runCoachCalendarLoading.cjs after --compiled
+node scripts/testCoachCalendarMatching.mjs
+
+Exécuter les benchmarks sans build concurrent et séquentiellement.
+Les modifications préexistantes du workspace sont préservées. Pas de commit
+automatique, pas de redémarrage backend nécessaire, pas de déploiement.

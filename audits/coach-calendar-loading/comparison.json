@@ -1,0 +1,171 @@
+[
+  {
+    "clients": 12,
+    "events": 40,
+    "before": {
+      "firstEventsMs": 1050.7876670000005,
+      "coreMs": 1188.3132500000002,
+      "calendarReads": {
+        "calls": 1,
+        "documentsReturned": 40,
+        "failures": 0,
+        "estimate": 40,
+        "serverChanges": 40
+      },
+      "sdk": {
+        "sdkCalls": 21,
+        "documentsReturned": 75,
+        "estimatedReads": 64,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "api": 8,
+      "backendEstimated": 72,
+      "backendWrites": 0,
+      "network": 2807868,
+      "heap": 50876648,
+      "js": 0.833842,
+      "task": 1.050475
+    },
+    "after": {
+      "firstEventsMs": 1227.675542,
+      "coreMs": 1435.749417,
+      "calendarReads": {
+        "calls": 1,
+        "documentsReturned": 40,
+        "failures": 0,
+        "estimate": 40,
+        "serverChanges": 40
+      },
+      "sdk": {
+        "sdkCalls": 21,
+        "documentsReturned": 77,
+        "estimatedReads": 63,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "api": 8,
+      "backendEstimated": 72,
+      "backendWrites": 0,
+      "network": 2808074,
+      "heap": 30291552,
+      "js": 0.828421,
+      "task": 1.112454
+    }
+  },
+  {
+    "clients": 100,
+    "events": 1000,
+    "before": {
+      "firstEventsMs": 1078.1227090000011,
+      "coreMs": 1514.0915000000005,
+      "calendarReads": {
+        "calls": 2,
+        "documentsReturned": 1032,
+        "failures": 0,
+        "estimate": 1000,
+        "serverChanges": 1000
+      },
+      "sdk": {
+        "sdkCalls": 109,
+        "documentsReturned": 1145,
+        "estimatedReads": 1178,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "api": 11,
+      "backendEstimated": 521,
+      "backendWrites": 0,
+      "network": 2815850,
+      "heap": 58743968,
+      "js": 0.950651,
+      "task": 1.398873
+    },
+    "after": {
+      "firstEventsMs": 1085.8911669999998,
+      "coreMs": 1784.7954169999994,
+      "calendarReads": {
+        "calls": 2,
+        "documentsReturned": 1013,
+        "failures": 0,
+        "estimate": 1000,
+        "serverChanges": 1000
+      },
+      "sdk": {
+        "sdkCalls": 109,
+        "documentsReturned": 1126,
+        "estimatedReads": 1197,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "api": 11,
+      "backendEstimated": 521,
+      "backendWrites": 0,
+      "network": 2816053,
+      "heap": 37536128,
+      "js": 0.957,
+      "task": 1.447402
+    }
+  },
+  {
+    "clients": 500,
+    "events": 5000,
+    "before": {
+      "firstEventsMs": 1603.797708,
+      "coreMs": 3882.4535000000014,
+      "calendarReads": {
+        "calls": 2,
+        "documentsReturned": 5035,
+        "failures": 0,
+        "estimate": 5000,
+        "serverChanges": 5000
+      },
+      "sdk": {
+        "sdkCalls": 509,
+        "documentsReturned": 5548,
+        "estimatedReads": 5975,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "api": 23,
+      "backendEstimated": 2557,
+      "backendWrites": 0,
+      "network": 2849620,
+      "heap": 83890568,
+      "js": 1.907906,
+      "task": 6.994352
+    },
+    "after": {
+      "firstEventsMs": 1738.7290410000005,
+      "coreMs": 3647.1248749999995,
+      "calendarReads": {
+        "calls": 2,
+        "documentsReturned": 5031,
+        "failures": 0,
+        "estimate": 5000,
+        "serverChanges": 5000
+      },
+      "sdk": {
+        "sdkCalls": 509,
+        "documentsReturned": 5544,
+        "estimatedReads": 5979,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "api": 23,
+      "backendEstimated": 2557,
+      "backendWrites": 0,
+      "network": 2850891,
+      "heap": 60945272,
+      "js": 1.667729,
+      "task": 6.7684
+    },
+    "tests": {
+      "previousWeek": true,
+      "returnToToday": true,
+      "navigationExtraSdkCalls": 0,
+      "remoteEvent": true,
+      "eventDetails": true
+    }
+  }
+]

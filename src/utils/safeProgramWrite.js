@@ -1,3 +1,4 @@
+import { programFingerprint } from "./programFingerprint.js";
 import {runTransaction, setDoc, deleteField} from 'firebase/firestore';
 import limits from './programDocumentSize.js';
 import i18next from 'i18next';
@@ -18,13 +19,14 @@ export function setProgramDoc(ref, data) {
   return setDoc(ref, data);
 }
 
-export function updateProgramDoc(ref, patch, extraWrite) {
+export function updateProgramDoc(ref, patch, extraWrite, options = {}) {
   if (Array.isArray(patch.sessions)) patch = {...patch, seances: deleteField()};
   // Read the complete latest document: a small patch can still overflow a large
   // programme. The transaction retries if another editor changes it meanwhile.
   return runTransaction(ref.firestore, async transaction => {
     const snapshot = await transaction.get(ref);
     if (!snapshot.exists()) throw new Error('Programme introuvable.');
+    if (options.expectedFingerprint !== undefined && options.expectedFingerprint !== programFingerprint(snapshot.data())) throw Object.assign(new Error('Le programme a changé. Conservez votre brouillon et rechargez la version actuelle.'), {code:'program-conflict'});
     const candidate = {...snapshot.data()};
     for (const [key, value] of Object.entries(patch)) {
       if (key.includes('.')) throw new Error('Nested program updates must use a complete field.');

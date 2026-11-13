@@ -63,6 +63,7 @@ import {coachPageScope,coachPageSource} from "../utils/coachPageSource";
 import CoachPageAccess from "./dashboard/CoachPageAccess";
 import {useCoachPageViewer} from '../utils/useCoachPageViewer';
 import {listBatch} from "../utils/coachListRows";
+import {selectClientMetricRows, clientListPage} from "../utils/clientVisibleMetrics";
 import { clientsGetDocs as getDocs, clientsQuery as query } from "../utils/firestoreMetrics.js";
 import { recordMetric } from "../utils/browserMetrics.js";
 import { FiTrash2 } from "react-icons/fi";
@@ -107,13 +108,6 @@ const TOUR_DEMO_CLIENT = {
   email: "demo@boostyourlife.coach",
   __tourDemo: true,
 };
-
-const normalizeClientSearchText = (value) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase()
-    .trim();
 
 const getCachedClientActivityMs = (client) =>
   toMillis(client?.lastSession) || 0;
@@ -424,6 +418,8 @@ const ClientsView = ({scope,user,isAdmin}) => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const listViewRef = useRef({ search: searchQuery, page });
+  useLayoutEffect(() => { listViewRef.current = { search: searchQuery, page }; }, [searchQuery, page]);
 
   const [progressMap, setProgressMap] = useState(() => initialClientsPageCache?.progressMap || {});
   const [sessionsPerWeekMap, setSessionsPerWeekMap] = useState(
@@ -512,7 +508,13 @@ const ClientsView = ({scope,user,isAdmin}) => {
       setLoading(false);
       const payload={clients:list,programmes:[],progressMap:{},sessionsPerWeekMap:{},lastSessionMap:{},programmeCountMap:{},
         lastInteractionMap:{},nutritionLastFollowMap:{},nutritionAssessmentCountMap:{}};
-      const remaining=new Map(list.map(c=>[c.id,c]));
+      const exhaustiveMetrics=!!(filter || sportView || nutritionMode);
+      const view=listViewRef.current;
+      const metricRows=exhaustiveMetrics ? selectClientMetricRows(list,priorityIds.current,true)
+        : clientListPage(list,view.search,view.page).rows.filter(c=>!c.__tourDemo);
+      // Never advertise a visible-page summary as a complete dashboard cache.
+      payload.partial=metricRows.length<list.length;
+      const remaining=new Map(metricRows.map(c=>[c.id,c]));
       while(remaining.size){
         if(!load.current())return;
         const batch=[];
@@ -549,7 +551,7 @@ const ClientsView = ({scope,user,isAdmin}) => {
       if(!source.roots.fresh() || !navigator.onLine){setViewStale(true);load.cache({clients:payload.clients.length});return;}
       writePageDataCache(clientsPageCacheKey,payload);
       if(!filter && !sportView && !nutritionMode)writePageDataCache(clientsOverviewCacheKey,payload);
-      setViewStale(!source.roots.fresh());load.ready({clients:payload.clients.length});
+      setViewStale(!source.roots.fresh());load.ready({clients:payload.clients.length,metricsClients:metricRows.length});
     } catch(error) {
       if(!load.current())return;
       if(error.status===403 || error.status===401 || error.code==='permission-denied'){
@@ -816,16 +818,8 @@ const ClientsView = ({scope,user,isAdmin}) => {
   );
 
   const clientsForDisplay = showTourDemoClient ? [tourDemoClient, ...clients] : clients;
-  const normalizedSearchQuery = normalizeClientSearchText(searchQuery);
-
-  const filteredClients = clientsForDisplay
-    .filter((c) =>
-      c.__tourDemo ||
-      normalizeClientSearchText(`${c.prenom ?? ""} ${c.nom ?? ""}`).includes(normalizedSearchQuery)
-    )
-    .sort((a, b) =>
-      `${a.prenom ?? ""} ${a.nom ?? ""}`.localeCompare(`${b.prenom ?? ""} ${b.nom ?? ""}`)
-    );
+  const { filtered: filteredClients, pageCount, currentPage, rows: pageRows } =
+    clientListPage(clientsForDisplay, searchQuery, page);
 
   function clientForNavigation(c) {
     const bundle=source.present('bundle/'+c.id,JSON.stringify(c.dashboardProgramRevision));
@@ -833,10 +827,16 @@ const ClientsView = ({scope,user,isAdmin}) => {
     return {...c,programmesAssignes:bundle.programs.docs.map(d=>({...d.data(),id:d.id,
       sessionsEffectuees:bundle.histories.get(d.id).docs.map(row=>({...row.data(),id:row.id}))}))};
   }
-  const pageCount=Math.max(1,Math.ceil(filteredClients.length/25));
-  const currentPage=Math.min(page,pageCount-1);
-  const pageRows=filteredClients.slice(currentPage*25,(currentPage+1)*25);
-  useLayoutEffect(()=>{priorityIds.current=pageRows.map(c=>c.id);},[pageRows]);
+  const visibleMetricKey=JSON.stringify(pageRows.map(c=>c.id));
+  const previousMetricKey=useRef('[]');
+  useLayoutEffect(()=>{priorityIds.current=JSON.parse(visibleMetricKey);},[visibleMetricKey]);
+  useEffect(()=>{
+    const previous=previousMetricKey.current;
+    previousMetricKey.current=visibleMetricKey;
+    // Initial enrichment already requests the first page. Later page/search
+    // changes use the same authorized source and its in-flight deduplication.
+    if(previous!=='[]' && visibleMetricKey!=='[]' && previous!==visibleMetricKey && !filter && !sportView && !nutritionMode)void fetchData();
+  },[visibleMetricKey,fetchData,filter,sportView,nutritionMode]);
   useEffect(()=>setPage(0),[searchQuery,filter,nutritionMode,sportView]);
   const theme = useAppTheme();
   const hasSearch = searchQuery.trim().length > 0;
@@ -910,8 +910,8 @@ const ClientsView = ({scope,user,isAdmin}) => {
   return (
     <Box data-tour-page="coach-clients" bg={bg} minH="100vh" pb={{ base: 28, md: 0 }}>
       <PageLoadingStatus state={pageLoadState} />
-      {!viewStale && !loading && pageLoadState.status==='loading' && clients.length>0 && <Text role="status" fontSize="sm">{t('clientsList.loadingStats','Actualisation des indicateurs…')}</Text>}
-      {viewStale && <Text role="status">{t("dashboard.refresh_failed","Actualisation impossible. Les dernières données enregistrées restent affichées.")}</Text>}
+      {pageLoadState.debug && !viewStale && !loading && pageLoadState.status==='loading' && clients.length>0 && <Text role="status" fontSize="sm">{t('clientsList.loadingStats','Actualisation des indicateurs…')}</Text>}
+      {pageLoadState.debug && viewStale && <Text role="status">{t("dashboard.refresh_failed","Actualisation impossible. Les dernières données enregistrées restent affichées.")}</Text>}
       <Container maxW="7xl" py={{ base: 4, md: 10 }} px={{ base: 3, md: 6 }}>
         {loading && (
           <Progress

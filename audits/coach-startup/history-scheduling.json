@@ -1,0 +1,70 @@
+{
+  "syntheticLatencyMs": 10,
+  "notProductionMeasurement": true,
+  "rows": [
+    {
+      "clients": 1,
+      "observations": [
+        {
+          "name": "before",
+          "ms": 235,
+          "calls": 21,
+          "documents": 2020,
+          "peak": 1,
+          "responseBytes": 162388
+        },
+        {
+          "name": "after",
+          "ms": 246,
+          "calls": 21,
+          "documents": 2020,
+          "peak": 1,
+          "responseBytes": 162388
+        }
+      ]
+    },
+    {
+      "clients": 12,
+      "observations": [
+        {
+          "name": "before",
+          "ms": 236,
+          "calls": 54,
+          "documents": 4242,
+          "peak": 12,
+          "responseBytes": 341074
+        },
+        {
+          "name": "after",
+          "ms": 62,
+          "calls": 54,
+          "documents": 4242,
+          "peak": 12,
+          "responseBytes": 341074
+        }
+      ]
+    },
+    {
+      "clients": 32,
+      "observations": [
+        {
+          "name": "before",
+          "ms": 234,
+          "calls": 114,
+          "documents": 8282,
+          "peak": 32,
+          "responseBytes": 665974
+        },
+        {
+          "name": "after",
+          "ms": 63,
+          "calls": 114,
+          "documents": 8282,
+          "peak": 32,
+          "responseBytes": 665974
+        }
+      ]
+    }
+  ],
+  "failureReads": 32
+}

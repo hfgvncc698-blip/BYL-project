@@ -1,0 +1,78 @@
+SYNCHRONISATION DES MODÈLES — 13 NOVEMBRE 2026
+Branche codex/firebase-performance-audit. Aucun déploiement.
+
+Cause vérifiée en lecture seule
+Les métadonnées de publication du projet boost-your-life-f6b3e indiquent :
+- release des règles Firestore : 2026-10-29T19:26:46.561433Z ;
+- aucune règle match /coachPageTemplateRevisions/ dans cette release ;
+- aucune fonction onCoachPageTemplateChanged parmi les 19 fonctions publiées.
+Les contrôles ont lu uniquement la configuration des règles/fonctions, aucun dossier,
+programme ou historique utilisateur. Aucun secret/token enregistré dans ce bilan.
+
+Le frontend local écoute ce document de révision, mais les règles distantes ne
+l'autorisent pas ; la fonction censée produire les signaux n'est pas publiée non
+plus. Ce décalage explique l'indisponibilité du canal. Le masquage du message de
+statut n'a pas résolu ce problème. Un rafraîchissement/API conserve son parcours
+normal d'accès aux modèles ; il ne remplace pas une notification temps réel.
+
+Code local déjà présent
+firestore.rules autorise get sur coachPageTemplateRevisions/{coachUid} pour le
+coach admissible propriétaire ou un administrateur ; pas d'écriture cliente.
+functions/index.js définit onCoachPageTemplateChanged : création, modification,
+suppression d'un programme mettent à jour la révision du propriétaire ; transfert
+met à jour les deux propriétaires. Les événements doublés peuvent réinvalider.
+src/utils/coachPageSource.js invalide la clé templates à un changement de version.
+Le Dashboard regroupe le rafraîchissement via son délai existant de 100 ms.
+Aucun remplacement par un écouteur de collection ou un polling n'a été ajouté.
+
+Qualification
+scripts/testTemplateSyncChannel.cjs utilise exclusivement Firestore émulé,
+projet demo-byl-template-sync, données synthétiques. Il exécute le vrai callback
+onCoachPageTemplateChanged extrait de functions/index.js contre l'émulateur,
+observe le signal avec un client soumis aux vraies règles locales et exécute
+la vraie méthode templatesChanged. Ce n'est pas un test du service de livraison
+d'événements Cloud Functions déployé ni un test navigateur complet.
+
+Limites/coûts
+Le rétablissement du canal dans l'environnement connecté exige une publication
+coordonnée des éléments compatibles. Elle est interdite dans cette session :
+aucune modification de production et aucun contournement des permissions.
+La synchronisation réelle connectée n'est donc PAS déclarée réparée.
+Le mécanisme existant entraîne normalement une écriture de signal par changement
+de propriétaire concerné, plus lectures des écouteurs et revalidation API. Les
+transferts et événements redélivrés peuvent en ajouter. Les lectures dépendantes
+des règles, invocations et coûts régionaux ne sont pas une facture mesurée.
+Par rapport au canal actuellement absent, son activation n'est pas un coût nul.
+La garantie d'absence d'augmentation globale doit encore être chiffrée en
+préproduction avant toute autorisation ; aucun nouveau coût récurrent introduit ici.
+
+Décision
+Ne pas publier toute la branche pour corriger ce seul canal : les conditions de
+sécurité précédentes et P0-3/P0-4 restent applicables. Préparer une qualification
+coordonnée frontend/règles/fonction en préproduction avant toute publication.
+Pas de changement des données métier, ni d'autres optimisations commencées.
+
+Correction ciblée locale
+Le contre-test a échoué initialement : la règle locale du marqueur acceptait
+encore un profil disabled=true dont l'abonnement était active. La condition
+activeClubProfile(currentUser()) est désormais exigée avant le contrôle de rôle
+sur ce seul match. Cela réutilise le même profil déjà consulté ; aucun accès à
+un autre document n'est ajouté. Le marqueur ne contient pas de programme, mais
+sa consultation doit aussi respecter la désactivation du profil.
+Cette correction ne prétend pas résoudre la révocation Firebase Auth externe
+ni modifier les règles des autres collections. Le fichier firestore.rules a
+été modifié localement, jamais publié.
+Deux premiers essais du banc ont nécessité des adaptations techniques : options
+includeMetadataChanges identiques au Dashboard et copie d'objet entre le VM du
+callback et le SDK de test. Ils ne correspondaient pas à des échecs applicatifs.
+
+Résultat final du banc : 7 contrôles réussis. Création, modification et suppression
+produisent trois écritures de signal et quatre snapshots confirmés observés
+(initial + trois changements). Refus inter-comptes, refus d'écriture cliente et
+refus du profil désactivé vérifiés. Version inchangée ignorée ; clé templates
+invalidée sans effacer le cache des programmes assignés.
+Artefact : audits/template-sync/emulator.json.
+Reproduction : PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH firebase emulators:exec
+--config firebase.rules-test.json --project demo-byl-template-sync --only firestore
+'node scripts/testTemplateSyncChannel.cjs'
+Validation syntaxique/diff : git diff --check réussi.

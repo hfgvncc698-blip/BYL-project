@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-10",
+  "branch": "codex/firebase-performance-audit",
+  "head": "5bdcd1bb3339b7adf3dd5e81311d76200b756ffd",
+  "browserControlsPassed": 41,
+  "apiControlsPassed": 18,
+  "smokeControlsPassed": 53,
+  "build": "passed",
+  "scopeChangesFromQuater": [
+    "backend/app.js",
+    "backend/utils/firestoreMetrics.js",
+    "src/AuthContext.jsx",
+    "backend/routes/programDrafts.js",
+    "src/hooks/useProgramDraft.js",
+    "scripts/runIntegratedDraftLot7B1Quater.cjs"
+  ],
+  "actualBilledReads": null,
+  "commands": [
+    "PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runIntegratedMigrationLot7B1Septies.cjs",
+    "PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runIntegratedMigrationLot7B1Septies.cjs api",
+    "node scripts/testPrivateSessionLot7B1Quater.mjs",
+    "node scripts/testConfirmedProgramWrites.mjs",
+    "npm run test:smoke",
+    "npm run build",
+    "git diff --check"
+  ],
+  "sourceSha256": {
+    "BYL_LOT7B1SEPTIES_BILAN.md": "e599851332a0028ed9558bf7c664111679438e509a83f24bf433610303b9197f",
+    "BYL_LOT7B1SEPTIES_DEPLOIEMENT.md": "9c1542ebc2e595bd3516214ad020cf44711bdf4f1e3542f966a7efcb0527efab",
+    "BYL_LOT7B1SEPTIES_INTEGRATION.md": "e5553841baa413b34f6b8db6f42500a2baa1c8c6e1e9f9418ed95a1063252c1b",
+    "BYL_LOT7B1SEPTIES_PERFORMANCES.md": "223f82acd71d0e0b12e3f38045621df9e09e8cc8af5c6f8b31ed80c07a08ca28",
+    "BYL_LOT7B1SEPTIES_SECURITE.md": "aa63cafa29da89d09d01f8ea7d53dc671f51b4645a838dd80784405f0fe24b3d",
+    "BYL_LOT7B1SEPTIES_TESTS.md": "c039608be7673166d884881511f4a42f6f6b934d82c5ab7396d7e45bc6859b2e",
+    "audits/lot7b1septies/results.json": "795b002ff58ce0cc4a21a4498dc333aa66181e9166081ff6d40d41e1af650088",
+    "backend/app.js": "e9db6fe87f1c2a8842fe65411c069561198dc310428efb99c271f0298fd57f10",
+    "backend/routes/cacheMigration.js": "e801f485775c983cba49c0006bd92d06aa2592e20c4eaaff04b60b62dfcb9165",
+    "backend/routes/programDrafts.js": "de3e7baf8738b5baab5a6491fec153760a074097282ba461930b221cc56260b4",
+    "backend/utils/firestoreMetrics.js": "896aacc23abd6c2c8cc1d774074d2b10641019e645580f3eb4197bf4c34cdf76",
+    "backend/utils/programDraftAccess.js": "42c5abfb1cfbec0c5c46509315db919cda4ee03b22e6b28b158c09ae21c10371",
+    "firestore.rules": "beeb9d74a153e65d5ab53f2e0c96ecb7a7da9d5edd321119be8fbacf09bb0233",
+    "scripts/fixtures/lot7b1septies/application.jsx": "6b1a080326d9a5ec8c1e2d903bf2e75ee4ffb39297eee219b409a20ff8c98a76",
+    "scripts/runIntegratedDraftLot7B1Quater.cjs": "f1b34826c13ebbc23bcff5668162a798365d8c1fcdb3fb688592d6b464e2d676",
+    "scripts/runIntegratedMigrationLot7B1Septies.cjs": "e2673e530ff6e6dab1c205a40ac34c0d2aa289c7202bc9566e00a794dba05c34",
+    "scripts/testIntegratedMigrationLot7B1Septies.cjs": "f28ab59ebcd232274c25cb53635c393c1819a393593e78e76f9a3221128cf027",
+    "src/App.jsx": "fdf0093ef9b3538659d4b6cdf62f8361a5ae594a6d4022e5260f91b614c6d1a8",
+    "src/AuthContext.jsx": "bfade83f5e992f1e31cdec1e1ddaa3a75e65b816ee73e1ef4930bec5716ea0f8",
+    "src/components/privacy/CacheMigrationNotice.jsx": "276243c57d4da427a9f22e35096b91ff772a68a3750c91cc5bde70517f9bb421",
+    "src/hooks/useProgramDraft.js": "ac4c1264a07ce33c83c3047ef7e094be6bc488776e3ae8599f6f32add8fb9dad",
+    "src/main.jsx": "e445d46e05d51d8c5ddfbb70e907bc04fa73b773a62cf30b93a560ad9d584d36",
+    "src/utils/cacheMigration.js": "13319479b26e68d989b407fffdc900a4ad4aba7e34016ea56240ed92d903d12e"
+  },
+  "remainingObservedFailure": "Very early network interruption in development shell displayed AppErrorBoundary; stable loaded-module scenario passes; root cause not qualified."
+}

@@ -1,0 +1,885 @@
+{
+  "results": [
+    {
+      "name": "actual AuthProvider and ProgramBuilder open",
+      "passed": true,
+      "durationMs": 291.3972079999994
+    },
+    {
+      "name": "actual builder auto-saves a server draft",
+      "passed": true,
+      "durationMs": 1089.069125
+    },
+    {
+      "name": "offline edits remain local and warn on close",
+      "passed": true,
+      "durationMs": 939.8216659999998
+    },
+    {
+      "name": "reconnection synchronizes actual builder draft",
+      "passed": true,
+      "durationMs": 131.5599169999996
+    },
+    {
+      "name": "concurrent server draft prevents overwrite",
+      "passed": true,
+      "durationMs": 1100.6659170000003
+    },
+    {
+      "name": "canonical programme remains unmodified by draft",
+      "passed": true,
+      "durationMs": 3.9769169999999576
+    },
+    {
+      "name": "API rejects cross-account scope and stale version",
+      "passed": true,
+      "durationMs": 47.867833999998766
+    },
+    {
+      "name": "existing ProgramBuilder restores current canonical form",
+      "passed": true,
+      "durationMs": 256.50554199999897
+    },
+    {
+      "name": "existing edits autosave draft without canonical publication",
+      "passed": true,
+      "durationMs": 1037.743457999999
+    },
+    {
+      "name": "restored draft detects changed canonical version",
+      "passed": true,
+      "durationMs": 297.70258300000023
+    },
+    {
+      "name": "explicit publication preserves canonical save and completes draft",
+      "passed": true,
+      "durationMs": 2136.6123750000006
+    },
+    {
+      "name": "legacy storage retained but application reader quarantines it",
+      "passed": true,
+      "durationMs": 0.7626250000012078
+    },
+    {
+      "name": "closed browser offline cannot expose previous RAM",
+      "passed": true,
+      "durationMs": 1.2755839999990712
+    },
+    {
+      "name": "online reopen offers authorized server draft",
+      "passed": true,
+      "durationMs": 104.57166700000016
+    },
+    {
+      "name": "two tabs retire old account realm and SDK cache",
+      "passed": true,
+      "durationMs": 1192.8914590000004
+    },
+    {
+      "name": "second account cannot read old SDK or application cache",
+      "passed": true,
+      "durationMs": 141.2271669999991
+    },
+    {
+      "name": "disk copy remains explicit residual risk",
+      "passed": true,
+      "durationMs": 4.979832999999417
+    },
+    {
+      "name": "club change clears admitted memory and reloads scope",
+      "passed": true,
+      "durationMs": 178.2116670000014
+    },
+    {
+      "name": "role change removes builder and API permission",
+      "passed": true,
+      "durationMs": 279.180875
+    },
+    {
+      "name": "revoked profile removes builder",
+      "passed": true,
+      "durationMs": 34.382916999999
+    }
+  ],
+  "counters": {
+    "http": 32
+  },
+  "before": {
+    "leak": "synthetic-private-program",
+    "nutrition": "synthetic-legacy-nutrition"
+  },
+  "measured": [
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "3f9b8a81-d79c-4741-84a5-1edc1817c1b5",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 175,
+      "status": 200,
+      "responseBytes": 98,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "3ecc938a-d27a-48bd-b862-e0fcd33d63c2",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 54,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "1550b82a-7cc0-447a-99f1-f4e6531218f2",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 24,
+      "status": 200,
+      "responseBytes": 785,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "5413f51b-0c27-4ea9-8015-c3fbe04ca3aa",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 20,
+      "status": 200,
+      "responseBytes": 785,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "62648c17-8c5b-429b-be31-d1c52df5bf8f",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 24,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "e767a53c-f2ee-485f-8a36-0e05f3e6263c",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 19,
+      "status": 200,
+      "responseBytes": 787,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "df6fe863-cbfe-45cd-9c41-528cc540ef9c",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 17,
+      "status": 200,
+      "responseBytes": 787,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "45113f64-1185-4706-b0dd-bb909bee9ed2",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 18,
+      "status": 200,
+      "responseBytes": 33,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "bba16a24-1a3b-444b-8b2b-eb183510d5b1",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 29,
+      "status": 409,
+      "responseBytes": 26,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "67e3cdce-a866-4eac-a53b-f398f85527c1",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 23,
+      "status": 200,
+      "responseBytes": 472,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "abd1ca39-0c60-4cce-80c3-8d642c7aa52f",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 20,
+      "status": 200,
+      "responseBytes": 116,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "edc488f1-7a8a-43c7-bb5e-2409b0f7fda6",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 19,
+      "status": 409,
+      "responseBytes": 26,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "885c333c-1ebe-4d98-a1a5-fae2c504061e",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 27,
+      "status": 200,
+      "responseBytes": 116,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "7e9a9c58-d7af-470d-9cae-75454b8510ef",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 47,
+      "status": 200,
+      "responseBytes": 51,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "e689e6ef-2c8f-4295-89bf-7ee0837ce363",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 3,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 39,
+      "status": 200,
+      "responseBytes": 824,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "5d42fc09-4399-4a6b-9043-39b406214e73",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 3,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 29,
+      "status": 200,
+      "responseBytes": 824,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-complete",
+      "sample": "19db2226-7263-473d-b05c-9041277eed3f",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 3,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 42,
+      "status": 200,
+      "responseBytes": 11,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "3dedcda7-1b6a-481f-a48e-b59f0c1526a7",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 286,
+      "status": 200,
+      "responseBytes": 116,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-save",
+      "sample": "b37d4469-d3eb-445c-8b67-8028efffe6ee",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 34,
+      "status": 200,
+      "responseBytes": 51,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-complete",
+      "sample": "ace7db87-40a4-4a6f-bbd5-2a94dd2cb342",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 3,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 22,
+      "status": 200,
+      "responseBytes": 11,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "3bd7dd3e-b232-4c7e-8d3b-79b712467efd",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 24,
+      "status": 200,
+      "responseBytes": 115,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "05367272-a6b1-4a6a-864c-d491cb76f542",
+      "httpRequests": 1,
+      "sdkReads": 5,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 5,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 4
+      },
+      "method": "POST",
+      "durationMs": 22,
+      "status": 200,
+      "responseBytes": 115,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "afa28d0c-1d6b-4ea2-9c62-5b9a8fec1232",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 16,
+      "status": 200,
+      "responseBytes": 472,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "1628ea00-89a8-46d2-80ff-ff520fcc4328",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 2,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 24,
+      "status": 200,
+      "responseBytes": 472,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "a3839ebf-a38c-489f-85be-8732dc6170b8",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 24,
+      "status": 200,
+      "responseBytes": 98,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "bca6c614-d863-487a-a7ea-3a65569d5e01",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 22,
+      "status": 200,
+      "responseBytes": 98,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "2a30b4e5-a120-4590-9c81-e62c97e4369f",
+      "httpRequests": 1,
+      "sdkReads": 3,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 3,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 2
+      },
+      "method": "POST",
+      "durationMs": 15,
+      "status": 403,
+      "responseBytes": 27,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "9d754d49-d9dd-4202-95d4-3449eb6db4c8",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 44,
+      "status": 200,
+      "responseBytes": 110,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "06d98606-ece5-4a69-83a3-d7087c6ad412",
+      "httpRequests": 1,
+      "sdkReads": 3,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 3,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 2
+      },
+      "method": "POST",
+      "durationMs": 20,
+      "status": 403,
+      "responseBytes": 27,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "249bed57-fefe-43fd-b84e-b20f73132990",
+      "httpRequests": 1,
+      "sdkReads": 3,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 3,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 2
+      },
+      "method": "POST",
+      "durationMs": 13,
+      "status": 403,
+      "responseBytes": 27,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "cbf0c213-5258-4442-ac33-6f349e26eb74",
+      "httpRequests": 1,
+      "sdkReads": 4,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 4,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 3
+      },
+      "method": "POST",
+      "durationMs": 25,
+      "status": 200,
+      "responseBytes": 110,
+      "unestimatedSdkReads": 0
+    },
+    {
+      "scope": "http",
+      "activity": "program-draft-read",
+      "sample": "cf97b4e0-c2d7-40af-9f3d-bb04b612c868",
+      "httpRequests": 1,
+      "sdkReads": 3,
+      "documentsReturned": 1,
+      "estimatedDocumentReads": 3,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 2
+      },
+      "method": "POST",
+      "durationMs": 30,
+      "status": 403,
+      "responseBytes": 27,
+      "unestimatedSdkReads": 0
+    }
+  ],
+  "networkBytes": 28710310,
+  "heap": {
+    "usedSize": 65702968,
+    "totalSize": 86654976,
+    "embedderHeapUsedSize": 13547152,
+    "backingStorageSize": 32260329
+  },
+  "limits": [
+    "Legacy disk untouched",
+    "No production integration of migration",
+    "No billing measurements"
+  ],
+  "baselineCommit": "5bdcd1b",
+  "branch": "codex/firebase-performance-audit",
+  "date": "2026-11-10",
+  "environment": "Chrome local, Vite development, Firebase Auth/Firestore emulators, synthetic fixtures only",
+  "sourceSha256": {
+    "backend/app.js": "7f8063e017e5961da5bb8fd0e6fe8fc045aca6c55ad205679ffb761bc9c294a4",
+    "backend/utils/firestoreMetrics.js": "0b7e2d61651951b83c070de82bb07c7ca92df473d048f7e205af2ad347450be1",
+    "scripts/smokeCriticalFlows.mjs": "d98a786c4599693157fcc1fdf898f224aaf62fac1fa0d829e202174134bbe369",
+    "scripts/testCoachDashboardLoading.mjs": "1ca5b37fcb0b7d42badfe1ec18ef678a08c5ac40d7699f2ff95348f822339c25",
+    "scripts/testGeoVisitTracking.mjs": "aa8306bee73faf05fdabbcccb5624beae5b478137986caf31ee8673b77c39916",
+    "scripts/testGeolocationSessionLifecycle.mjs": "4a9a44e1231981444a2bbea3ff4498ae4a481fa7228a547b89b1662ffdfb0de9",
+    "src/AuthContext.jsx": "e6366c43cb57f355f48222be7d15f1b93c8a5b0d1a7b16bf71e3785f560ce679",
+    "src/components/AutoProgramPreview.jsx": "39258cf34cd59a8e392a505ccf02a6f1654aab8461328eb1e6d0f56a268e46a2",
+    "src/components/ClientView.jsx": "a585356238fbe9ab9c2727d64ff7d98fa233a066b075126e9000a90ab4eb8ddd",
+    "src/components/Clientdashboard.jsx": "4d7a2db7cbea5ca67f60bae7de26f8dab345cfb75f5c01d03fa2619f651a2720",
+    "src/components/CoachDashboard.jsx": "e99ccc86144fc375609ebdd091aa4dedaae86a3b65228667f4bbb37fcc522461",
+    "src/components/ExerciseCard.jsx": "209f8d4f0c6d1155cc802bb6e1646d5ed89ab7529b1dc6e46347bde68783a8db",
+    "src/components/ExerciseList.jsx": "190856dec7dc8c5119e16511091362cb8ff28714dd613dc5a71d902b44511c89",
+    "src/components/GuidedTutorial.jsx": "b0fb3a14c69d9bfe80d7af28b514a3939a10ffbdaa8f5f6a6099239745f1207d",
+    "src/components/MenuJournalierFromRation.jsx": "e54ee629f076827a18650491827c7902b419d1c3071383f46cf1694f487dfec5",
+    "src/components/ProgramBuilder.jsx": "adfeeb88b8fe764a365e17d82de5b33aec9a667a9b4a086367b84e9abeeed06f",
+    "src/components/ProgramView.jsx": "593522840d03c752c66c71684fc8c73c9165425d5ed989b8af9d05cad7866dce",
+    "src/components/RouteAnalyticsListener.jsx": "280326b80a9f2fbb6aef40229c0af8a2ebf9f8d8e8a5590a8727c63dfed7cc75",
+    "src/components/SessionPlayer.jsx": "c461412cc058f9152ccfdea5c7aa1b39cfd3a9077b8819fc95c7e5b84d907491",
+    "src/components/SunColorModeSync.jsx": "08c271d6e9021b482fbe7399979c6b30fa33bb1869ba24563ce8617b98bd64e7",
+    "src/components/client/ClientJourneyPage.jsx": "0dd63950ff77b309b3ad5fe689c488454c0f028c68513401d5b6f62393c4a9b4",
+    "src/components/messaging/DashboardMessagingBubble.jsx": "072e3dfc513dfa43b3ae6d09454827b14e56853d7059ee23c9ad7e5e7dfde25b",
+    "src/components/messaging/messagingFeed.js": "5239d365651575c86b9369ceb1e542e596a1421615f07e3301584a03b08cc326",
+    "src/components/offers/OfferPreviewStore.js": "1783a88d03b43e8fb16302d540ef0c88e28245151dc6cffc3b376c9533f28c76",
+    "src/firebaseConfig.js": "ba5a9171020a6fe93454ebf9a808f4324ac766c57ab043f8c2a23bef8f02156c",
+    "src/hooks/useGeolocation.js": "39a5ab9f02ba49a049902cb216855327e7447946b439e309f46a9b35c1ff2983",
+    "src/hooks/useLocationPreference.js": "e4452206287a6ed3b4b49af314e9cc5c34b16fd7a34c14e8679ec3da89dcddb6",
+    "src/hooks/useSessionDraft.js": "9fa6f7889a5721eb662d26088639653deaf68e7d786991ea1d2e4c5f1d15c4ca",
+    "src/pages/AdminGeo.jsx": "5e35608b8a4842aaa10d7389b077fbec1d243ce7c24dd69496fcb27f5cb57bab",
+    "src/pages/Cancel.jsx": "8a659543cefc7a19e9de8ffd76e392702a08eec55a109a10be7ad365dad63c5b",
+    "src/pages/ClubDashboard.jsx": "a822a209c78163200c2a73d412fb1a41ffacb752eac4f2b07476124e1716ba77",
+    "src/utils/analytics.js": "858d211c2a83f929557905bcd783dfa5c2433e7a97b7721791482d6866b36d27",
+    "src/utils/api.js": "f35420c0c09918c3165dbc38a1cb0b4ce4342fd17390c301918f09ae1c54520d",
+    "src/utils/clientResolver.js": "852586dc29e2749a82e61ca625e92c990ca1815c9826aa6759c88419168a4a8c",
+    "src/utils/dashboardSnapshotCache.js": "1c9eed1d430d1e2cb6a26cb56533515103ac9e935bdc7cb5de2a9698122a99c4",
+    "src/utils/firestoreAccessDiagnostics.js": "1dd02c3e2f8e6358f8d7c144a98095364732acfe53ffddf4d1db4f32a5a2189a",
+    "src/utils/geolocationSession.js": "8d54d0974e77f627f5d2be8157991532b6129c42aa7eed5a29e33e1d92280ab5",
+    "src/utils/pageDataCache.js": "87de171e9a9a55aeb5da4b5312681022c2e43cc88832bc3ff30ac0e651d4743c",
+    "src/utils/safeProgramWrite.js": "05c2243f20ac63fa1a0365f65ee2103364248074f00576557dfef9a44b99687a",
+    "src/utils/sessionResume.js": "68782abafa130108ccd72e09d2d698a7e93ffaddd0c13e0f5892f7416992292e",
+    "backend/routes/programDrafts.js": "c53506a375a12f446141b1b2356f457ba4cef4e3b7f861a74224f3b719b7e90f",
+    "src/hooks/useProgramDraft.js": "03db43448733af389cb73370851fe26eee728c3683b052fd6030fbc018b26093",
+    "src/utils/privateSession.js": "4db6e730217c065320842ec27283830a00d3d7105a2ca6747d6261a7a2cde1cb",
+    "src/utils/privateStorage.js": "5ed44dafb8970b954011e74d9d55cced29f29fa4ab642b57c4c01872404bfa29",
+    "src/utils/programFingerprint.js": "22f680b98f09ed62e15597e33f4e7cef605f6f0b4bc587d0001ff6b175e032fd",
+    "scripts/testPrivateSessionLot7B1Quater.mjs": "469599dadb4e268773127abdb11431274c4b1bcf073689b5b89f9c8bb9eb94f7",
+    "scripts/testProgramDraftsQuater.cjs": "89a1f8cf42dba0a3fc0e82094ae4f4f4684eebf162e0133e9f7626eba3d6c974",
+    "scripts/testIntegratedDraftLot7B1Quater.cjs": "586a17d403dc5bf837ed27872c7abcb4ad77a48638ab408375010f7dd555ce82",
+    "scripts/runIntegratedDraftLot7B1Quater.cjs": "f64d071331021988e5466d0a8180014188bd63d1e28268539fd748fd791e798f",
+    "scripts/fixtures/lot7b1quater/builder.jsx": "2596acbdc61470a240510f399dd1e15e8b079ed3380d558ad4d3c05faa41fcea"
+  }
+}

@@ -1,0 +1,482 @@
+{
+  "label": "before",
+  "samples": [
+    {
+      "kind": "nutrition",
+      "n": 12,
+      "h": 2,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 303.2642080000005,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 1046.307917,
+      "primaryMs": 1046.307917,
+      "networkSettledMs": 4156.912125,
+      "observationMs": 4158.491583,
+      "networkBytes": 2319754,
+      "backend": {
+        "reads": 3,
+        "documents": 1,
+        "estimated": 3,
+        "writes": 0
+      },
+      "api": {
+        "requests": 3,
+        "completed": 2,
+        "responseBytes": 250,
+        "durationMs": 95.91670799999974,
+        "statuses": {
+          "200": 1,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "798649fb-18b8-4935-b571-1ce7ad8e6b5c",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 95,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 16,
+        "documentsReturned": 39,
+        "estimatedReads": 38,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 1203,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Ce": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 13,
+        "g": 6,
+        "qS": 904,
+        "Yt": 2,
+        "Le": 2,
+        "Me": 2,
+        "Oe": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "W": 4,
+        "A": 2,
+        "lT": 170,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 8,
+        "Qt": 2,
+        "v": 8,
+        "m": 2,
+        "Gt": 2,
+        "En": 3,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "O": 1,
+        "s": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "F": 1,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 18759308,
+        "totalSize": 35913728,
+        "embedderHeapUsedSize": 7128728,
+        "backingStorageSize": 2696778
+      },
+      "execution": {
+        "LayoutDuration": 0.018756,
+        "ScriptDuration": 0.29733,
+        "TaskDuration": 0.462416
+      },
+      "state": {
+        "ready": true,
+        "path": "/nutrition-coach",
+        "text": "tive 1\tPARTAGÉ\tPATIENT\t\nVoir le dossier patient\nConsulter le bilan nutrition\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "nutrition",
+      "n": 100,
+      "h": 2,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 144.71945899999992,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 1367.8697089999987,
+      "primaryMs": 1367.8697089999987,
+      "networkSettledMs": 4016.2011249999996,
+      "observationMs": 4017.6001669999987,
+      "networkBytes": 2325406,
+      "backend": {
+        "reads": 3,
+        "documents": 1,
+        "estimated": 3,
+        "writes": 0
+      },
+      "api": {
+        "requests": 3,
+        "completed": 2,
+        "responseBytes": 250,
+        "durationMs": 32.32341699999961,
+        "statuses": {
+          "200": 1,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "75d935b3-d7f0-4efc-a181-175245f7229b",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 32,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 104,
+        "documentsReturned": 303,
+        "estimatedReads": 302,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 7187,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Ce": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 13,
+        "g": 6,
+        "qS": 5832,
+        "Yt": 2,
+        "Le": 2,
+        "Me": 2,
+        "Oe": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "W": 4,
+        "A": 2,
+        "lT": 1226,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 8,
+        "Qt": 2,
+        "v": 8,
+        "m": 2,
+        "Gt": 2,
+        "En": 3,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "O": 1,
+        "s": 1,
+        "C": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "F": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 49064760,
+        "totalSize": 115982336,
+        "embedderHeapUsedSize": 11126928,
+        "backingStorageSize": 2337294
+      },
+      "execution": {
+        "LayoutDuration": 0.01957,
+        "ScriptDuration": 0.699594,
+        "TaskDuration": 0.936352
+      },
+      "state": {
+        "ready": true,
+        "path": "/nutrition-coach",
+        "text": "tive 1\tPARTAGÉ\tPATIENT\t\nVoir le dossier patient\nConsulter le bilan nutrition\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "nutrition",
+      "n": 500,
+      "h": 2,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 114.24212499999885,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 3978.6796670000003,
+      "primaryMs": 3978.6796670000003,
+      "networkSettledMs": 6384.470874999999,
+      "observationMs": 6385.1175,
+      "networkBytes": 2348783,
+      "backend": {
+        "reads": 3,
+        "documents": 1,
+        "estimated": 3,
+        "writes": 0
+      },
+      "api": {
+        "requests": 3,
+        "completed": 2,
+        "responseBytes": 250,
+        "durationMs": 15.280165999998644,
+        "statuses": {
+          "200": 1,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "59a48780-2808-488d-95d2-f0698bcc70cd",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 15,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 504,
+        "documentsReturned": 1503,
+        "estimatedReads": 1502,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 34380,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Ce": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 13,
+        "g": 6,
+        "qS": 28228,
+        "Yt": 2,
+        "Le": 2,
+        "Me": 2,
+        "Oe": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "W": 4,
+        "A": 2,
+        "lT": 6025,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 7,
+        "Qt": 2,
+        "v": 8,
+        "m": 2,
+        "Gt": 2,
+        "En": 2,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "O": 1,
+        "s": 1,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "F": 1
+      },
+      "heap": {
+        "usedSize": 133205340,
+        "totalSize": 214532096,
+        "embedderHeapUsedSize": 38565560,
+        "backingStorageSize": 2461555
+      },
+      "execution": {
+        "LayoutDuration": 0.046112,
+        "ScriptDuration": 1.7059,
+        "TaskDuration": 2.23277
+      },
+      "state": {
+        "ready": true,
+        "path": "/nutrition-coach",
+        "text": "tive 1\tPARTAGÉ\tPATIENT\t\nVoir le dossier patient\nConsulter le bilan nutrition\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    }
+  ]
+}

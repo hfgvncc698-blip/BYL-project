@@ -1,0 +1,22 @@
+{
+  "sourceCommit": "5bdcd1bb3339b7adf3dd5e81311d76200b756ffd",
+  "command": "PATH=\"/opt/homebrew/opt/openjdk@21/bin:$PATH\" node scripts/runSecurityLot7B1.cjs cache current",
+  "expectedSecurityAssertionExit": 1,
+  "observed": {
+    "seed": {
+      "loaded": true,
+      "peerReadable": true,
+      "samePageReadable": true
+    },
+    "shared": {
+      "cacheReadable": true,
+      "serverDenied": true,
+      "snapshotReadable": true
+    },
+    "independent": {
+      "cacheReadable": false,
+      "serverDenied": true,
+      "snapshotReadable": false
+    }
+  }
+}

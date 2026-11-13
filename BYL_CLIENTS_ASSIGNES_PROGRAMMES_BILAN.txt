@@ -1,0 +1,67 @@
+CLIENTS ASSIGNÉS AUX PROGRAMMES — 13 novembre 2026
+
+RÉSULTAT
+La liste des clients assignés est confirmée sous deux secondes dans les trois fixtures compilées, sur deux passages après correction. Aucun déploiement. API locale redémarrée sur 127.0.0.1:5050 (PID 15458) ; seul contrôle local sans authentification effectué : refus 401, aucune lecture Firestore via ce contrôle.
+
+ARCHITECTURE
+Nouvelle route /api/programs/program-assignments : Auth avec vérification de révocation, marqueur contrôlé avant et dans la transaction, profil/abonnement/rôle vérifiés avant tout dossier, puis mêmes trois requêtes de propriété, mêmes limites 200 chacune, déduplication des dossiers et lectures canoniques des programmes.
+Les lectures auparavant exécutées par le navigateur sont regroupées en un appel HTTP. Elles ne disparaissent pas : elles sont exécutées dans la transaction serveur, avec une concurrence maximale de 24. La projection ne renvoie que les champs nécessaires aux associations, noms, comptes et brouillons préparés.
+Aucun résumé persistant ni cache serveur ajouté, aucune lecture d’historique, aucune écriture sur le chemin normal. Toutes les mutations restent sur leurs parcours existants ; le rafraîchissement après assignation relit les données canoniques. Les prévisualisations administrateur conservent le chemin SDK existant, non optimisé ici.
+Annulation HTTP : les tâches non lancées sont interrompues ; les lectures déjà envoyées à Firestore ne sont pas annulables. Les réponses obsolètes sont rejetées côté page. Une réponse incomplète ne devient jamais un compteur nul.
+404 uniquement : compatibilité avec une ancienne API via le chemin SDK. Pas de répétition automatique des scans après 401/403/503. Une panne du nouvel endpoint laisse les compteurs non confirmés ; elle nécessite une nouvelle tentative, plutôt que doubler les lectures.
+
+MESURES — MÊME BANC AVANT/APRÈS
+Véritable application compilée instrumentée, Firebase Auth/Firestore émulés, Chrome jetable 1440x1000 sans cache navigateur. Connexion/admission incluses dans les temps depuis la navigation. Une référence avant, deux passages après, non une garantie de latence réelle.
+Fixtures : 12/100/500 clients, 12/50/200 modèles, deux programmes assignés par client ; trois formats de propriété. Référence avant : version précédente avec pagination et 24 lectures parallèles déjà intégrées. Les gains antérieurs ne sont pas réattribués à cette correction.
+
+12 clients / 12 modèles :
+Assignations confirmées : 855 ms → 640 / 679 ms.
+Lectures documentaires explicites annuaire + assignations : 36 (SDK navigateur avant) → 39 (SDK backend après). Les +3 sont les vérifications regroupées de sécurité.
+Modèle conservateur des dépendances de règles avant : au moins 15 lectures ; total avant au moins 51 → 39 après. Ces dépendances ne sont PAS mesurées par les wrappers SDK.
+Écritures persistantes nouvelles : 0. Transaction observée : 1 tentative.
+Transfert navigateur total : 2384673 → 2383677 octets ; mémoire JS ponctuelle : 17187812 → 15345564 octets.
+
+100 clients / 50 modèles :
+Assignations confirmées : 1062 ms → 549 / 601 ms.
+Lectures documentaires explicites annuaire + assignations : 300 (SDK navigateur avant) → 303 (SDK backend après). Les +3 sont les vérifications regroupées de sécurité.
+Modèle conservateur des dépendances de règles avant : au moins 103 lectures ; total avant au moins 403 → 303 après. Ces dépendances ne sont PAS mesurées par les wrappers SDK.
+Écritures persistantes nouvelles : 0. Transaction observée : 1 tentative.
+Transfert navigateur total : 2387742 → 2384968 octets ; mémoire JS ponctuelle : 25004352 → 22480868 octets.
+
+500 clients / 200 modèles :
+Assignations confirmées : 2716 ms → 980 / 1048 ms.
+Lectures documentaires explicites annuaire + assignations : 1500 (SDK navigateur avant) → 1503 (SDK backend après). Les +3 sont les vérifications regroupées de sécurité.
+Modèle conservateur des dépendances de règles avant : au moins 503 lectures ; total avant au moins 2003 → 1503 après. Ces dépendances ne sont PAS mesurées par les wrappers SDK.
+Écritures persistantes nouvelles : 0. Transaction observée : 1 tentative.
+Transfert navigateur total : 2399588 → 2391325 octets ; mémoire JS ponctuelle : 25802000 → 19378332 octets.
+
+COMMENT INTERPRÉTER LE COÛT
+Ne pas confondre docs retournés, opérations SDK et lectures facturables. Les wrappers ne voient pas les get()/exists() des règles. Les tableaux ci-dessus isolent ces lectures explicites et leur estimation complémentaire.
+Pour un coach autorisé, chaque requête SDK de l’annuaire ou des programmes doit consulter le profil via currentUser()/hasCoachAccess(). On compte prudemment une seule lecture de profil par requête (N + 3) ; les lectures du dossier parent dans la règle programmes ne sont même pas ajoutées à ce minimum. Les dépendances identiques ne sont comptées qu’une fois par requête.
+Documentation primaire : https://firebase.google.com/docs/firestore/pricing — section sur les lectures additionnelles nécessaires aux règles de sécurité. Firebase précise leur facturation par requête, avec une seule lecture par document dépendant même si plusieurs appels le consultent.
+Après regroupement, le SDK Admin n’exécute pas les règles navigateur : les contrôles sont explicitement implémentés et comptés dans la route. Le total documenté est donc une estimation facturable basée sur les règles actuelles et les traces de requêtes, PAS une facture réelle ni une mesure directe de toutes les dépendances.
+Les écritures de session du banc (1 côté navigateur) et les lectures communes des modèles/messagerie ne changent pas et ne sont pas attribuées à cette optimisation. Aucun service Google nouveau, index ou tâche automatique ajouté. Ressources CPU/mémoire du VPS sous charge, facturation réseau et prix en euros non qualifiés ici.
+Le SDK backend fait désormais une partie du travail : ne pas prétendre que les lectures ont été supprimées. Le gain documentaire estimé vient des contrôles de règles répétés évités, sans supprimer les contrôles serveur.
+
+TESTS
+PASS deux passages navigateur : comptes et listes disponibles, pagination/recherche hors première page/mobile sans nouvelles lectures SDK.
+PASS testProgramAssignments.cjs, rejoué après ajout de l’annulation : propriété créée/coachId/coachIds, déduplication, trois alias de programme, compte de séances canonique, projection sans notes privées, correction/suppression, transfert et changement de club du dossier, refus de périmètre étranger, rôle retiré, désactivation club, révocation et aperçu admin.
+PASS testProgramsLoading.mjs : véritable callback avant/après, parité des clients et compteurs, une requête groupée, aucun scan SDK normal, 404 compatible, aucun fallback après 401/403/503, réponses tardives non publiées.
+PASS testProgramAssignmentProjection.cjs : ordre des champs de comptage, dossiers sans programmes, exclusion des données privées inutiles, arrêt des travaux non lancés après fermeture (24 lectures en vol maximum).
+PASS testDashboardTemplates.cjs, testProgramDuplication.mjs, testProgramAssignmentSync.cjs.
+Compilation complète et contrôle des budgets JavaScript exécutés.
+
+LIMITES ET RISQUES RÉSIDUELS
+Les critères de durée sont démontrés sur réseau local et fixtures, pas sur un compte réel, réseau mobile, ni en concurrence de nombreux coachs. Le scan serveur canonique reste proportionnel au nombre de dossiers ; 600 dossiers maximum comme les trois anciennes limites de 200.
+Les compteurs de racine indiquant zéro programme continuent d’être respectés comme avant : leur qualité historique n’est pas corrigée dans ce lot. Les anciens formats incomplets peuvent avoir les mêmes limitations qu’avant.
+Les erreurs réseau/transactions relancées peuvent coûter davantage que le chemin nominal ; aucun invariant absolu sur la facture lors de toutes les pannes n’est affirmé. Les mécanismes existants de réconciliation Auth peuvent écrire un marqueur lors d’un rejet Auth : ce sont des opérations de sécurité exceptionnelles, pas des écritures de résumé.
+La comparaison ne constitue pas une validation des risques P0-3/P0-4 existants. Aucune règle de production modifiée.
+
+FICHIERS
+src/components/ProgramsPage.jsx ; backend/routes/coachProgramRead.js ; backend/utils/programAssignments.js ; backend/utils/firestoreMetrics.js ; scripts/runProgramAssignments.cjs ; scripts/testProgramAssignments.cjs ; scripts/testProgramAssignmentProjection.cjs ; scripts/testProgramsLoading.mjs.
+
+REPRODUCTION
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runProgramAssignments.cjs before --compiled
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runProgramAssignments.cjs after --compiled
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runProgramAssignments.cjs after --security-only
+Exécuter séquentiellement : mêmes ports locaux. Résultats et sources avant dans audits/program-assignments. Aucun script ne déploie.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -387,8 +387,10 @@ export default function ActivateAccount() {
     refreshEmailVerification,
   } = useAuth();
   const lang = useMemo(() => languageFromSearch(location.search), [location.search]);
-  const isRecovery = location.pathname === "/reset-password";
-  const isEmailVerification = location.pathname === "/verify-email";
+  // Static hosting redirects these routes to their directory URL (trailing /).
+  const accountActionPath = location.pathname.replace(/\/+$/, "");
+  const isRecovery = accountActionPath === "/reset-password";
+  const isEmailVerification = accountActionPath === "/verify-email";
   const copySet = isEmailVerification ? EMAIL_VERIFICATION_COPY : isRecovery ? RECOVERY_COPY : COPY;
   const copy = {
     ...(copySet[lang] || copySet.fr),
@@ -400,6 +402,7 @@ export default function ActivateAccount() {
   const previewMode = import.meta.env.DEV ? params.get("preview") || "" : "";
   const isLocalPreview = previewMode === "1" || previewMode === "success";
   const isPendingPreview = previewMode === "pending";
+  const verificationAttempt = useRef(null);
   const [status, setStatus] = useState("checking");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -432,16 +435,28 @@ export default function ActivateAccount() {
     }
     if (isEmailVerification) {
       if (!oobCode) {
-        setStatus("pending");
+        // Trial activation can reload the session; a verified profile must not
+        // ask the coach to confirm the same email again after that reload.
+        setStatus(user?.emailVerified === true ? "success" : "pending");
         return undefined;
       }
       if (!["verifyEmail", "verifyAndChangeEmail"].includes(params.get("mode"))) {
         setStatus("invalid");
         return undefined;
       }
-      applyActionCode(auth, oobCode)
+      // Effects can be replayed while this one-use code is still being applied.
+      if (verificationAttempt.current?.code !== oobCode) {
+        verificationAttempt.current = { code: oobCode, promise: applyActionCode(auth, oobCode) };
+      }
+      verificationAttempt.current.promise
         .then(() => {
-          if (!cancelled) setStatus("success");
+          if (cancelled) return;
+          // Activation changes the session scope and may reload this page.
+          // Never leave an already-consumed code in the URL for that reload.
+          const cleanUrl = new URL(window.location.href);
+          ["oobCode", "mode", "apiKey"].forEach((key) => cleanUrl.searchParams.delete(key));
+          window.history.replaceState(window.history.state, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+          setStatus("success");
         })
         .catch(() => {
           if (!cancelled) setStatus("invalid");
@@ -466,7 +481,7 @@ export default function ActivateAccount() {
     return () => {
       cancelled = true;
     };
-  }, [isEmailVerification, isLocalPreview, isPendingPreview, oobCode, params]);
+  }, [isEmailVerification, isLocalPreview, isPendingPreview, oobCode, params, user?.emailVerified]);
 
   const finishActivation = async (event) => {
     event.preventDefault();
@@ -592,6 +607,10 @@ export default function ActivateAccount() {
         return;
       }
       navigate(verifiedDestination(result.user), { replace: true });
+    } catch (error) {
+      console.error("[email-verification] continue failed:", error);
+      setNoticeStatus("error");
+      setMessage(copy.genericError);
     } finally {
       setPendingAction("");
     }
@@ -677,6 +696,12 @@ export default function ActivateAccount() {
                 <AlertIcon />
                 {copy.successText}
               </Alert>
+              {message && (
+                <Alert status={noticeStatus} borderRadius="xl">
+                  <AlertIcon />
+                  {message}
+                </Alert>
+              )}
               <Button
                 onClick={handleVerifiedContinue}
                 colorScheme="blue"

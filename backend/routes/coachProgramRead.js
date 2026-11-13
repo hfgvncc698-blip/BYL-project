@@ -17,7 +17,9 @@ router.post("/dashboard-templates", requireFirebaseAuth, async (req, res) => {
     const uid = req.auth.uid;
     const requesterSnap = await admin.firestore().collection("users").doc(uid).get();
     const requester = requesterSnap.exists ? requesterSnap.data() : {};
-    if (!hasActiveProfessionalAccess(requester, req.auth.token)) {
+    if (requester.disabled || requester.disabledByClub || requester.deletedFromClub ||
+        ['inactive','disabled','deleted','removed','club_deleted'].includes(requester.status) ||
+        !hasActiveProfessionalAccess(requester, req.auth.token)) {
       return res.status(403).json({ error: "professional-access-required" });
     }
     const coachId = String(req.body?.coachId || uid).trim();
@@ -78,10 +80,13 @@ router.post("/dashboard-templates", requireFirebaseAuth, async (req, res) => {
 router.post(['/client-list-summary','/dashboard-client-programs'], requireUnrevokedFirebaseAuth, async (req,res)=>{
   const detailed=req.path==='/dashboard-client-programs';
   const {coachId,ids,since}=req.body || {};
+  // Admission and ownership are checked transactionally for every requested root.
+  // Legacy transfers: 4 MiB decoded. Opt-in v2: 32 MiB gzip / 64 MiB decoded.
   const validId=id=>typeof id==='string' && id.length>0 && id.length<=256 && !id.includes('/');
-  if(!validId(coachId) || !Array.isArray(ids) || !ids.length || ids.length>(detailed?8:25) || !ids.every(validId) || (!detailed && (!Number.isFinite(since) || Math.abs(since-(Date.now()-7*86400000))>86400000)))return res.sendStatus(400);
+  if(!validId(coachId) || !Array.isArray(ids) || !ids.length || ids.length>(detailed?32:25) || !ids.every(validId) || (!detailed && (!Number.isFinite(since) || Math.abs(since-(Date.now()-7*86400000))>86400000)))return res.sendStatus(400);
   const db=admin.firestore();
   try {
+    const readStarted=performance.now();
     const summaries=await db.runTransaction(async tx=>{
       await req.auth.assertMessagingSession(tx);
       const actor=(await tx.get(db.collection('users').doc(req.auth.uid))).data();
@@ -97,16 +102,8 @@ router.post(['/client-list-summary','/dashboard-client-programs'], requireUnrevo
       if(!docs.every(doc=>doc.exists && (doc.get('createdBy')===coachId || doc.get('coachId')===coachId ||
         (Array.isArray(doc.get('coachIds')) && doc.get('coachIds').includes(coachId)))))throw Object.assign(Error('forbidden'),{status:403});
       if(detailed){
-        const {encode}=require('../utils/coachPageWire');
-        return Object.fromEntries(await Promise.all(refs.map(async ref=>{
-          const snapshot=await tx.get(ref.collection('programmes'));
-          const programs=[];
-          for(const program of snapshot.docs){
-            const history=await tx.get(program.ref.collection('sessionsEffectuees'));
-            programs.push({id:program.id,data:encode(program.data()),history:history.docs.map(d=>({id:d.id,data:encode(d.data())}))});
-          }
-          return [ref.id,programs];
-        })));
+        const {readDashboardBundles}=require('../utils/coachDashboardBundles');
+        return readDashboardBundles(tx,refs,{dashboard:req.body.dashboardProjection===1,outline:req.body.dashboardOutline===1});
       }
       const modules=[actor?.modules,actor?.proAccess?.modules].filter(Array.isArray).flat();
       const nutrition=adminView || actor.subscriptionStatus==='trialing' || modules.some(m=>m==='nutrition'||m==='club') ||
@@ -116,12 +113,107 @@ router.post(['/client-list-summary','/dashboard-client-programs'], requireUnrevo
       return readListSummaries(db,tx,docs,since,{sport:req.body.sport!==false,nutrition},req.body.refreshId);
 
     });
-    const body=JSON.stringify(detailed ? {clients:summaries} : {summaries});
-    if(detailed && Buffer.byteLength(body)>4*1024*1024)return res.sendStatus(413);
+    const readMs=Math.round(performance.now()-readStarted);
+    const payload=detailed ? {clients:summaries} : {summaries};
+    let body=JSON.stringify(payload);
+    const originalBytes=Buffer.byteLength(body);
+    if(detailed && req.body.measureTransfer===true){
+      const parts={prescriptions:0,history:0,otherProgramFields:0};
+      for(const programs of Object.values(summaries))for(const program of programs){
+        for(const [field,value] of Object.entries(program.data))parts[['sessions','seances'].includes(field)?'prescriptions':'otherProgramFields']+=Buffer.byteLength(JSON.stringify(value));
+        parts.history+=Buffer.byteLength(JSON.stringify(program.history));
+      }
+      body=JSON.stringify({...payload,transportStats:{readMs,parts,originalBytes,packedBytes:Buffer.byteLength(body)}});
+    }
+    if(detailed){
+      const {dashboardTransport}=require('../utils/coachDashboardTransport');
+      const transfer=await dashboardTransport(body,{gzipAccepted:!!req.acceptsEncodings('gzip'),version:req.body.transferVersion});
+      if(!transfer)return res.sendStatus(413);
+      res.set('Cache-Control','private, no-store').vary('Accept-Encoding').type('application/json');
+      if(transfer.gzip)res.set('Content-Encoding','gzip');
+      return res.send(transfer.body);
+    }
     res.set('Cache-Control','private, no-store').vary('Accept-Encoding').type('application/json');
     if(req.acceptsEncodings('gzip'))return res.set('Content-Encoding','gzip').send(await compress(body));
     return res.send(body);
   } catch(error){res.status([401,403].includes(error.status)?error.status:503).json({error:'client-list-summary-unavailable'});}
+});
+
+// The directory and its assignments share one authorized transaction snapshot.
+// The browser never supplies trusted client IDs or cached authorization here.
+router.post('/program-assignments', requireUnrevokedFirebaseAuth, async (req,res)=>{
+  const coachId=req.body?.coachId;
+  if(typeof coachId!=='string' || !coachId || coachId.length>256 || coachId.includes('/'))return res.sendStatus(400);
+  const db=admin.firestore();
+  let active=true;
+  const stop=()=>{active=false;};
+  const closed=()=>{if(!res.writableEnded)stop();};
+  req.on('aborted',stop);
+  res.on('close',closed);
+  try{
+    const payload=await db.runTransaction(async tx=>{
+      await req.auth.assertMessagingSession(tx);
+      const actor=(await tx.get(db.collection('users').doc(req.auth.uid))).data();
+      const adminView=actor?.role==='admin' && req.auth.token.email_verified===true;
+      if(!actor || actor.disabled || actor.disabledByClub || actor.deletedFromClub ||
+        ['inactive','disabled','deleted','removed','club_deleted'].includes(actor.status) ||
+        (!adminView && (req.auth.uid!==coachId || actor.role!=='coach' ||
+          (actor.emailVerificationRequired===true && req.auth.token.email_verified!==true) ||
+          !(actor.hasActiveSubscription===true || ['active','club_active'].includes(actor.subscriptionStatus) ||
+            (actor.subscriptionStatus==='trialing' && actor.trialEndsAt?.toMillis?.()>Date.now())))))
+        throw Object.assign(Error('forbidden'),{status:403});
+      return require('../utils/programAssignments').readAssignments(tx,db,coachId,()=>active);
+    });
+    if(!active)return;
+    const body=JSON.stringify(payload);
+    res.set('Cache-Control','private, no-store').vary('Accept-Encoding').type('application/json');
+    if(req.acceptsEncodings('gzip'))return res.set('Content-Encoding','gzip').send(await compress(body));
+    return res.send(body);
+  }catch(error){
+    if(active)return res.status([401,403].includes(error.status)?error.status:503).json({error:'program-assignments-unavailable'});
+  }finally{
+    req.off('aborted',stop);res.off('close',closed);
+  }
+});
+
+router.post('/nutrition-list', requireUnrevokedFirebaseAuth, async (req,res)=>{
+  const coachId=req.body?.coachId;
+  if(typeof coachId!=='string' || !coachId || coachId.length>256 || coachId.includes('/'))return res.sendStatus(400);
+  const db=admin.firestore();
+  let active=true;
+  const stop=()=>{active=false;};
+  const closed=()=>{if(!res.writableEnded)stop();};
+  req.on('aborted',stop);
+  res.on('close',closed);
+  try{
+    const payload=await db.runTransaction(async tx=>{
+      await req.auth.assertMessagingSession(tx);
+      const actor=(await tx.get(db.collection('users').doc(req.auth.uid))).data();
+      const adminView=actor?.role==='admin' && req.auth.token.email_verified===true;
+      if(!actor || actor.disabled || actor.disabledByClub || actor.deletedFromClub ||
+        ['inactive','disabled','deleted','removed','club_deleted'].includes(actor.status) ||
+        (!adminView && (req.auth.uid!==coachId || actor.role!=='coach' ||
+          (actor.emailVerificationRequired===true && req.auth.token.email_verified!==true) ||
+          !(actor.hasActiveSubscription===true || ['active','club_active'].includes(actor.subscriptionStatus) ||
+            (actor.subscriptionStatus==='trialing' && actor.trialEndsAt?.toMillis?.()>Date.now())))))
+        throw Object.assign(Error('forbidden'),{status:403});
+      const modules=[actor?.modules,actor?.proAccess?.modules].filter(Array.isArray).flat();
+      const nutrition=adminView || actor.subscriptionStatus==='trialing' || modules.some(m=>m==='nutrition'||m==='club') ||
+        [actor.packageKey,actor.proAccess?.packageKey].some(k=>['nutrition','complete','club'].includes(k)) ||
+        actor.nutritionAccess===true || actor.hasNutritionAccess===true || actor.features?.nutrition===true;
+      if(!nutrition)throw Object.assign(Error('forbidden'),{status:403});
+      return require('../utils/nutritionList').readNutritionList(tx,db,coachId,()=>active);
+    });
+    if(!active)return;
+    const body=JSON.stringify(payload);
+    res.set('Cache-Control','private, no-store').vary('Accept-Encoding').type('application/json');
+    if(req.acceptsEncodings('gzip'))return res.set('Content-Encoding','gzip').send(await compress(body));
+    return res.send(body);
+  }catch(error){
+    if(active)return res.status([401,403].includes(error.status)?error.status:503).json({error:'nutrition-list-unavailable'});
+  }finally{
+    req.off('aborted',stop);res.off('close',closed);
+  }
 });
 
 module.exports = router;

@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-10",
+  "branch": "codex/firebase-performance-audit",
+  "baseline": "5bdcd1bb3339b7adf3dd5e81311d76200b756ffd",
+  "command": "node scripts/testMigrationLot7B1Quinquies.cjs",
+  "quaterFilesCompared": 50,
+  "differencesFromQuater": [],
+  "productionFilesModifiedInThisLot": false,
+  "realUserProfilesAccessed": false,
+  "syntheticChromeControls": 30,
+  "sourceSha256": {
+    "BYL_LOT7B1QUINQUIES_BILAN.md": "4505fa655c8ab7645fe10f5d69db977c2e702539d00773b77ce535823ef7d655",
+    "BYL_LOT7B1QUINQUIES_DECISION.md": "e66519c9b340d7233fb3321c3059a3df1c786a15b9a4d346f770f727e2673ccf",
+    "BYL_LOT7B1QUINQUIES_INVENTAIRE.md": "fd21e734651d7cfd46409e8f4f51fe1a14feff524b74c703e2eabd0e86514cc5",
+    "BYL_LOT7B1QUINQUIES_NETTOYAGE.md": "ed2a00c2aa2e757d968f332e6588c57c03e37e6eb35514fea72851e828a67918",
+    "BYL_LOT7B1QUINQUIES_RECUPERATION.md": "894fc19b64c9a4d6454040025cf1149ad3d9e7856ba26312a9c9362cf80d62a6",
+    "BYL_LOT7B1QUINQUIES_TESTS.md": "0de7e727be326acb2d6b2a0545cbbffaa51b3c1dd7473e4542886c7aa932033f",
+    "scripts/testMigrationLot7B1Quinquies.cjs": "6f3190ec65bb82feb55096362b8a5b9972dd2511261a853100191b33df44df18",
+    "scripts/fixtures/lot7b1quinquies/migration.js": "539e199a460e18cf678c73c0414d3b50d6e805861e1931307f8c73b5f6202014",
+    "scripts/fixtures/lot7b1quinquies/firestore.js": "77768e67fdf399d4c454fc57bad259ef9339899c110922fa5cfd91ffbf1554ab",
+    "audits/lot7b1quinquies/results.json": "15713f186b9cb0a4f0c01e31f2bd89d804a5c39ef8fe2b46d70e9edbe2952cf3"
+  }
+}

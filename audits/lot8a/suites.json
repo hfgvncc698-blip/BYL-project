@@ -1,0 +1,57 @@
+[
+  {
+    "name": "after-main",
+    "exitCode": 1,
+    "durationMs": 14436
+  },
+  {
+    "name": "before-calendar",
+    "exitCode": 1,
+    "durationMs": 22452
+  },
+  {
+    "name": "after-calendar",
+    "exitCode": 1,
+    "durationMs": 13708
+  },
+  {
+    "name": "after-messages",
+    "exitCode": 0,
+    "durationMs": 50247
+  },
+  {
+    "name": "regression-coach",
+    "exitCode": 0,
+    "durationMs": 11932
+  },
+  {
+    "name": "regression-progress",
+    "exitCode": 2,
+    "durationMs": 72385
+  },
+  {
+    "name": "regression-calendar",
+    "exitCode": 0,
+    "durationMs": 17181
+  },
+  {
+    "name": "regression-p01",
+    "exitCode": 0,
+    "durationMs": 8970
+  },
+  {
+    "name": "regression-p02",
+    "exitCode": 0,
+    "durationMs": 13330
+  },
+  {
+    "name": "regression-messaging",
+    "exitCode": 0,
+    "durationMs": 23973
+  },
+  {
+    "name": "integrated-security",
+    "exitCode": 0,
+    "durationMs": 35068
+  }
+]

@@ -1,0 +1,778 @@
+{
+  "scenarios": [
+    {
+      "clients": 0,
+      "programs": 0,
+      "histories": 0,
+      "summaryBytes": 0,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 0,
+          "cpuMs": 0.161,
+          "rssMiB": 152.921875,
+          "peakRssMiB": 152.921875,
+          "reads": 0,
+          "documents": 0,
+          "estimated": 0,
+          "writes": 0,
+          "http": 0,
+          "compressedBytes": 0,
+          "transactionAttempts": 0,
+          "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        {
+          "name": "cold-create",
+          "ms": 0,
+          "cpuMs": 0.027,
+          "rssMiB": 153.078125,
+          "peakRssMiB": 153.078125,
+          "reads": 0,
+          "documents": 0,
+          "estimated": 0,
+          "writes": 0,
+          "http": 0,
+          "compressedBytes": 0,
+          "transactionAttempts": 0,
+          "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        {
+          "name": "warm-1",
+          "ms": 0,
+          "cpuMs": 0.025,
+          "rssMiB": 153.109375,
+          "peakRssMiB": 153.109375,
+          "reads": 0,
+          "documents": 0,
+          "estimated": 0,
+          "writes": 0,
+          "http": 0,
+          "compressedBytes": 0,
+          "transactionAttempts": 0,
+          "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        {
+          "name": "warm-2",
+          "ms": 0,
+          "cpuMs": 0.031,
+          "rssMiB": 153.125,
+          "peakRssMiB": 153.125,
+          "reads": 0,
+          "documents": 0,
+          "estimated": 0,
+          "writes": 0,
+          "http": 0,
+          "compressedBytes": 0,
+          "transactionAttempts": 0,
+          "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        }
+      ]
+    },
+    {
+      "clients": 12,
+      "programs": 0,
+      "histories": 0,
+      "summaryBytes": 264,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 91,
+          "cpuMs": 60.333,
+          "rssMiB": 156.75,
+          "peakRssMiB": 161.46875,
+          "reads": 16,
+          "documents": 13,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 85,
+          "transactionAttempts": 1,
+          "hash": "dc3235b4bcace4b24549a29e59f9b80d1a0aabcdf0c13955d7fa13e79ee9590e"
+        },
+        {
+          "name": "cold-create",
+          "ms": 42,
+          "cpuMs": 22.937,
+          "rssMiB": 162.890625,
+          "peakRssMiB": 163.421875,
+          "reads": 17,
+          "documents": 13,
+          "estimated": 39,
+          "writes": 12,
+          "http": 1,
+          "compressedBytes": 85,
+          "transactionAttempts": 1,
+          "hash": "dc3235b4bcace4b24549a29e59f9b80d1a0aabcdf0c13955d7fa13e79ee9590e"
+        },
+        {
+          "name": "warm-1",
+          "ms": 24,
+          "cpuMs": 12.969,
+          "rssMiB": 163.609375,
+          "peakRssMiB": 163.859375,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 85,
+          "transactionAttempts": 1,
+          "hash": "dc3235b4bcace4b24549a29e59f9b80d1a0aabcdf0c13955d7fa13e79ee9590e"
+        },
+        {
+          "name": "warm-2",
+          "ms": 24,
+          "cpuMs": 13.764,
+          "rssMiB": 164.1875,
+          "peakRssMiB": 164.46875,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 85,
+          "transactionAttempts": 1,
+          "hash": "dc3235b4bcace4b24549a29e59f9b80d1a0aabcdf0c13955d7fa13e79ee9590e"
+        }
+      ]
+    },
+    {
+      "clients": 12,
+      "programs": 24,
+      "histories": 0,
+      "summaryBytes": 2268,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 70,
+          "cpuMs": 57.318,
+          "rssMiB": 165.328125,
+          "peakRssMiB": 174.40625,
+          "reads": 40,
+          "documents": 37,
+          "estimated": 63,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 294,
+          "transactionAttempts": 1,
+          "hash": "047640d39324443c9cd8f71a8ce882904f7991a4e92bd2b466de25ead7cbc930"
+        },
+        {
+          "name": "cold-create",
+          "ms": 65,
+          "cpuMs": 51.162,
+          "rssMiB": 175.578125,
+          "peakRssMiB": 178.5,
+          "reads": 41,
+          "documents": 37,
+          "estimated": 75,
+          "writes": 12,
+          "http": 1,
+          "compressedBytes": 294,
+          "transactionAttempts": 1,
+          "hash": "047640d39324443c9cd8f71a8ce882904f7991a4e92bd2b466de25ead7cbc930"
+        },
+        {
+          "name": "warm-1",
+          "ms": 23,
+          "cpuMs": 9.453,
+          "rssMiB": 178.6875,
+          "peakRssMiB": 180.109375,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 294,
+          "transactionAttempts": 1,
+          "hash": "047640d39324443c9cd8f71a8ce882904f7991a4e92bd2b466de25ead7cbc930"
+        },
+        {
+          "name": "warm-2",
+          "ms": 20,
+          "cpuMs": 8.908,
+          "rssMiB": 180.28125,
+          "peakRssMiB": 181.984375,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 294,
+          "transactionAttempts": 1,
+          "hash": "047640d39324443c9cd8f71a8ce882904f7991a4e92bd2b466de25ead7cbc930"
+        }
+      ]
+    },
+    {
+      "clients": 12,
+      "programs": 24,
+      "histories": 240,
+      "summaryBytes": 5784,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 82,
+          "cpuMs": 90.573,
+          "rssMiB": 196.3125,
+          "peakRssMiB": 198.140625,
+          "reads": 40,
+          "documents": 277,
+          "estimated": 279,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 1041,
+          "transactionAttempts": 1,
+          "hash": "a579e5280c3ee2222ec7499a47730a6d78cce03510377c073404af1843f61bdd"
+        },
+        {
+          "name": "cold-create",
+          "ms": 74,
+          "cpuMs": 65.711,
+          "rssMiB": 198.78125,
+          "peakRssMiB": 204.6875,
+          "reads": 41,
+          "documents": 277,
+          "estimated": 291,
+          "writes": 12,
+          "http": 1,
+          "compressedBytes": 1041,
+          "transactionAttempts": 1,
+          "hash": "a579e5280c3ee2222ec7499a47730a6d78cce03510377c073404af1843f61bdd"
+        },
+        {
+          "name": "warm-1",
+          "ms": 19,
+          "cpuMs": 7.975,
+          "rssMiB": 204.75,
+          "peakRssMiB": 204.78125,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 1041,
+          "transactionAttempts": 1,
+          "hash": "a579e5280c3ee2222ec7499a47730a6d78cce03510377c073404af1843f61bdd"
+        },
+        {
+          "name": "warm-2",
+          "ms": 20,
+          "cpuMs": 7.71,
+          "rssMiB": 205.03125,
+          "peakRssMiB": 205.3125,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 1041,
+          "transactionAttempts": 1,
+          "hash": "a579e5280c3ee2222ec7499a47730a6d78cce03510377c073404af1843f61bdd"
+        }
+      ]
+    },
+    {
+      "clients": 36,
+      "programs": 72,
+      "histories": 7200,
+      "summaryBytes": 51840,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 669,
+          "cpuMs": 530.139,
+          "rssMiB": 311.203125,
+          "peakRssMiB": 319.71875,
+          "reads": 116,
+          "documents": 7310,
+          "estimated": 7314,
+          "writes": 0,
+          "http": 2,
+          "compressedBytes": 18735,
+          "transactionAttempts": 2,
+          "hash": "6d306e14157dbfb202e58c434601341ee517d3d3e08f3dea2fadf39cae0b4b65"
+        },
+        {
+          "name": "cold-create",
+          "ms": 571,
+          "cpuMs": 407.637,
+          "rssMiB": 323,
+          "peakRssMiB": 347.3125,
+          "reads": 118,
+          "documents": 7310,
+          "estimated": 7350,
+          "writes": 36,
+          "http": 2,
+          "compressedBytes": 18735,
+          "transactionAttempts": 2,
+          "hash": "6d306e14157dbfb202e58c434601341ee517d3d3e08f3dea2fadf39cae0b4b65"
+        },
+        {
+          "name": "warm-1",
+          "ms": 48,
+          "cpuMs": 54.786,
+          "rssMiB": 349.53125,
+          "peakRssMiB": 361.453125,
+          "reads": 10,
+          "documents": 74,
+          "estimated": 78,
+          "writes": 0,
+          "http": 2,
+          "compressedBytes": 18735,
+          "transactionAttempts": 2,
+          "hash": "6d306e14157dbfb202e58c434601341ee517d3d3e08f3dea2fadf39cae0b4b65"
+        },
+        {
+          "name": "warm-2",
+          "ms": 47,
+          "cpuMs": 44.279,
+          "rssMiB": 363.796875,
+          "peakRssMiB": 369.578125,
+          "reads": 10,
+          "documents": 74,
+          "estimated": 78,
+          "writes": 0,
+          "http": 2,
+          "compressedBytes": 18735,
+          "transactionAttempts": 2,
+          "hash": "6d306e14157dbfb202e58c434601341ee517d3d3e08f3dea2fadf39cae0b4b65"
+        }
+      ]
+    },
+    {
+      "clients": 100,
+      "programs": 200,
+      "histories": 2000,
+      "summaryBytes": 48200,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 739,
+          "cpuMs": 513.46,
+          "rssMiB": 403.84375,
+          "peakRssMiB": 413.109375,
+          "reads": 316,
+          "documents": 2304,
+          "estimated": 2312,
+          "writes": 0,
+          "http": 4,
+          "compressedBytes": 6437,
+          "transactionAttempts": 4,
+          "hash": "cec4dc355473f7713ced77afeb32d8b7fe7be1a49f74f3b88423514845b67de6"
+        },
+        {
+          "name": "cold-create",
+          "ms": 718,
+          "cpuMs": 454.742,
+          "rssMiB": 413.609375,
+          "peakRssMiB": 416.125,
+          "reads": 320,
+          "documents": 2304,
+          "estimated": 2412,
+          "writes": 100,
+          "http": 4,
+          "compressedBytes": 6437,
+          "transactionAttempts": 4,
+          "hash": "cec4dc355473f7713ced77afeb32d8b7fe7be1a49f74f3b88423514845b67de6"
+        },
+        {
+          "name": "warm-1",
+          "ms": 42,
+          "cpuMs": 39.394,
+          "rssMiB": 409.921875,
+          "peakRssMiB": 414.28125,
+          "reads": 20,
+          "documents": 204,
+          "estimated": 212,
+          "writes": 0,
+          "http": 4,
+          "compressedBytes": 6437,
+          "transactionAttempts": 4,
+          "hash": "cec4dc355473f7713ced77afeb32d8b7fe7be1a49f74f3b88423514845b67de6"
+        },
+        {
+          "name": "warm-2",
+          "ms": 39,
+          "cpuMs": 23.768,
+          "rssMiB": 414.78125,
+          "peakRssMiB": 416.015625,
+          "reads": 20,
+          "documents": 204,
+          "estimated": 212,
+          "writes": 0,
+          "http": 4,
+          "compressedBytes": 6437,
+          "transactionAttempts": 4,
+          "hash": "cec4dc355473f7713ced77afeb32d8b7fe7be1a49f74f3b88423514845b67de6"
+        }
+      ]
+    },
+    {
+      "clients": 500,
+      "programs": 1000,
+      "histories": 10000,
+      "summaryBytes": 241000,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 7214,
+          "cpuMs": 1752.812,
+          "rssMiB": 476.375,
+          "peakRssMiB": 479.75,
+          "reads": 1564,
+          "documents": 11516,
+          "estimated": 11548,
+          "writes": 0,
+          "http": 16,
+          "compressedBytes": 30315,
+          "transactionAttempts": 16,
+          "hash": "b006860e391a4042220dda3b014af2d2504ff42eb720943aa3fda114038c4761"
+        },
+        {
+          "name": "cold-create",
+          "ms": 7314,
+          "cpuMs": 1704.782,
+          "rssMiB": 452.625,
+          "peakRssMiB": 453.015625,
+          "reads": 1580,
+          "documents": 11516,
+          "estimated": 12048,
+          "writes": 500,
+          "http": 16,
+          "compressedBytes": 30315,
+          "transactionAttempts": 16,
+          "hash": "b006860e391a4042220dda3b014af2d2504ff42eb720943aa3fda114038c4761"
+        },
+        {
+          "name": "warm-1",
+          "ms": 137,
+          "cpuMs": 117.257,
+          "rssMiB": 420.359375,
+          "peakRssMiB": 429.96875,
+          "reads": 80,
+          "documents": 1016,
+          "estimated": 1048,
+          "writes": 0,
+          "http": 16,
+          "compressedBytes": 30315,
+          "transactionAttempts": 16,
+          "hash": "b006860e391a4042220dda3b014af2d2504ff42eb720943aa3fda114038c4761"
+        },
+        {
+          "name": "warm-2",
+          "ms": 136,
+          "cpuMs": 103.365,
+          "rssMiB": 425.59375,
+          "peakRssMiB": 431.015625,
+          "reads": 80,
+          "documents": 1016,
+          "estimated": 1048,
+          "writes": 0,
+          "http": 16,
+          "compressedBytes": 30315,
+          "transactionAttempts": 16,
+          "hash": "b006860e391a4042220dda3b014af2d2504ff42eb720943aa3fda114038c4761"
+        }
+      ]
+    },
+    {
+      "clients": 12,
+      "programs": 24,
+      "histories": 24000,
+      "summaryBytes": 195168,
+      "phases": [
+        {
+          "name": "before",
+          "ms": 1481,
+          "cpuMs": 731.234,
+          "rssMiB": 456.34375,
+          "peakRssMiB": 463.796875,
+          "reads": 40,
+          "documents": 24037,
+          "estimated": 24039,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 192001,
+          "transactionAttempts": 1,
+          "hash": "d4eb6c53fbaf630e7765353c664db9893a1cc0c93498eb5bfc8f3f201599a095"
+        },
+        {
+          "name": "cold-create",
+          "ms": 1432,
+          "cpuMs": 675.873,
+          "rssMiB": 476.734375,
+          "peakRssMiB": 477.28125,
+          "reads": 41,
+          "documents": 24037,
+          "estimated": 24051,
+          "writes": 12,
+          "http": 1,
+          "compressedBytes": 192001,
+          "transactionAttempts": 1,
+          "hash": "d4eb6c53fbaf630e7765353c664db9893a1cc0c93498eb5bfc8f3f201599a095"
+        },
+        {
+          "name": "warm-1",
+          "ms": 103,
+          "cpuMs": 108.601,
+          "rssMiB": 488.28125,
+          "peakRssMiB": 493.9375,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 192001,
+          "transactionAttempts": 1,
+          "hash": "d4eb6c53fbaf630e7765353c664db9893a1cc0c93498eb5bfc8f3f201599a095"
+        },
+        {
+          "name": "warm-2",
+          "ms": 111,
+          "cpuMs": 157.837,
+          "rssMiB": 488.515625,
+          "peakRssMiB": 513.125,
+          "reads": 5,
+          "documents": 25,
+          "estimated": 27,
+          "writes": 0,
+          "http": 1,
+          "compressedBytes": 192001,
+          "transactionAttempts": 1,
+          "hash": "d4eb6c53fbaf630e7765353c664db9893a1cc0c93498eb5bfc8f3f201599a095"
+        }
+      ]
+    }
+  ],
+  "security": [
+    "other-account-denied",
+    "ownership-and-club",
+    "role-and-disabled",
+    "revoked-token",
+    "summary-direct-read-and-write-denied",
+    "deleted-client-not-resurrected"
+  ],
+  "coherence": [
+    {
+      "name": "validation",
+      "mutation": {
+        "writes": 2,
+        "ms": 8,
+        "extraRootReads": 1
+      },
+      "summaryRead": {
+        "name": "validation",
+        "ms": 106,
+        "cpuMs": 9.302,
+        "rssMiB": 497.28125,
+        "peakRssMiB": 497.28125,
+        "reads": 8,
+        "documents": 26,
+        "estimated": 28,
+        "writes": 1,
+        "http": 1,
+        "compressedBytes": 522,
+        "transactionAttempts": 1,
+        "hash": "ba4fe4d23b71e232b208e9f997a6629d4ffca63701d0d5472e35e8966ea1e9b1"
+      },
+      "baselineRead": {
+        "name": "validation-reference",
+        "ms": 107,
+        "cpuMs": 5.891,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 7,
+        "documents": 25,
+        "estimated": 27,
+        "writes": 0,
+        "http": 1,
+        "compressedBytes": 522,
+        "transactionAttempts": 1,
+        "hash": "ba4fe4d23b71e232b208e9f997a6629d4ffca63701d0d5472e35e8966ea1e9b1"
+      }
+    },
+    {
+      "name": "correction",
+      "mutation": {
+        "writes": 2,
+        "ms": 5,
+        "extraRootReads": 1
+      },
+      "summaryRead": {
+        "name": "correction",
+        "ms": 106,
+        "cpuMs": 6.998,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 8,
+        "documents": 26,
+        "estimated": 28,
+        "writes": 1,
+        "http": 1,
+        "compressedBytes": 527,
+        "transactionAttempts": 1,
+        "hash": "151e052fc01034ab714109b0105d1aef99ac489471081f365c44ab06d6ac42fe"
+      },
+      "baselineRead": {
+        "name": "correction-reference",
+        "ms": 111,
+        "cpuMs": 6.657,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 7,
+        "documents": 25,
+        "estimated": 27,
+        "writes": 0,
+        "http": 1,
+        "compressedBytes": 527,
+        "transactionAttempts": 1,
+        "hash": "151e052fc01034ab714109b0105d1aef99ac489471081f365c44ab06d6ac42fe"
+      }
+    },
+    {
+      "name": "deletion",
+      "mutation": {
+        "writes": 2,
+        "ms": 5,
+        "extraRootReads": 1
+      },
+      "summaryRead": {
+        "name": "deletion",
+        "ms": 115,
+        "cpuMs": 7.731,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 8,
+        "documents": 25,
+        "estimated": 27,
+        "writes": 1,
+        "http": 1,
+        "compressedBytes": 498,
+        "transactionAttempts": 1,
+        "hash": "54c4291fae70341c27289e3965c8c12e8cb650821f247676182c5d695866111c"
+      },
+      "baselineRead": {
+        "name": "deletion-reference",
+        "ms": 105,
+        "cpuMs": 6.784,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 7,
+        "documents": 24,
+        "estimated": 26,
+        "writes": 0,
+        "http": 1,
+        "compressedBytes": 498,
+        "transactionAttempts": 1,
+        "hash": "54c4291fae70341c27289e3965c8c12e8cb650821f247676182c5d695866111c"
+      }
+    },
+    {
+      "name": "program-change",
+      "mutation": {
+        "writes": 2,
+        "ms": 4,
+        "extraRootReads": 1
+      },
+      "summaryRead": {
+        "name": "program-change",
+        "ms": 106,
+        "cpuMs": 6.955,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 8,
+        "documents": 25,
+        "estimated": 27,
+        "writes": 1,
+        "http": 1,
+        "compressedBytes": 535,
+        "transactionAttempts": 1,
+        "hash": "5f7b05230a6c74243d71975aeac6c64e122db55b8993f2a4c4b71397a46b9679"
+      },
+      "baselineRead": {
+        "name": "program-change-reference",
+        "ms": 103,
+        "cpuMs": 6.454,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 7,
+        "documents": 24,
+        "estimated": 26,
+        "writes": 0,
+        "http": 1,
+        "compressedBytes": 535,
+        "transactionAttempts": 1,
+        "hash": "5f7b05230a6c74243d71975aeac6c64e122db55b8993f2a4c4b71397a46b9679"
+      }
+    },
+    {
+      "name": "duplicate-calendar",
+      "mutation": {
+        "writes": 2,
+        "ms": 4,
+        "extraRootReads": 1
+      },
+      "summaryRead": {
+        "name": "duplicate-calendar",
+        "ms": 104,
+        "cpuMs": 6.332,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.296875,
+        "reads": 8,
+        "documents": 26,
+        "estimated": 28,
+        "writes": 1,
+        "http": 1,
+        "compressedBytes": 564,
+        "transactionAttempts": 1,
+        "hash": "d173d52e0e3db2df10823e720c5464c1ec5ed8177b655a278081676e6a5d0faf"
+      },
+      "baselineRead": {
+        "name": "duplicate-calendar-reference",
+        "ms": 105,
+        "cpuMs": 6.644,
+        "rssMiB": 497.296875,
+        "peakRssMiB": 497.3125,
+        "reads": 7,
+        "documents": 25,
+        "estimated": 27,
+        "writes": 0,
+        "http": 1,
+        "compressedBytes": 564,
+        "transactionAttempts": 1,
+        "hash": "d173d52e0e3db2df10823e720c5464c1ec5ed8177b655a278081676e6a5d0faf"
+      }
+    },
+    {
+      "name": "duplicate-and-out-of-order-invalidation",
+      "passed": true
+    },
+    {
+      "name": "two-readers",
+      "passed": true
+    },
+    {
+      "name": "read-write-race",
+      "passed": true
+    },
+    {
+      "name": "uncoordinated-writer",
+      "expectedFailureDetected": true,
+      "conclusion": "DO NOT ENABLE for existing production writers"
+    },
+    {
+      "name": "damaged-summary-fallback",
+      "passed": true
+    },
+    {
+      "name": "schema-version-fallback",
+      "passed": true
+    },
+    {
+      "name": "oversized-uncacheable",
+      "passed": true
+    }
+  ],
+  "productionEligible": false
+}

@@ -1,9 +1,10 @@
+import { localSessionStorage } from "./privateStorage.js";
 const SESSION_RESUME_VERSION = 1;
 
 const resolveStorage = (storage) => {
   if (storage) return storage;
   if (typeof window === "undefined") return null;
-  return window.localStorage;
+  return localSessionStorage;
 };
 
 export function getSessionResumeStorageKey({ clientId, programId, sessionIndex }) {

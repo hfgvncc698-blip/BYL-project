@@ -1,0 +1,127 @@
+{
+  "sourceSha256": {
+    "src/components/CoachDashboard.jsx": "6303abc0b5f20382603c74bd979421fbf5ff0cb7615fcc9488815fc2cbc8df8f",
+    "src/utils/coachProgramBatch.js": "834056b854d4518e421e91a2ef5078dbdb5ec39fba7ccbfe2e208595c134f253",
+    "backend/routes/coachProgramRead.js": "b5a1850cbfab2eb0079edcb29a28107920277371f9c85667e01abb7f9203b382",
+    "backend/utils/coachDashboardTransport.js": "f1a21179f289b6fa407f262bdfe59298bfbb7b9b1512f95a55d37d6455cbe28a"
+  },
+  "deployed": false,
+  "checks": [
+    {
+      "name": "before-1",
+      "exitCode": 0
+    },
+    {
+      "name": "after-1",
+      "exitCode": 0
+    },
+    {
+      "name": "before-2",
+      "exitCode": 0
+    },
+    {
+      "name": "after-2",
+      "exitCode": 0
+    },
+    {
+      "name": "before-3",
+      "exitCode": 0
+    },
+    {
+      "name": "after-3",
+      "exitCode": 0
+    },
+    {
+      "name": "coach",
+      "exitCode": 0
+    },
+    {
+      "name": "p01",
+      "exitCode": 0
+    },
+    {
+      "name": "p02",
+      "exitCode": 0
+    },
+    {
+      "name": "smoke",
+      "exitCode": 1
+    }
+  ],
+  "finalChecks": [
+    {
+      "name": "after-1",
+      "exitCode": 0
+    },
+    {
+      "name": "after-2",
+      "exitCode": 0
+    },
+    {
+      "name": "after-3",
+      "exitCode": 0
+    },
+    {
+      "name": "coach-final",
+      "exitCode": 0
+    },
+    {
+      "name": "smoke-final",
+      "exitCode": 0
+    },
+    {
+      "name": "build-final",
+      "exitCode": 0
+    }
+  ],
+  "transport": {
+    "passed": true,
+    "decodedBytes": 9600228,
+    "transferBytes": 18877,
+    "qualificationMs": 1823
+  },
+  "localAggregate": {
+    "before": {
+      "coreReadyMs": 20123,
+      "requests": 2,
+      "oversized": 1,
+      "fallbackClients": 32
+    },
+    "intermediateCompressed4MiB": {
+      "coreReadyMs": 23471,
+      "requests": 2,
+      "oversized": 1,
+      "fallbackClients": 32
+    },
+    "final": [
+      {
+        "coreReadyMs": 16032,
+        "requests": 2,
+        "oversized": 0,
+        "fallbackClients": 0
+      },
+      {
+        "coreReadyMs": 15736,
+        "requests": 2,
+        "oversized": 0,
+        "fallbackClients": 0
+      }
+    ],
+    "unchangedCounters": {
+      "clients": 36,
+      "programs": 57,
+      "completed": 422,
+      "planned": 258,
+      "sessions": 274,
+      "snapshotCharacters": 32175207
+    }
+  },
+  "limitations": [
+    "Three synthetic before runs and three final after runs; final series not fully alternating.",
+    "One local before and two final local after reloads.",
+    "Snapshot character count is not network traffic.",
+    "Firebase billing and Google server resource billing not measured.",
+    "Initial smoke test failed due to stale textual assertion, corrected; final smoke passes.",
+    "P0-3 and P0-4 remain open."
+  ]
+}

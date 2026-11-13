@@ -1,0 +1,12 @@
+// Local qualification orchestrator; each child runner enforces demo emulators.
+const {spawnSync}=require('node:child_process'),fs=require('node:fs'),net=require('node:net');
+async function busy(){return new Promise(resolve=>{const s=net.connect(8180,'127.0.0.1');s.once('connect',()=>{s.destroy();resolve(true);});s.once('error',()=>resolve(false));});}
+(async()=>{
+ const final=process.argv[2]==='final';
+ if(final){for(let i=0;;i++){let prior=[];try{prior=JSON.parse(fs.readFileSync('audits/lot8a/suites.json'));}catch{}if(prior.some(r=>r.name==='integrated-security'))break;if(i>600)throw Error('Prior qualification still active');await new Promise(r=>setTimeout(r,500));}}
+ for(let i=0;await busy();i++){if(i>240)throw Error('Another emulator still owns port 8180');await new Promise(r=>setTimeout(r,500));}
+ const jobs=final?[['final-before-main',['scripts/runColdLot8A.cjs','before']],['final-after-main',['scripts/runColdLot8A.cjs','after']],['final-before-messages',['scripts/runColdLot8A.cjs','before','messages']],['final-after-messages',['scripts/runColdLot8A.cjs','after','messages']],['final-before-calendar',['scripts/runColdLot8A.cjs','before','calendar']],['final-after-calendar',['scripts/runColdLot8A.cjs','after','calendar']],['final-regression-progress',['scripts/runRegressionsLot8A.cjs','progress']]]:[['after-main',['scripts/runColdLot8A.cjs','after']],['before-calendar',['scripts/runColdLot8A.cjs','before','calendar']],['after-calendar',['scripts/runColdLot8A.cjs','after','calendar']],['after-messages',['scripts/runColdLot8A.cjs','after','messages']],...['coach','progress','calendar','p01','p02','messaging'].map(s=>['regression-'+s,['scripts/runRegressionsLot8A.cjs',s]]),['integrated-security',['scripts/runIntegratedMigrationLot7B1Octies.cjs']]];
+ const results=[];fs.mkdirSync('audits/lot8a',{recursive:true});
+ for(const [name,args] of jobs){console.log('START',name);const fd=fs.openSync('audits/lot8a/'+name+'.log','w');const start=Date.now();const r=spawnSync(process.execPath,args,{stdio:['ignore',fd,fd],timeout:1800000});fs.closeSync(fd);results.push({name,exitCode:r.status,error:r.error?.message,durationMs:Date.now()-start});fs.writeFileSync('audits/lot8a/'+(final?'final-suites':'suites')+'.json',JSON.stringify(results,null,2));console.log('END',name,r.status);}
+ if(results.some(r=>r.exitCode!==0))process.exitCode=1;
+})().catch(e=>{console.error(e);process.exitCode=1;});

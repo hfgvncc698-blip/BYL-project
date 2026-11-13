@@ -1,0 +1,485 @@
+{
+  "label": "after",
+  "samples": [
+    {
+      "kind": "nutrition",
+      "n": 12,
+      "h": 2,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 143.46291700000074,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 884.9688329999999,
+      "primaryMs": 884.9688329999999,
+      "networkSettledMs": 3960.682125000001,
+      "observationMs": 3962.367583000001,
+      "networkBytes": 2320283,
+      "backend": {
+        "reads": 3,
+        "documents": 1,
+        "estimated": 3,
+        "writes": 0
+      },
+      "api": {
+        "requests": 3,
+        "completed": 2,
+        "responseBytes": 250,
+        "durationMs": 67.31983299999956,
+        "statuses": {
+          "200": 1,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "8041dd5d-6c12-4767-a655-81159d14b8f7",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 67,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 16,
+        "documentsReturned": 39,
+        "estimatedReads": 38,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 794,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Ce": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 13,
+        "g": 6,
+        "qS": 567,
+        "Yt": 2,
+        "Le": 2,
+        "Me": 2,
+        "Oe": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "W": 4,
+        "A": 2,
+        "lT": 98,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 3,
+        "ButtonIcon": 8,
+        "Qt": 2,
+        "v": 8,
+        "m": 2,
+        "Gt": 2,
+        "En": 3,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "s": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "F": 1,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 19535252,
+        "totalSize": 34324480,
+        "embedderHeapUsedSize": 6980720,
+        "backingStorageSize": 2708507
+      },
+      "execution": {
+        "LayoutDuration": 0.024163,
+        "ScriptDuration": 0.222764,
+        "TaskDuration": 0.350553
+      },
+      "state": {
+        "ready": true,
+        "path": "/nutrition-coach",
+        "text": "tive 1\tPARTAGÉ\tPATIENT\t\nVoir le dossier patient\nConsulter le bilan nutrition\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "nutrition",
+      "n": 100,
+      "h": 2,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 132.01833299999998,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 1163.458208,
+      "primaryMs": 1163.458208,
+      "networkSettledMs": 3738.8960829999996,
+      "observationMs": 3739.6534169999995,
+      "networkBytes": 2321711,
+      "backend": {
+        "reads": 3,
+        "documents": 1,
+        "estimated": 3,
+        "writes": 0
+      },
+      "api": {
+        "requests": 3,
+        "completed": 2,
+        "responseBytes": 250,
+        "durationMs": 17.336709000001065,
+        "statuses": {
+          "200": 1,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "1489d321-2b4b-45c6-b06c-46ac9a2b8520",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 17,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 104,
+        "documentsReturned": 303,
+        "estimatedReads": 302,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 805,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Ce": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 13,
+        "g": 6,
+        "qS": 578,
+        "Yt": 2,
+        "Le": 2,
+        "Me": 2,
+        "Oe": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "W": 4,
+        "A": 2,
+        "FP": 2,
+        "Modal": 7,
+        "D": 3,
+        "lT": 100,
+        "ButtonIcon": 7,
+        "Qt": 2,
+        "v": 8,
+        "N": 4,
+        "m": 2,
+        "f": 2,
+        "Gt": 2,
+        "En": 2,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "s": 1,
+        "C": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "F": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 25897936,
+        "totalSize": 36929536,
+        "embedderHeapUsedSize": 3846112,
+        "backingStorageSize": 2282542
+      },
+      "execution": {
+        "LayoutDuration": 0.026456,
+        "ScriptDuration": 0.225629,
+        "TaskDuration": 0.409821
+      },
+      "state": {
+        "ready": true,
+        "path": "/nutrition-coach",
+        "text": "ir le dossier patient\nConsulter le bilan nutrition\nPrécédent\n\n1 / 8\n\nSuivant\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "nutrition",
+      "n": 500,
+      "h": 2,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 112.80212500000016,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 3116.490999999998,
+      "primaryMs": 3116.490999999998,
+      "networkSettledMs": 4757.031792000002,
+      "observationMs": 4757.894333,
+      "networkBytes": 2327384,
+      "backend": {
+        "reads": 3,
+        "documents": 1,
+        "estimated": 3,
+        "writes": 0
+      },
+      "api": {
+        "requests": 3,
+        "completed": 2,
+        "responseBytes": 250,
+        "durationMs": 18.974457999998776,
+        "statuses": {
+          "200": 1,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "3f08ac1d-5333-4343-b038-7a6ec9bfae8e",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 19,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 504,
+        "documentsReturned": 1503,
+        "estimatedReads": 1502,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 810,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Ce": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 13,
+        "g": 6,
+        "qS": 581,
+        "Yt": 2,
+        "Le": 2,
+        "Me": 2,
+        "Oe": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "W": 4,
+        "A": 2,
+        "lT": 102,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 3,
+        "ButtonIcon": 7,
+        "Qt": 2,
+        "v": 8,
+        "m": 2,
+        "Gt": 2,
+        "En": 2,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "s": 1,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "F": 1
+      },
+      "heap": {
+        "usedSize": 23074408,
+        "totalSize": 74792960,
+        "embedderHeapUsedSize": 2974280,
+        "backingStorageSize": 8371976
+      },
+      "execution": {
+        "LayoutDuration": 0.015174,
+        "ScriptDuration": 0.197574,
+        "TaskDuration": 0.519616
+      },
+      "state": {
+        "ready": true,
+        "path": "/nutrition-coach",
+        "text": "r le dossier patient\nConsulter le bilan nutrition\nPrécédent\n\n1 / 40\n\nSuivant\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "interactions": {
+        "pagination": true,
+        "searchOutsideFirstPage": true,
+        "mobile": true,
+        "extraSdkReads": 0
+      }
+    }
+  ]
+}

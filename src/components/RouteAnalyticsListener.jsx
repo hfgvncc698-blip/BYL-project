@@ -1,3 +1,4 @@
+import { localSessionStorage, tabSessionStorage } from "../utils/privateStorage.js";
 // src/components/RouteAnalyticsListener.jsx
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -7,19 +8,19 @@ import { GEO_PAGE_LOAD_ID, GEO_PAGE_LOAD_STORAGE_KEY } from "../utils/geolocatio
 
 function getGeoFromStorage() {
   try {
-    const pageLoadId = localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) || null;
+    const pageLoadId = localSessionStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) || null;
     if (pageLoadId !== GEO_PAGE_LOAD_ID) {
       return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null, geoStatus: "pending", pageLoadId };
     }
     return {
-      country: localStorage.getItem("BYL_COUNTRY") || null,
-      city: localStorage.getItem("BYL_CITY") || null,
-      lat: localStorage.getItem("BYL_LAT") || null,
-      lng: localStorage.getItem("BYL_LNG") || null,
-      accuracy: localStorage.getItem("BYL_GEO_ACCURACY") || null,
-      capturedAt: localStorage.getItem("BYL_GEO_UPDATED_AT") || null,
-      source: localStorage.getItem("BYL_GEO_SOURCE") || null,
-      geoStatus: localStorage.getItem("BYL_GEO_STATUS") || "pending",
+      country: localSessionStorage.getItem("BYL_COUNTRY") || null,
+      city: localSessionStorage.getItem("BYL_CITY") || null,
+      lat: localSessionStorage.getItem("BYL_LAT") || null,
+      lng: localSessionStorage.getItem("BYL_LNG") || null,
+      accuracy: localSessionStorage.getItem("BYL_GEO_ACCURACY") || null,
+      capturedAt: localSessionStorage.getItem("BYL_GEO_UPDATED_AT") || null,
+      source: localSessionStorage.getItem("BYL_GEO_SOURCE") || null,
+      geoStatus: localSessionStorage.getItem("BYL_GEO_STATUS") || "pending",
       pageLoadId,
     };
   } catch {
@@ -100,7 +101,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
 
     const geo = getGeoFromStorage();
     let geoStatus = "unknown";
-    try { geoStatus = sessionStorage.getItem("BYL_GEO_STATUS") || "unknown"; } catch { /* optional storage */ }
+    try { geoStatus = tabSessionStorage.getItem("BYL_GEO_STATUS") || "unknown"; } catch { /* optional storage */ }
     const cc = isAnalyticsOn ? country ?? geo.country : null;
     const ct = isAnalyticsOn ? city ?? geo.city : null;
     const lat = isAnalyticsOn ? geo.lat : null;
@@ -149,7 +150,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
         // Re-check after waiting for GPS: a settings change may have revoked
         // collection while this visit was in flight. Never send captured fallbacks.
         let locationDisabled = false;
-        try { locationDisabled = localStorage.getItem("BYL_LOCATION_ENABLED_V1") === "false"; } catch { /* optional storage */ }
+        try { locationDisabled = localSessionStorage.getItem("BYL_LOCATION_ENABLED_V1") === "false"; } catch { /* optional storage */ }
         const result = await trackPageView({
           visitId,
           user,

@@ -1,0 +1,6 @@
+{
+  "binding": "_openBirthdayMessage",
+  "baselineReferences": 0,
+  "method": "Babel scope binding reference analysis; no eval/new Function in component",
+  "change": "Remove unused useCallback initializer; birthday display and modal markup preserved"
+}

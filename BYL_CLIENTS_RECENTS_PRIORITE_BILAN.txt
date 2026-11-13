@@ -1,0 +1,98 @@
+CLIENTS RÉCENTS — PRIORITÉ AU GROUPE VISIBLE
+Date : 13 novembre 2026
+Branche : codex/firebase-performance-audit
+Aucun déploiement, aucune règle modifiée, aucune donnée réelle utilisée.
+
+CONSTAT ET CORRECTION
+Le petit premier groupe existait déjà, mais deux autres requêtes pouvaient
+s'exécuter simultanément. Désormais le groupe des cartes visibles passe avant
+les groupes suivants : ceux-ci attendent sa résolution (décodage inclus).
+Les identifiants visibles sont croisés avec les dossiers actuellement autorisés.
+Au démarrage sans cartes connues, les premiers dossiers autorisés sont utilisés.
+La publication React est déclenchée dès que toutes les cartes prioritaires sont
+prêtes, sans attendre le délai de regroupement de 100 ms. Les autres résultats
+restent regroupés. Le chargement global continue, avec les données canoniques.
+La priorité exclusive est désactivée si le bloc est masqué, replié ou si le
+Dashboard est uniquement nutritionnel. Les caches mémoire autorisés restent
+réutilisés. La sélection conserve l'ordre final des dossiers.
+
+COÛTS ET LIMITES DE LA STRATÉGIE
+Aucun ajout de requête, document de synthèse, écriture ou écouteur.
+Le nombre minimal de requêtes de 32 dossiers maximum est conservé :
+36 dossiers = 5 + 31 ; 100 = 5 + 32 + 32 + 31.
+Pour 500 dossiers le premier groupe doit contenir 20 dossiers pour rester à
+16 requêtes : cinq dossiers isolés imposeraient une requête supplémentaire.
+Les erreurs 401/403/400 ne déclenchent pas de lecture SDK de secours.
+Les replis 404/413 existants sont conservés ; les coûts en cas de repli ne sont
+pas assimilés aux coûts du parcours nominal mesuré.
+Le reste du Dashboard peut terminer plus tard puisque la priorité est exclusive.
+Les statistiques globales continuent d'attendre leurs données exactes.
+
+MESURES SUR ÉMULATEURS — APPLICATION COMPILÉE, NAVIGATEUR FROID
+Fixture : 2 programmes/dossier ; 1 validation/programme pour les cinq premiers,
+25 pour les autres ; 40 événements. Une exécution par volume et version.
+Le temps mesure les cinq cartes avec programmes réels, pas un squelette.
+Avant = version comportant déjà les petits groupes, sans priorité exclusive.
+
+Dossiers | Cartes avant | Cartes après | API avant/après | Lectures backend estimées
+36       | 1,269 s      | 1,275 s      | 9 / 9           | 1 683 / 1 683
+100      | 0,996 s      | 0,978 s      | 11 / 11         | 5 081 / 5 081
+
+Le gain de temps local n'est pas significatif. La propriété démontrée est
+l'ordre prioritaire et l'absence de surcoût dans ces scénarios.
+Le jalon core (horloge navigateur) passe de 1 542 à 1 767 ms pour 36 dossiers,
+et de 1 554 à 1 606 ms pour 100 dossiers : compromis explicitement conservé.
+
+MODE DÉVELOPPEMENT — 36 DOSSIERS, NAVIGATEUR FROID
+Cartes prêtes : 1,577 s. Montage Dashboard vers 868 ms ; dossiers disponibles
+vers 1 337 ms ; programmes prioritaires vers 1 453 ms ; core vers 1 789 ms.
+Premier groupe : environ 105 ms et 28 lectures backend estimées.
+Second groupe : environ 327 ms et 1 646 lectures backend estimées.
+Total backend : 1 683 estimées ; navigateur : 45 opérations SDK,
+99 documents retournés, 112 lectures estimées, 2 écritures communes au parcours.
+Ces estimations ne sont pas une mesure de facture Firebase/Google.
+
+LES 12 SECONDES OBSERVÉES PAR L'UTILISATEUR NE SONT PAS REPRODUITES.
+Aucune affirmation de passage de 12 secondes à moins de 2 secondes en situation
+réelle. Auth, chargement initial des dossiers, réseau ou historique des cartes
+visibles peuvent encore dominer. La télémétrie locale existante ?dashboardPerf
+expose recentClientPrograms et le caractère prioritaire de programTransport,
+sans contenu privé ni écriture Firebase supplémentaire.
+
+VÉRIFICATIONS
+PASS testRecentClientPriority : vrais IDs visibles même en fin de liste,
+exclusivité du premier groupe, mêmes dossiers/requêtes, refus empêchant les
+requêtes suivantes, publication immédiate, garde d'identité et filtrage des IDs.
+PASS testCoachProgramBatchLot8B : 0 à 1 000 dossiers, caches chaud/partiel,
+parité du contenu, limites des groupes, erreurs et replis.
+PASS testCoachProgressPaint, testCoachDashboardLoading,
+testPrivateSessionLot7B1Octies.
+PASS application intégrée émulateurs : 36 et 100 dossiers compilés ; 36 en dev.
+PASS cartes mobiles (3 cartes) sans nouvelle lecture et modification distante
+visible dans les programmes de la carte, sur le scénario 36 dossiers.
+Les mesures précèdent l'extraction équivalente du sélecteur de priorité et
+l'ajustement de la télémétrie ; ces derniers sont couverts par les tests unitaires.
+
+FICHIERS DE CETTE MODIFICATION
+src/components/CoachDashboard.jsx
+src/utils/coachProgramBatch.js
+src/utils/coachDashboardLoading.js
+scripts/testRecentClientPriority.mjs
+scripts/runRecentClientsPriority.cjs
+Résultats bruts : audits/recent-clients-priority/*-compiled.json,
+after-development.json ; sources avant dans le sous-dossier before.
+Les modifications préexistantes des autres lots sont conservées.
+
+RISQUES RÉSIDUELS
+Une seule exécution par mesure : pas de garantie de percentile ni de délai réel.
+Aucun test sur données utilisateur. Pas de qualification exhaustive de toutes
+les fonctionnalités des autres lots. Aucun changement backend ni de sécurité.
+P0-3 et P0-4 restent ouverts. Aucun déploiement autorisé ou effectué.
+
+VALIDATION FINALE DU BUILD
+Compilation Vite réussie, mais npm run build échoue au contrôle de budget :
+CoachDashboard dépasse le plafond de 70 KiB gzip de 67 octets.
+Le seuil n'a pas été augmenté. La génération SEO suivante n'a donc pas été
+exécutée. Cette limite reste ouverte : le build complet n'est pas validé.
+Le sélecteur de priorité est réutilisé depuis le module de chargement des lots ;
+les tests du chargeur ont été adaptés à son export supplémentaire.

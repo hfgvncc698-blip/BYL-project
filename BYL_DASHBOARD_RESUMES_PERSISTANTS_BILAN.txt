@@ -1,0 +1,140 @@
+DASHBOARD COACH — RÉSUMÉS DISPONIBLES APRÈS REDÉMARRAGE
+13 novembre 2026 — codex/firebase-performance-audit
+
+DÉCISION
+Mécanisme intégré au parcours backend existant et qualifié sur émulateurs.
+Il reste désactivé par défaut, y compris sur le backend local utilisateur.
+Aucun déploiement, aucune donnée réelle utilisée dans cette qualification.
+La fraîcheur et la reprise sont démontrées sur les cas testés ; le critère de coût
+TOTAL non supérieur n'est PAS garanti pour tous les cas. Ne pas activer largement
+sur la seule base du gain de transfert : une prescription modifiée entre deux
+processus peut ajouter une lecture documentaire. Les P0-3/P0-4 restent ouverts.
+
+ARCHITECTURE
+Cache chiffré sur disque serveur, sans nouveau document Firestore, service externe,
+cron ou écouteur. Reprise après redémarrage si le volume et la clé sont conservés.
+Les droits actuels sont toujours contrôlés par l'API avant accès au cache. La
+requête Firestore actuelle fournit la liste des programmes et leur updateTime ;
+chaque résumé doit correspondre exactement à cette version. Les historiques sont
+relus canoniquement. Aucune statistique approximative ni donnée ancienne déclarée
+fraîche. Les programmes complets et leurs médias restent les sources métier.
+
+Le cache utilise AES-256-GCM, permissions privées et remplacement atomique.
+Empreinte du code de projection/sérialisation dans l'authentification du fichier.
+Expiration logique 24 h, fichier <=8 Mio, budget nominal de fichiers 64 Mio.
+Les dossiers contenant des prescriptions trop petites ou des résumés insuffisamment
+réduits ne sont pas persistés. Une collection partiellement éligible n'est pas
+persistée : éviter les doubles lectures systématiques des programmes manquants.
+Les dossiers deviennent non éligibles si nécessaire après une modification.
+Détails et limites d'exploitation : BYL_DASHBOARD_RESUMES_PERSISTANTS_SECURITE.txt.
+
+FICHIERS
+backend/utils/dashboardOutlineDisk.js : cache serveur optionnel et chiffré.
+backend/utils/coachDashboardBundles.js : reprise après autorisation, version actuelle,
+reconstruction canonique et admissibilité par collection.
+scripts/testDashboardOutlinePersistence.cjs : processus indépendants et pannes.
+scripts/testDashboardPersistentEmulator.cjs : vraie API avec vrais redémarrages,
+Auth/Firestore émulés, comparaison exacte des réponses, coûts, modification et refus.
+scripts/runDashboardPersistent.cjs : Dashboard réel sur fixtures et profils Chrome
+jetables, cache mémoire vidé entre consultations pour isoler le rôle du disque.
+audits/dashboard-persistent/ : référence antérieure et résultats.
+Aucun changement frontend, règles, fonctions déployées ou parcours métier.
+
+MESURE API — VRAIS PROCESSUS BACKEND INDÉPENDANTS
+12 dossiers, 24 programmes synthétiques volumineux, 24 validations.
+Chaque ligne lance un nouveau processus, appelle la vraie route protégée puis
+l'arrête. Les mêmes émulateurs/données et, après création, fichiers chiffrés sont
+conservés. Jeton obtenu via Firebase Auth émulé. Pas de faux middleware d'admission.
+
+                                   Avant             Après
+Première création (appel API)       312,13 ms         227,92 ms
+Après redémarrage (appel API)       238,45 ms         186,26 ms
+Lectures estimées/requête           63                63
+JSON retourné par tx.get           3 148 851 octets   1 059 octets après reprise
+Écritures Firestore de résumé       0                 0
+Écritures disque initiales          0                 12 / 4 512 octets
+Écritures disque à la reprise       0                 0
+
+Les octets mesurés sont la représentation JSON des résultats documentaires de
+Transaction.get, pas une mesure réseau gRPC ni des octets effectivement facturés.
+Ils excluent getAll des dossiers autorisés, identique dans les deux parcours.
+L'appel API ne mesure pas le temps de lancement Node, d'initialisation React ou
+le chargement complet du Dashboard. Échantillons ponctuels, pas un p95.
+Les réponses complètes de tous les cas stables ont une empreinte identique.
+
+SCÉNARIO QUI LIMITE L'ACCEPTATION ÉCONOMIQUE
+Modification d'une prescription entre deux démarrages :
+- Avant : 63 lectures estimées, 203,84 ms, 3 017 734 octets JSON.
+- Après : 64 lectures estimées, 186,22 ms, 1 102 octets JSON.
+- Même résultat métier exact ; 1 remplacement disque de 61 octets neutralise le
+  cache de cette collection devenue mixte (la prescription corrigée est petite).
+Création + reprise + consultation après modification : avant 189 lectures,
+après 190. Aucun nouveau write Firestore, mais une lecture estimée supplémentaire.
+Il serait incorrect de présenter ce scénario comme une économie de lectures.
+
+Le coût total dépend du coût des lectures supplémentaires, du trafic réellement
+facturé évité et du stockage/IO serveur. Si le trafic évité n'est pas facturé,
+la baisse de volume ne compense pas automatiquement cette lecture. Sans les
+conditions de facturation et d'hébergement, aucune baisse en euros n'est démontrée.
+Pas de nouveau volume/service payant créé ; pas de modification du plan Firebase.
+
+PAGE COMPLÈTE — APPLICATION SUR ÉMULATEURS
+36 dossiers / 72 programmes / 1 560 validations, Chrome jetable, mode normal.
+Le banc redémarre le navigateur et vide le cache mémoire des résumés entre les
+consultations ; il conserve le processus du serveur de test. C'est une simulation
+de perte de mémoire, distincte du test des vrais processus ci-dessus.
+Première campagne avant : principal 2,166 s ; reprise sans cache mémoire 1,429 s.
+Version finale après : création 2.825 s ; reprise 1.331 s.
+Premier contenu 1.664 s puis 0.957 s ; stabilisation réseau
+4.708 s puis 3.702 s (inclut délai d'observation du banc).
+La première création est plus lente que la référence sur ce dernier échantillon.
+Autres métriques : after-development-normal-mode.json.
+Les campagnes intermédiaires après ont donné 2,111–2,447 s pour la création et
+1,322–1,388 s pour la reprise. Ne pas les extrapoler aux 14 secondes mesurées
+précédemment sur le compte réel. Les émulateurs n'ont pas la même latence réseau.
+
+Toutes les consultations initiales/reprises du banc : 1 683 lectures HTTP estimées,
+0 nouvelle écriture Firestore de résumé, 9 appels API observés. La création écrit
+36 fichiers chiffrés, environ 46,6 ko. La reprise stable n'ajoute pas d'écriture
+disque ; les écritures des tests de modification sont comptées séparément.
+Trafic navigateur développement ~35,2 Mo inchangé, principalement modules et flux
+existants ; la réduction visée est Firestore→backend. Mémoire JS variable selon GC,
+aucune économie mémoire annoncée. Les historiques restent un coût important.
+
+TESTS RÉUSSIS
+- Reprise d'un résumé dans un autre processus, fraîcheur après changement de
+  version, suppression, isolation des projets, petites collections et collections
+  mixtes exclues, rotation de clé, corruption, TTL, répertoire indisponible ou
+  permissions trop larges : reconstruction canonique sans donnée périmée.
+- API émulée avec nouveaux processus : réponses exactes, reprise sans write,
+  modification exacte, utilisateur désactivé =>403 avant lecture du cache.
+- Dashboard intégré : compteur exact 36, suppression/revalidation distante,
+  modification transactionnelle préservant les médias, rejet de modification
+  fondée sur une séance obsolète, updateTime invalidant le résumé, coach étranger
+  refusé. Ne pas assimiler ces cas à une nouvelle qualification complète P0-4.
+- Cache mémoire existant, projection et calculs sur 0/10/100/1 000 historiques,
+  lots de programmes, clients récents prioritaires, isolation des sessions,
+  activité exacte, affichage de progression et transport : tests existants passés.
+- npm run build : succès, budgets gzip existants respectés.
+Un premier test unitaire avait un faux historique sans select() ; fixture corrigée.
+La première instrumentation des octets visait une autre copie du SDK ; corrigée
+et assertion ajoutée sur le volume, puis test rejoué avec la copie Firebase Admin.
+Une modification du runner avait supprimé ses assertions intégrées ; restaurées
+avant le dernier passage complet (compteur exact, métriques disque, interactions).
+Aucun de ces résultats initiaux n'est présenté comme une mesure valable du volume.
+
+REPRODUCTION
+node scripts/testDashboardOutlinePersistence.cjs
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runDashboardPersistent.cjs before --normal-mode
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runDashboardPersistent.cjs after --normal-mode
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH firebase emulators:exec --config firebase.performance-test.json --project demo-byl-performance --only auth,firestore 'node scripts/testDashboardPersistentEmulator.cjs'
+Les runners n'utilisent que des projets demo et profils synthétiques. Les fichiers
+chiffrés et clés de test sont jetables et supprimés à la fin des tests.
+
+CONCLUSION
+La persistance versionnée évite bien la reconstruction complète après redémarrage.
+Le gain de transfert est démontré ; la cible de moins de 2 secondes sur le compte
+réel et la baisse du coût total ne le sont pas. Le mécanisme reste optionnel et
+non activé hors émulateurs pour respecter la contrainte économique. Avant toute
+activation : qualifier l'économie au tarif/chemin réseau réels et la gestion du
+secret/volume privé ; conserver les contrôles existants et le repli canonique.

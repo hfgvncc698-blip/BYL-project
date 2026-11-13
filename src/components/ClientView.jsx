@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 import { compareMeasurements } from "../utils/measurementOrder";
 import ClientOfferOverview from './offers/ClientOfferOverview';
 import { CoachClientSessionPacks } from './dashboard/ClubSessionPacks';
@@ -677,10 +678,10 @@ function GlobalClientView({ onBack } = {}) {
   });
 
   const [heightUnit, setHeightUnit] = useState(
-    () => localStorage.getItem("unit.height") || "cm"
+    () => localSessionStorage.getItem("unit.height") || "cm"
   );
   const [weightUnit, setWeightUnit] = useState(
-    () => localStorage.getItem("unit.weight") || "kg"
+    () => localSessionStorage.getItem("unit.weight") || "kg"
   );
   const assignmentCoachUid = useMemo(
     () => searchParams.get("clubAssignCoachId") || searchParams.get("adminCoachId") || client?.coachId || client?.createdBy || "",
@@ -689,12 +690,12 @@ function GlobalClientView({ onBack } = {}) {
 
   const onChangeHeightUnit = (u) => {
     setHeightUnit(u);
-    localStorage.setItem("unit.height", u);
+    localSessionStorage.setItem("unit.height", u);
   };
 
   const onChangeWeightUnit = (u) => {
     setWeightUnit(u);
-    localStorage.setItem("unit.weight", u);
+    localSessionStorage.setItem("unit.weight", u);
   };
 
   const [newMeas, setNewMeas] = useState({

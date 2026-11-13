@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../../utils/privateStorage.js";
 import { useEffect, useSyncExternalStore } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
@@ -25,13 +26,13 @@ function subscribeAuth(notify) {
     observing = true;
     // Retire the unscoped directory written by previous releases.
     try {
-      localStorage.removeItem('byl:messaging:coach-directory:v1');
+      localSessionStorage.removeItem('byl:messaging:coach-directory:v1');
     } catch {/* unavailable */}
     onAuthStateChanged(auth, account => {
       if (previousUid && previousUid !== account?.uid) {
         for (const prefix of ['message', 'club-message', 'club-request']) clearSessionDrafts(prefix + ':' + previousUid + ':');
         try {
-          localStorage.removeItem('byl:messaging:notified:v1:' + previousUid);
+          localSessionStorage.removeItem('byl:messaging:notified:v1:' + previousUid);
         } catch {/* unavailable */}
       }
       previousUid = account?.uid;

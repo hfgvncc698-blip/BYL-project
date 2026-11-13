@@ -1,3 +1,4 @@
+import { localSessionStorage, tabSessionStorage } from "../utils/privateStorage.js";
 // src/hooks/useGeolocation.js
 import { useState, useEffect, useRef } from "react";
 import { resolveCityCountry } from "../utils/geocoding";
@@ -25,7 +26,7 @@ const distanceMeters = (a, b) => {
 const writeStoredGeoDecision = (decision) => {
   if (decision !== "granted" && decision !== "denied") return;
   try {
-    localStorage.setItem(GEO_PERMISSION_DECISION_KEY, decision);
+    localSessionStorage.setItem(GEO_PERMISSION_DECISION_KEY, decision);
   } catch {
     // Le navigateur reste l'autorité si le stockage local est indisponible.
   }
@@ -65,7 +66,7 @@ export default function useGeolocation({
   useEffect(() => {
     const request = () => {
       if (!enabled || browserPermission === 'denied') return;
-      try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
+      try { localSessionStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localSessionStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
       setRetryAttempt(value => value + 1);
     };
     window.addEventListener?.('BYL_GEO_REQUEST', request);
@@ -75,7 +76,7 @@ export default function useGeolocation({
   // can report "prompt" until Geolocation has actually been used on this page.
   // Let the native API reuse its grant; only a confirmed denial blocks access.
   let storedDecision = null;
-  try { storedDecision = localStorage.getItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
+  try { storedDecision = localSessionStorage.getItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
   const permissionAccess = browserPermission === "checking" ? "checking" :
     browserPermission === "denied" ? "denied" :
     "available";
@@ -93,7 +94,7 @@ export default function useGeolocation({
       : state.status === 'granted' ? 'granted'
       : state.status === 'idle' ? 'prompt' : state.status;
     try {
-      sessionStorage.setItem('BYL_GEO_STATUS', status);
+      tabSessionStorage.setItem('BYL_GEO_STATUS', status);
       window.dispatchEvent(new Event('BYL_GEO_STATUS_CHANGED'));
     } catch { /* optional storage */ }
   }, [enabled, disabledReason, state.status, state.error, state.requestFailed, browserPermission, permissionAccess]);
@@ -107,7 +108,7 @@ export default function useGeolocation({
     lastPublishedGeoRef.current = null;
     try {
       ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_ACCURACY", "BYL_GEO_SOURCE", "BYL_GEO_UPDATED_AT", GEO_PAGE_LOAD_STORAGE_KEY].forEach((key) => {
-        localStorage.removeItem(key);
+        localSessionStorage.removeItem(key);
       });
     } catch {
       // ignore
@@ -116,8 +117,8 @@ export default function useGeolocation({
 
   const publishGeoStatus = (status, notify = true) => {
     try {
-      localStorage.setItem("BYL_GEO_STATUS", status);
-      localStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
+      localSessionStorage.setItem("BYL_GEO_STATUS", status);
+      localSessionStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
       if (notify) window.dispatchEvent(new Event("BYL_GEO_READY"));
     } catch { /* storage is optional */ }
   };
@@ -126,35 +127,35 @@ export default function useGeolocation({
   const writeGeoToStorageAndNotify = ({ country, city, lat, lng, accuracy, timestamp, source = "browser" }) => {
     let changed = false;
     try {
-      const prevC = localStorage.getItem("BYL_COUNTRY");
-      const prevCity = localStorage.getItem("BYL_CITY");
-      const prevLat = localStorage.getItem("BYL_LAT");
-      const prevLng = localStorage.getItem("BYL_LNG");
-      if (!country) localStorage.removeItem("BYL_COUNTRY");
-      if (!city) localStorage.removeItem("BYL_CITY");
+      const prevC = localSessionStorage.getItem("BYL_COUNTRY");
+      const prevCity = localSessionStorage.getItem("BYL_CITY");
+      const prevLat = localSessionStorage.getItem("BYL_LAT");
+      const prevLng = localSessionStorage.getItem("BYL_LNG");
+      if (!country) localSessionStorage.removeItem("BYL_COUNTRY");
+      if (!city) localSessionStorage.removeItem("BYL_CITY");
 
       if (country && prevC !== country) {
-        localStorage.setItem("BYL_COUNTRY", country);
+        localSessionStorage.setItem("BYL_COUNTRY", country);
         changed = true;
       }
       if (city && prevCity !== city) {
-        localStorage.setItem("BYL_CITY", city);
+        localSessionStorage.setItem("BYL_CITY", city);
         changed = true;
       }
       if (Number.isFinite(Number(lat)) && prevLat !== String(lat)) {
-        localStorage.setItem("BYL_LAT", String(lat));
+        localSessionStorage.setItem("BYL_LAT", String(lat));
         changed = true;
       }
       if (Number.isFinite(Number(lng)) && prevLng !== String(lng)) {
-        localStorage.setItem("BYL_LNG", String(lng));
+        localSessionStorage.setItem("BYL_LNG", String(lng));
         changed = true;
       }
       if (Number.isFinite(Number(accuracy))) {
-        localStorage.setItem("BYL_GEO_ACCURACY", String(accuracy));
+        localSessionStorage.setItem("BYL_GEO_ACCURACY", String(accuracy));
       }
-      localStorage.setItem("BYL_GEO_SOURCE", source);
-      localStorage.setItem("BYL_GEO_UPDATED_AT", String(timestamp || Date.now()));
-      localStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
+      localSessionStorage.setItem("BYL_GEO_SOURCE", source);
+      localSessionStorage.setItem("BYL_GEO_UPDATED_AT", String(timestamp || Date.now()));
+      localSessionStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
     } catch {
       // ignore
     }
@@ -217,7 +218,7 @@ export default function useGeolocation({
     // En revanche, les changements d'identité ou de permission de cette même
     // ouverture ne doivent pas effacer une mesure qui vient d'être obtenue.
     try {
-      if (localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) !== GEO_PAGE_LOAD_ID) {
+      if (localSessionStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) !== GEO_PAGE_LOAD_ID) {
         clearCachedGeo();
       }
     } catch {
@@ -228,7 +229,7 @@ export default function useGeolocation({
     if (permissionAccess === "checking") return;
     if (permissionAccess === "denied") {
       writeStoredGeoDecision("denied");
-      try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
+      try { localSessionStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
       clearCachedGeo();
       publishGeoStatus("browser_denied");
       setState({
@@ -242,7 +243,7 @@ export default function useGeolocation({
     // A reload or route remount is not a new login. Only an explicit retry
     // or a new authentication session may ask again after a refusal.
     let refusedThisSession = false;
-    try { refusedThisSession = localStorage.getItem(GEO_REFUSED_SESSION_KEY) === sessionKey; } catch { /* optional storage */ }
+    try { refusedThisSession = localSessionStorage.getItem(GEO_REFUSED_SESSION_KEY) === sessionKey; } catch { /* optional storage */ }
     if (browserPermission !== "granted" && (refusedThisSession || (sessionKey === "anonymous" && storedDecision === "denied"))) {
       clearCachedGeo();
       publishGeoStatus("remembered_denied");
@@ -328,7 +329,7 @@ export default function useGeolocation({
       if (err?.code === 1) {
         requestDenied = true;
         writeStoredGeoDecision("denied");
-        try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
+        try { localSessionStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
         clearCachedGeo();
       }
       publishGeoStatus(err?.code === 1 ? "permission_error" : err?.code === 2 ? "unavailable" : err?.code === 3 ? "timeout" : "error");
@@ -368,7 +369,7 @@ export default function useGeolocation({
   // be changed in the browser's site settings before it can succeed.
   const retryPermission = () => {
     if (!enabled || browserPermission === "denied") return;
-    try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
+    try { localSessionStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localSessionStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
     setRetryAttempt((attempt) => attempt + 1);
   };
 
@@ -413,7 +414,7 @@ export default function useGeolocation({
       (err) => {
         if (err?.code === 1) {
           writeStoredGeoDecision("denied");
-          try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
+          try { localSessionStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
         }
         setState({ status: "denied", position: null, error: err });
       },

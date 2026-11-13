@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 import { recordMetric } from '../utils/browserMetrics';
 import VisitAddress from '../components/admin/VisitAddress';
 // src/pages/AdminGeo.jsx
@@ -132,7 +133,7 @@ function formatDateTime(value) {
 
 function getLocalPageviewDay() {
   try {
-    return localStorage.getItem("BYL_LAST_PAGEVIEW_DAY") || "";
+    return localSessionStorage.getItem("BYL_LAST_PAGEVIEW_DAY") || "";
   } catch {
     return "";
   }

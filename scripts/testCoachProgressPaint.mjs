@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import { createDashboardProgressPublisher } from '../src/utils/coachDashboardLoading.js';
+const initial = Array.from({length:36},(_,i)=>({id:String(i),programmesAssignes:[{id:'p',_quickPlaceholder:true,sessionsEffectuees:[{id:'coach-visible'}]}]}));
+const completed = id => ({id:String(id),programmesAssignes:[{id:'p',sessions:[{id:'prescription'}],sessionsEffectuees:[{id:'canonical'}],progress:42}]});
+let state=initial, paints=0, current=true;
+const publisher=createDashboardProgressPublisher({setClients:update=>{paints++;state=update(state);},isCurrent:()=>current,delay:10});
+for(let i=0;i<32;i++)publisher.add(completed(i));
+await new Promise(resolve=>setTimeout(resolve,30));
+assert.equal(paints,1);
+assert.equal(state.filter(row=>row.programmesAssignes[0]._quickPlaceholder===false).length,32);
+assert.equal(state[35].programmesAssignes[0]._quickPlaceholder,true,'unfinished rows remain pending');
+assert.deepEqual(state[0].programmesAssignes[0].sessionsEffectuees,[{id:'coach-visible'}]);
+assert.deepEqual(state[0].programmesAssignes[0]._progressSessionsEffectuees,[{id:'canonical'}]);
+assert.deepEqual(state[0].programmesAssignes[0].sessions,[{id:'prescription'}]);
+for(let i=32;i<36;i++)publisher.add(completed(i));
+publisher.finish();
+assert.equal(paints,2);
+assert.equal(state.filter(row=>row.programmesAssignes[0]._quickPlaceholder===false).length,36);
+publisher.add(completed(0));await new Promise(resolve=>setTimeout(resolve,20));assert.equal(paints,2);
+// Reject a delayed state updater after account/role/scope invalidation.
+let deferred;
+const stale=createDashboardProgressPublisher({setClients:update=>{deferred=update;},isCurrent:()=>current});
+stale.add(completed(0));stale.finish();current=false;
+assert.equal(deferred(initial),initial);
+let called=false;
+const revoked=createDashboardProgressPublisher({setClients:()=>{called=true;},isCurrent:()=>current,delay:1});
+revoked.add(completed(0));revoked.finish();assert.equal(called,false);
+console.log('PASS: 32 concurrent completions painted together before last 4; 36/36 final; canonical progress, coach visibility, prescriptions, stale identity and closed publisher preserved. No network operations.');

@@ -1,0 +1,593 @@
+{
+  "label": "before",
+  "samples": [
+    {
+      "kind": "programs",
+      "n": 12,
+      "h": 12,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 132.6910829999997,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 540.3822499999997,
+      "primaryMs": 846.0028750000001,
+      "networkSettledMs": 3925.1743749999996,
+      "observationMs": 3926.528374999999,
+      "networkBytes": 2383420,
+      "backend": {
+        "reads": 5,
+        "documents": 14,
+        "estimated": 16,
+        "writes": 0
+      },
+      "api": {
+        "requests": 4,
+        "completed": 3,
+        "responseBytes": 549,
+        "durationMs": 116.12329099999988,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "cd219875-7fc5-4427-9ff9-39e34f011fc5",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 70,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-templates",
+          "sample": "8241a3e6-c7c8-41d1-a283-4dce03698a8a",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 13,
+          "estimatedDocumentReads": 13,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 1,
+            "query": 1
+          },
+          "method": "POST",
+          "domains": {
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "programmes": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            }
+          },
+          "durationMs": 46,
+          "status": 200,
+          "responseBytes": 299,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "dashboard-templates/http": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 16,
+        "documentsReturned": 39,
+        "estimatedReads": 38,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 642,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Q": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 14,
+        "g": 3,
+        "qS": 443,
+        "Yt": 2,
+        "Re": 2,
+        "Ne": 2,
+        "ke": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "U": 4,
+        "A": 3,
+        "FP": 2,
+        "Modal": 8,
+        "D": 2,
+        "lT": 72,
+        "ButtonIcon": 9,
+        "Qt": 2,
+        "v": 5,
+        "N": 4,
+        "f": 2,
+        "m": 2,
+        "W": 2,
+        "En": 3,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "s": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "SelectIcon": 1,
+        "SF": 1,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 17138520,
+        "totalSize": 32931840,
+        "embedderHeapUsedSize": 6869456,
+        "backingStorageSize": 2401778
+      },
+      "execution": {
+        "LayoutDuration": 0.013452,
+        "ScriptDuration": 0.218616,
+        "TaskDuration": 0.332262
+      },
+      "state": {
+        "ready": true,
+        "path": "/programmes",
+        "text": "ogramme 9\n\nDurée active : 4 semaines\n\n\t2\t2 CLIENTS\t13/11/2026\t\nVoir\nAssigner\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "programs",
+      "n": 100,
+      "h": 50,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 121.7281669999993,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 435.03641699999935,
+      "primaryMs": 1161.9060420000005,
+      "networkSettledMs": 3761.3913749999992,
+      "observationMs": 3761.943875000001,
+      "networkBytes": 2388952,
+      "backend": {
+        "reads": 5,
+        "documents": 52,
+        "estimated": 54,
+        "writes": 0
+      },
+      "api": {
+        "requests": 4,
+        "completed": 3,
+        "responseBytes": 781,
+        "durationMs": 54.838041999999405,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "90f9265a-e629-4d91-973c-45d6b6f89052",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 22,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-templates",
+          "sample": "ba668d16-ef0a-4a60-9d20-417d5173f6dc",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 51,
+          "estimatedDocumentReads": 51,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 1,
+            "query": 1
+          },
+          "method": "POST",
+          "domains": {
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "programmes": {
+              "reads": 1,
+              "docs": 50,
+              "estimate": 50
+            }
+          },
+          "durationMs": 33,
+          "status": 200,
+          "responseBytes": 531,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "dashboard-templates/http": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 104,
+        "documentsReturned": 303,
+        "estimatedReads": 302,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 1476,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Q": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 14,
+        "g": 3,
+        "qS": 1126,
+        "Yt": 2,
+        "Re": 2,
+        "Ne": 2,
+        "ke": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "U": 4,
+        "A": 3,
+        "lT": 225,
+        "FP": 2,
+        "Modal": 8,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 8,
+        "Qt": 2,
+        "v": 5,
+        "m": 2,
+        "W": 2,
+        "En": 2,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "s": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "SelectIcon": 1,
+        "SF": 1,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 21591136,
+        "totalSize": 45449216,
+        "embedderHeapUsedSize": 5557120,
+        "backingStorageSize": 2348504
+      },
+      "execution": {
+        "LayoutDuration": 0.022387,
+        "ScriptDuration": 0.350006,
+        "TaskDuration": 0.53219
+      },
+      "state": {
+        "ready": true,
+        "path": "/programmes",
+        "text": "ogramme 9\n\nDurée active : 4 semaines\n\n\t2\t4 CLIENTS\t13/11/2026\t\nVoir\nAssigner\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "programs",
+      "n": 500,
+      "h": 200,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 127.8916250000002,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 516.8066249999993,
+      "primaryMs": 3503.2557500000003,
+      "networkSettledMs": 5264.524624999998,
+      "observationMs": 5265.214874999998,
+      "networkBytes": 2413191,
+      "backend": {
+        "reads": 5,
+        "documents": 202,
+        "estimated": 204,
+        "writes": 0
+      },
+      "api": {
+        "requests": 4,
+        "completed": 3,
+        "responseBytes": 1627,
+        "durationMs": 71.98079200000029,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "fbe97f2d-13ac-4e27-ae14-aa2a22e8e2f9",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 21,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "dashboard-templates",
+          "sample": "df83234c-136a-404a-b529-680e20cf2247",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 201,
+          "estimatedDocumentReads": 201,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 1,
+            "query": 1
+          },
+          "method": "POST",
+          "domains": {
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "programmes": {
+              "reads": 1,
+              "docs": 200,
+              "estimate": 200
+            }
+          },
+          "durationMs": 51,
+          "status": 200,
+          "responseBytes": 1377,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "dashboard-templates/http": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 504,
+        "documentsReturned": 1503,
+        "estimatedReads": 1502,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 4776,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Q": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 14,
+        "g": 3,
+        "qS": 3826,
+        "Yt": 2,
+        "Re": 2,
+        "Ne": 2,
+        "ke": 2,
+        "st": 2,
+        "Ke": 2,
+        "X": 2,
+        "it": 1,
+        "U": 4,
+        "A": 3,
+        "lT": 825,
+        "FP": 2,
+        "Modal": 8,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 8,
+        "Qt": 2,
+        "v": 5,
+        "m": 2,
+        "W": 2,
+        "En": 2,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "s": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "SelectIcon": 1,
+        "SF": 1,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 49580048,
+        "totalSize": 113606656,
+        "embedderHeapUsedSize": 17346424,
+        "backingStorageSize": 3920550
+      },
+      "execution": {
+        "LayoutDuration": 0.027428,
+        "ScriptDuration": 0.714214,
+        "TaskDuration": 1.109865
+      },
+      "state": {
+        "ready": true,
+        "path": "/programmes",
+        "text": "gramme 99\n\nDurée active : 4 semaines\n\n\t2\t6 CLIENTS\t13/11/2026\t\nVoir\nAssigner\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    }
+  ]
+}

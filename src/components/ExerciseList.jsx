@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 import React, { useState, useEffect } from "react";
 import { Box, Flex, Input, Button, useColorMode, Card, Text, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, VStack, HStack, Image } from "@chakra-ui/react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
@@ -18,14 +19,14 @@ const ExerciseList = () => {
   const [selectedExercise, setSelectedExercise] = useState(null);
 
   useEffect(() => {
-    const savedProgram = JSON.parse(localStorage.getItem("workoutProgram"));
+    const savedProgram = JSON.parse(localSessionStorage.getItem("workoutProgram"));
     if (savedProgram) {
       setProgram(savedProgram);
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("workoutProgram", JSON.stringify(program));
+    localSessionStorage.setItem("workoutProgram", JSON.stringify(program));
   }, [program]);
 
   const filteredExercises = exercisesData.filter((ex) =>

@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 import {useClubCalendarPeriod} from "../utils/useClubCalendarPeriod";
 import SessionCancellationRequests from '../components/dashboard/SessionCancellationRequests';
 import TutorialSettingsPanel from '../components/TutorialSettingsPanel';
@@ -382,12 +383,12 @@ function ClubDashboardBody() {
     const explicitClubId = params.get("adminClubId") || params.get("clubId") || "";
     if (explicitClubId) return explicitClubId;
     if (typeof window === "undefined") return "";
-    return window.localStorage.getItem(ADMIN_CLUB_STORAGE_KEY) || "";
+    return localSessionStorage.getItem(ADMIN_CLUB_STORAGE_KEY) || "";
   }, [isAdmin, location.search]);
 
   useEffect(() => {
     if (!isAdmin || !adminClubId || typeof window === "undefined") return;
-    window.localStorage.setItem(ADMIN_CLUB_STORAGE_KEY, adminClubId);
+    localSessionStorage.setItem(ADMIN_CLUB_STORAGE_KEY, adminClubId);
   }, [adminClubId, isAdmin]);
 
   const withAdminClub = useCallback(
@@ -446,7 +447,7 @@ function ClubDashboardBody() {
   const clubUnreadCount = useClubUnreadCount(actionClubId);
   useEffect(() => {
     if (!isAdmin || !loadedClubId || loadedClubId === "admin-club-preview" || typeof window === "undefined") return;
-    window.localStorage.setItem(ADMIN_CLUB_STORAGE_KEY, loadedClubId);
+    localSessionStorage.setItem(ADMIN_CLUB_STORAGE_KEY, loadedClubId);
   }, [isAdmin, loadedClubId]);
   useEffect(() => {
     if (!isAdmin || adminClubId || !loadedClubId || location.search.includes("clubId=")) return;
@@ -471,7 +472,7 @@ function ClubDashboardBody() {
   const [goalTargets, setGoalTargets] = useState(() => {
     if (typeof window === "undefined") return {};
     try {
-      return JSON.parse(window.localStorage.getItem("club_dashboard_goals") || "{}");
+      return JSON.parse(localSessionStorage.getItem("club_dashboard_goals") || "{}");
     } catch {
       return {};
     }
@@ -754,7 +755,7 @@ function ClubDashboardBody() {
     if (typeof targets !== "object") return;
     setGoalTargets(targets);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(`club_dashboard_goals_${goalPeriod}`, JSON.stringify(targets));
+      localSessionStorage.setItem(`club_dashboard_goals_${goalPeriod}`, JSON.stringify(targets));
     }
   }, [goalPeriod, summary?.goalTargetsByPeriod, summary?.goals?.targets]);
   useEffect(() => {
@@ -1348,7 +1349,7 @@ function ClubDashboardBody() {
     try {
       await ensureLanguageLoaded(lng);
       await i18n.changeLanguage(lng);
-      localStorage.setItem("i18nextLng", lng);
+      localSessionStorage.setItem("i18nextLng", lng);
       const refUser = doc(db, "users", user.uid);
       try {
         await updateDoc(refUser, {
@@ -1785,8 +1786,8 @@ function ClubDashboardBody() {
         },
       };
       if (typeof window !== "undefined") {
-        window.localStorage.setItem("club_dashboard_goals", JSON.stringify(next));
-        window.localStorage.setItem(`club_dashboard_goals_${goalPeriod}`, JSON.stringify(next));
+        localSessionStorage.setItem("club_dashboard_goals", JSON.stringify(next));
+        localSessionStorage.setItem(`club_dashboard_goals_${goalPeriod}`, JSON.stringify(next));
       }
       return next;
     });

@@ -1,0 +1,520 @@
+{
+  "samples": [
+    {
+      "label": "before-initial",
+      "status": 200,
+      "ms": 312.12679200000025,
+      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "rows": [
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "eadd658d-4e2c-4690-9220-9b4af4e482b6",
+          "httpRequests": 1,
+          "sdkReads": 40,
+          "documentsReturned": 61,
+          "estimatedDocumentReads": 63,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 38,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            },
+            "programmes": {
+              "reads": 12,
+              "docs": 24,
+              "estimate": 24
+            },
+            "sessionsEffectuees": {
+              "reads": 24,
+              "docs": 24,
+              "estimate": 24
+            }
+          },
+          "durationMs": 303,
+          "status": 200,
+          "responseBytes": 291,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "returnedJsonBytes": 3148851,
+      "disk": {
+        "hits": 0,
+        "misses": 0,
+        "writes": 0,
+        "bytesWritten": 0,
+        "failures": 0,
+        "enabled": true,
+        "budget": 67108864,
+        "maxFile": 8388608
+      },
+      "memory": {
+        "rss": 142475264,
+        "heapTotal": 73433088,
+        "heapUsed": 37183608,
+        "external": 3947230,
+        "arrayBuffers": 119409
+      }
+    },
+    {
+      "label": "before-restarted",
+      "status": 200,
+      "ms": 238.45383300000003,
+      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "rows": [
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "28ffe8b5-4679-4409-935e-ebfe8fa7cd49",
+          "httpRequests": 1,
+          "sdkReads": 40,
+          "documentsReturned": 61,
+          "estimatedDocumentReads": 63,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 38,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            },
+            "programmes": {
+              "reads": 12,
+              "docs": 24,
+              "estimate": 24
+            },
+            "sessionsEffectuees": {
+              "reads": 24,
+              "docs": 24,
+              "estimate": 24
+            }
+          },
+          "durationMs": 230,
+          "status": 200,
+          "responseBytes": 291,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "returnedJsonBytes": 3148851,
+      "disk": {
+        "hits": 0,
+        "misses": 0,
+        "writes": 0,
+        "bytesWritten": 0,
+        "failures": 0,
+        "enabled": true,
+        "budget": 67108864,
+        "maxFile": 8388608
+      },
+      "memory": {
+        "rss": 142966784,
+        "heapTotal": 74104832,
+        "heapUsed": 37526608,
+        "external": 3955959,
+        "arrayBuffers": 128133
+      }
+    },
+    {
+      "label": "after-initial",
+      "status": 200,
+      "ms": 227.91941700000007,
+      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "rows": [
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "d41efff2-adea-465d-9575-50f43a71061a",
+          "httpRequests": 1,
+          "sdkReads": 40,
+          "documentsReturned": 61,
+          "estimatedDocumentReads": 63,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 38,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            },
+            "programmes": {
+              "reads": 12,
+              "docs": 24,
+              "estimate": 24
+            },
+            "sessionsEffectuees": {
+              "reads": 24,
+              "docs": 24,
+              "estimate": 24
+            }
+          },
+          "durationMs": 220,
+          "status": 200,
+          "responseBytes": 291,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "returnedJsonBytes": 3148851,
+      "disk": {
+        "hits": 0,
+        "misses": 12,
+        "writes": 12,
+        "bytesWritten": 4512,
+        "failures": 0,
+        "enabled": true,
+        "budget": 67108864,
+        "maxFile": 8388608
+      },
+      "memory": {
+        "rss": 144916480,
+        "heapTotal": 75874304,
+        "heapUsed": 39791512,
+        "external": 4319417,
+        "arrayBuffers": 491562
+      }
+    },
+    {
+      "label": "after-restarted",
+      "status": 200,
+      "ms": 186.26491699999997,
+      "resultHash": "8cbc18cdf9739bd03abfbcd87338acef48f40b14b13a604a986ba741c7ea89b9",
+      "rows": [
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "5b307dd8-c6aa-48f4-b09a-3f112cf5bfce",
+          "httpRequests": 1,
+          "sdkReads": 40,
+          "documentsReturned": 61,
+          "estimatedDocumentReads": 63,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 38,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            },
+            "programmes": {
+              "reads": 12,
+              "docs": 24,
+              "estimate": 24
+            },
+            "sessionsEffectuees": {
+              "reads": 24,
+              "docs": 24,
+              "estimate": 24
+            }
+          },
+          "durationMs": 178,
+          "status": 200,
+          "responseBytes": 291,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "returnedJsonBytes": 1059,
+      "disk": {
+        "hits": 12,
+        "misses": 0,
+        "writes": 0,
+        "bytesWritten": 0,
+        "failures": 0,
+        "enabled": true,
+        "budget": 67108864,
+        "maxFile": 8388608
+      },
+      "memory": {
+        "rss": 135184384,
+        "heapTotal": 72957952,
+        "heapUsed": 36228624,
+        "external": 3937936,
+        "arrayBuffers": 110143
+      }
+    },
+    {
+      "label": "after-edited",
+      "status": 200,
+      "ms": 186.22154199999977,
+      "resultHash": "40441ad70ebddea905db1486d9d9f451a472a2b68d773af3e717635d4d72bf01",
+      "rows": [
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "97625f5f-ea56-4dcd-ac85-3a24150fccd3",
+          "httpRequests": 1,
+          "sdkReads": 41,
+          "documentsReturned": 62,
+          "estimatedDocumentReads": 64,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 39,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            },
+            "programmes": {
+              "reads": 13,
+              "docs": 25,
+              "estimate": 25
+            },
+            "sessionsEffectuees": {
+              "reads": 24,
+              "docs": 24,
+              "estimate": 24
+            }
+          },
+          "durationMs": 178,
+          "status": 200,
+          "responseBytes": 305,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "returnedJsonBytes": 1102,
+      "disk": {
+        "hits": 12,
+        "misses": 0,
+        "writes": 1,
+        "bytesWritten": 61,
+        "failures": 0,
+        "enabled": true,
+        "budget": 67108864,
+        "maxFile": 8388608
+      },
+      "memory": {
+        "rss": 131563520,
+        "heapTotal": 70336512,
+        "heapUsed": 45650232,
+        "external": 4028648,
+        "arrayBuffers": 199807
+      }
+    },
+    {
+      "label": "before-edited",
+      "status": 200,
+      "ms": 203.83508299999994,
+      "resultHash": "40441ad70ebddea905db1486d9d9f451a472a2b68d773af3e717635d4d72bf01",
+      "rows": [
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "4071ea5c-0fe9-4bcb-b8aa-b3992ab84ab8",
+          "httpRequests": 1,
+          "sdkReads": 40,
+          "documentsReturned": 61,
+          "estimatedDocumentReads": 63,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 38,
+            "transactionGetAll": 1
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 12,
+              "estimate": 12
+            },
+            "programmes": {
+              "reads": 12,
+              "docs": 24,
+              "estimate": 24
+            },
+            "sessionsEffectuees": {
+              "reads": 24,
+              "docs": 24,
+              "estimate": 24
+            }
+          },
+          "durationMs": 196,
+          "status": 200,
+          "responseBytes": 305,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "returnedJsonBytes": 3017734,
+      "disk": {
+        "hits": 0,
+        "misses": 0,
+        "writes": 0,
+        "bytesWritten": 0,
+        "failures": 0,
+        "enabled": true,
+        "budget": 67108864,
+        "maxFile": 8388608
+      },
+      "memory": {
+        "rss": 142360576,
+        "heapTotal": 73957376,
+        "heapUsed": 37035024,
+        "external": 3947197,
+        "arrayBuffers": 119376
+      }
+    },
+    {
+      "label": "after-revoked",
+      "status": 403,
+      "ms": 129.77224999999999,
+      "resultHash": "280579af05f819d2559fd76c0526dc7f18262a9c7d777f1eb2a519abf10b72cf",
+      "rows": [
+        {
+          "scope": "http",
+          "activity": "dashboard-client-programs",
+          "sample": "3c51fab9-1c2a-48b2-a207-0316d31ae8f7",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 2
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            }
+          },
+          "durationMs": 122,
+          "status": 403,
+          "responseBytes": 43,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "returnedJsonBytes": 91,
+      "disk": {
+        "hits": 0,
+        "misses": 0,
+        "writes": 0,
+        "bytesWritten": 0,
+        "failures": 0,
+        "enabled": true,
+        "budget": 67108864,
+        "maxFile": 8388608
+      },
+      "memory": {
+        "rss": 129646592,
+        "heapTotal": 69287936,
+        "heapUsed": 40300688,
+        "external": 3973076,
+        "arrayBuffers": 145342
+      }
+    }
+  ]
+}

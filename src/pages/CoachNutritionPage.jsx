@@ -24,6 +24,7 @@ import {
   Thead,
   Tr,
   useDisclosure,
+  useBreakpointValue,
   useToast,
   Modal,
   ModalOverlay,
@@ -36,6 +37,7 @@ import {
 import { CloseIcon, DeleteIcon, SearchIcon } from "@chakra-ui/icons";
 import { collection, deleteDoc, doc, getDocs, limit, query, where } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
+import { apiFetch } from "../utils/api";
 import { db } from "../firebaseConfig";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import AppLoading from "../components/ui/AppLoading.jsx";
@@ -169,6 +171,9 @@ export default function CoachNutritionPage() {
   );
   const [pendingDelete, setPendingDelete] = useState(null);
   const [nutritionSearch, setNutritionSearch] = useState("");
+  const [nutritionPage, setNutritionPage] = useState(1);
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  useEffect(() => setNutritionPage(1), [nutritionSearch, effectiveCoachUid]);
 
   useLayoutEffect(() => {
     if (forceFresh) return;
@@ -194,6 +199,28 @@ export default function CoachNutritionPage() {
     }
     const load = beginPageLoad();
     try {
+    if (!isAdmin) {
+      try {
+        const payload = await apiFetch("/programs/nutrition-list", {
+          method: "POST", timeoutMs: 45000,
+          body: JSON.stringify({ coachId: effectiveCoachUid }),
+        });
+        if (!load.current()) return;
+        if (!Array.isArray(payload?.rows) || !Number.isInteger(payload?.clientCount)) {
+          throw new Error("Invalid nutrition list");
+        }
+        const nextRows = [...payload.rows].sort((a, b) => getAssessmentMs(b) - getAssessmentMs(a));
+        setRows(nextRows);
+        setClientCount(payload.clientCount);
+        writePageDataCache(nutritionPageCacheKey, { rows: nextRows, clientCount: payload.clientCount, partial: false });
+        load.ready({ assessments: nextRows.length, clients: payload.clientCount });
+        return;
+      } catch (error) {
+        // Only an older local API may use the original SDK compatibility path.
+        // Access refusals and failures must not replay an expensive scan.
+        if (error?.status !== 404) throw error;
+      }
+    }
     const clientQueries = [
       query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500)),
       query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500)),
@@ -273,7 +300,7 @@ export default function CoachNutritionPage() {
       load.error();
       throw error;
     }
-	  }, [beginPageLoad, forceFresh, effectiveCoachUid, nutritionPageCacheKey]);
+	  }, [beginPageLoad, forceFresh, effectiveCoachUid, nutritionPageCacheKey, isAdmin]);
 
   const handleDelete = useCallback(
 	    async (clientId, assessmentId) => {
@@ -398,6 +425,10 @@ export default function CoachNutritionPage() {
     });
   }, [i18n.language, i18n.resolvedLanguage, nutritionSearch, rows, t]);
 
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / 25));
+  const currentPage = Math.min(nutritionPage, pageCount);
+  const visibleRows = filteredRows.slice((currentPage - 1) * 25, currentPage * 25);
+
   if (loading) return <AppLoading label={t("nutritionCoach.loading", "Chargement de l’espace nutrition...")} />;
 
   return (
@@ -504,13 +535,13 @@ export default function CoachNutritionPage() {
             <Text color={theme.mutedText}>{t("nutritionCoach.noSearchResults", "Aucun suivi nutrition ne correspond à cette recherche.")}</Text>
           ) : (
             <>
-            <Stack spacing={3} display={{ base: "flex", md: "none" }}>
-              {filteredRows.map((row) => {
+            {isMobile ? <Stack spacing={3}>
+              {visibleRows.map((row) => {
                 const status = getStatus(row, t);
                 const clientName = getClientName(row, t);
                 const objective = row?.inputs?.objectif || row?.inputs?.objective || t("nutritionCoach.defaultObjective", "Bilan nutrition");
                 return (
-                  <Box key={row.id} {...tileProps} bg={theme.surfaceBgStrong} borderRadius="24px" p={4} boxShadow="0 10px 24px rgba(15, 23, 42, 0.05)">
+                  <Box key={`${row.clientId}/${row.id}`} {...tileProps} bg={theme.surfaceBgStrong} borderRadius="24px" p={4} boxShadow="0 10px 24px rgba(15, 23, 42, 0.05)">
                     <Stack spacing={3}>
                       <Box minW={0}>
                         <Text fontWeight="900" noOfLines={1}>{clientName}</Text>
@@ -547,9 +578,7 @@ export default function CoachNutritionPage() {
                   </Box>
                 );
               })}
-            </Stack>
-
-            <Box overflowX="auto" display={{ base: "none", md: "block" }}>
+            </Stack> : <Box overflowX="auto">
               <Table size="sm">
                 <Thead>
                   <Tr>
@@ -562,12 +591,12 @@ export default function CoachNutritionPage() {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {filteredRows.map((row) => {
+                  {visibleRows.map((row) => {
                     const status = getStatus(row, t);
                     const clientName = getClientName(row, t);
                     const objective = row?.inputs?.objectif || row?.inputs?.objective || t("nutritionCoach.defaultObjective", "Bilan nutrition");
                     return (
-                      <Tr key={row.id}>
+                      <Tr key={`${row.clientId}/${row.id}`}>
                         <Td>{clientName}</Td>
                         <Td>{formatDate(row?.updatedAt || row?.createdAt, i18n.resolvedLanguage)}</Td>
                         <Td>{objective}</Td>
@@ -605,7 +634,12 @@ export default function CoachNutritionPage() {
                   })}
                 </Tbody>
               </Table>
-            </Box>
+            </Box>}
+            {pageCount > 1 && <HStack justify="center" mt={4}>
+              <Button data-testid="nutrition-previous" isDisabled={currentPage === 1} onClick={() => setNutritionPage(currentPage - 1)}>{t("common.previous", "Précédent")}</Button>
+              <Text data-testid="nutrition-page">{currentPage} / {pageCount}</Text>
+              <Button data-testid="nutrition-next" isDisabled={currentPage === pageCount} onClick={() => setNutritionPage(currentPage + 1)}>{t("common.next", "Suivant")}</Button>
+            </HStack>}
             </>
           )}
         </Box>

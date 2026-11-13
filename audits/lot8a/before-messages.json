@@ -1,0 +1,665 @@
+{
+  "label": "before",
+  "samples": [
+    {
+      "kind": "messages",
+      "n": 100,
+      "h": 0,
+      "group": "messages",
+      "viewport": 1440,
+      "shellMs": 683.4865840000002,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 979.7497919999996,
+      "primaryMs": 979.7497919999996,
+      "networkSettledMs": 4976.1815,
+      "observationMs": 4976.742959,
+      "networkBytes": 31052935,
+      "backend": {
+        "reads": 8,
+        "documents": 4,
+        "estimated": 8,
+        "writes": 0
+      },
+      "api": {
+        "requests": 5,
+        "completed": 3,
+        "responseBytes": 49773,
+        "durationMs": 178.48412499999995,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 100,
+          "changes": 100,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 10,
+          "changes": 10,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 1,
+          "changes": 1,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "5b358fd0-6766-4b47-95d8-b6a59031aeb7",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 47,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "03af6cc5-ef52-40ca-8a44-7078522b3d68",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 101,
+          "estimatedDocumentReads": 102,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2,
+            "getAll": 1
+          },
+          "method": "GET",
+          "durationMs": 131,
+          "status": 200,
+          "responseBytes": 49475,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "club-inbox/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 1,
+        "documentsReturned": 1,
+        "estimatedReads": 1,
+        "confirmedWrites": 0,
+        "failures": 0
+      },
+      "mounts": 3345,
+      "mountNames": {
+        "ColorModeScript": 1,
+        "ChakraProvider": 1,
+        "Provider": 1,
+        "ThemeProvider": 2,
+        "CSSVars": 1,
+        "ColorModeProvider": 1,
+        "CSSReset": 1,
+        "GlobalStyle": 1,
+        "EnvironmentProvider": 1,
+        "BrowserRouter": 1,
+        "Router": 1,
+        "AppResume": 1,
+        "PullToRefresh": 1,
+        "AppErrorBoundary": 1,
+        "App": 1,
+        "AuthProvider": 1,
+        "ToastProvider": 1,
+        "Portal": 2,
+        "DefaultPortal": 2,
+        "AnimatePresence": 12,
+        "ConsentProvider": 2,
+        "Insertion": 2193,
+        "AppContent": 2,
+        "RouteIntentPreloader": 2,
+        "SeoManager": 2,
+        "LanguageRouteSync": 2,
+        "Routes": 2,
+        "RenderedRoute": 2,
+        "ProtectedRoute": 2,
+        "Navigate": 1,
+        "LazyBackground": 5,
+        "DownloadBoundary": 14,
+        "CookieConsentBanner": 2,
+        "ButtonContent": 124,
+        "Trans": 4,
+        "Navbar": 2,
+        "Drawer": 2,
+        "Modal": 6,
+        "Login": 2,
+        "ButtonIcon": 5,
+        "FcGoogle": 2,
+        "IconBase": 6,
+        "Footer": 2,
+        "IdleMount": 2,
+        "CacheMigrationNotice": 1,
+        "QuickCoachActions": 2,
+        "Menu": 1,
+        "AvatarImage": 101,
+        "AvatarName": 101,
+        "MessagingPage": 1,
+        "ProfessionalMessagingPage": 1,
+        "AppSurface": 2,
+        "PageBackButton": 1,
+        "PlanInclusionBadge": 1,
+        "CoachMobileNav": 1,
+        "MdOutlineHome": 1,
+        "MdOutlinePeopleAlt": 1,
+        "MdOutlineRestaurantMenu": 1,
+        "MdOutlineFitnessCenter": 1,
+        "DashboardMessagingBubble": 1,
+        "MessagingBubble": 1,
+        "MessagingContactList": 1,
+        "AlertDialog": 1,
+        "PresenceChild": 100,
+        "ToastComponent": 100,
+        "MeasureLayout": 100,
+        "MeasureLayoutWithContext": 100,
+        "Toast": 100,
+        "AlertIcon": 100,
+        "InfoIcon": 100,
+        "RouteAnalyticsListener": 1,
+        "GuidedTutorial": 1
+      },
+      "heap": {
+        "usedSize": 87148960,
+        "totalSize": 148488192,
+        "embedderHeapUsedSize": 33191952,
+        "backingStorageSize": 31014923
+      },
+      "execution": {
+        "LayoutDuration": 0.016495,
+        "ScriptDuration": 2.414649,
+        "TaskDuration": 2.655346
+      },
+      "state": {
+        "ready": true,
+        "path": "/messages",
+        "text": "uveau message\nSynthetic 0012\nNouveau message\nSynthetic 0011\nNouveau message\nSynthetic 0010\nNouveau message\nSynthetic 0009\nNouveau message\nSynthetic 0008\nNouveau message\nSynthetic 0007\nNouveau message\nSynthetic 0006\nNouveau message\nSynthetic 0005\nNouveau message\nSynthetic 0004\nNouveau message\nSynthetic 0003\nNouveau message\nSynthetic 0002\nNouveau message\nSynthetic 0001\nNouveau message\nSynthetic 0000"
+      }
+    },
+    {
+      "kind": "messages",
+      "n": 1000,
+      "h": 0,
+      "group": "messages",
+      "viewport": 1440,
+      "shellMs": 422.46720899999855,
+      "firstUsefulMs": 1513.0765419999989,
+      "primaryMs": 1513.0765419999989,
+      "networkSettledMs": null,
+      "observationMs": 34258.712584,
+      "networkBytes": 31507253,
+      "backend": {
+        "reads": 12,
+        "documents": 6,
+        "estimated": 12,
+        "writes": 0
+      },
+      "api": {
+        "requests": 5,
+        "completed": 5,
+        "responseBytes": 504416,
+        "durationMs": 48303.088,
+        "statuses": {
+          "200": 4,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 1000,
+          "changes": 1000,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 1,
+          "changes": 1,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 10,
+          "changes": 10,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "6d9e6a5d-8625-432a-85d0-7408498a8900",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 59,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "faba70e5-f2e5-4eb1-b67f-caa65e964ae5",
+          "httpRequests": 1,
+          "sdkReads": 12,
+          "documentsReturned": 1001,
+          "estimatedDocumentReads": 1002,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2,
+            "getAll": 10
+          },
+          "method": "GET",
+          "durationMs": 200,
+          "status": 200,
+          "responseBytes": 503775,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "f36ab823-9846-4965-8097-d933964f265c",
+          "httpRequests": 1,
+          "sdkReads": 4,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 4,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 4
+          },
+          "method": "GET",
+          "durationMs": 24027,
+          "status": 200,
+          "responseBytes": 170,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "d2c488f5-3ec1-4899-a53e-e2742249c28a",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 24017,
+          "status": 200,
+          "responseBytes": 173,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "failure": "not-settled-within-probe-window"
+    }
+  ]
+}

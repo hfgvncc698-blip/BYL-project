@@ -1,0 +1,55 @@
+{
+  "deployed": false,
+  "runtimeChanged": false,
+  "runtimeHashesMatchPreviousQualification": true,
+  "rulesSha256": "beeb9d74a153e65d5ab53f2e0c96ecb7a7da9d5edd321119be8fbacf09bb0233",
+  "sourceSha256": {
+    "scripts/experiments/coachSummaryGuarded.cjs": "f501ff263b6e3081131b70edafdbf462a9841bea73a5bed433fbb2887f77cc4c",
+    "scripts/experiments/coachSummaryRules.cjs": "d14c2fa6ad0d3fb9464931adf51ad1b98aa6f23c8f7e2a2f5fc59c801b8b1937",
+    "scripts/testCoachSummaryGuarded.cjs": "e4b4e9d35677993a1a93d050aea03f8581297be5594f78568747ee83277367a5",
+    "scripts/testCoachSummaryMemory.cjs": "c4546c6534a488db57b448b05c0dc0a681590804cedfa949ddc925754c30cd48",
+    "scripts/runCoachSummaryGuarded.cjs": "206c440a09e027b347634e61053d3ffaa323ddabfa51667d110f6ed2b548aa5d",
+    "scripts/runCoachSummaryGuardedBrowser.cjs": "d8e11ef2d23c623363da3c0496a40b7145ef5fa9f9c69070ee333a3e2f4314af",
+    "scripts/reportCoachSummaryGuarded.py": "cd759ee7733f7f4a3df80a214a5e6dcae0306d083dbc80eb603c16e04e8abf44"
+  },
+  "checks": [
+    {
+      "name": "trial",
+      "exitCode": 0
+    },
+    {
+      "name": "p01",
+      "exitCode": 0
+    },
+    {
+      "name": "p02",
+      "exitCode": 0
+    },
+    {
+      "name": "before-1",
+      "exitCode": 0
+    },
+    {
+      "name": "after-1",
+      "exitCode": 0
+    },
+    {
+      "name": "before-2",
+      "exitCode": 0
+    },
+    {
+      "name": "after-2",
+      "exitCode": 0
+    }
+  ],
+  "memoryTestsPassed": true,
+  "guarantees": {
+    "noFirestoreCacheWrites": true,
+    "noExtraCacheReadsOnMissOrExclusion": true,
+    "webSdkAtomicityOnQualifiedDossiers": true,
+    "legacyUnqualifiedCanonical": true,
+    "unfencedAdminSdkFreshness": false,
+    "realGoogleBillingProven": false,
+    "productionEligible": false
+  }
+}

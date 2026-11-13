@@ -1,0 +1,57 @@
+MES PROGRAMMES — 13 novembre 2026
+
+CHANGEMENTS
+Seul fichier applicatif modifié pendant cette tâche : src/components/ProgramsPage.jsx.
+Lectures des assignations lancées indépendamment des modèles. Même ensemble de requêtes, concurrence de 12 à 24 maximum. Les réponses tardives ne publient pas dans un chargement remplacé. Une erreur de modèles arrête les lectures non encore lancées ; les requêtes SDK déjà parties ne sont pas annulables.
+Pagination locale de 25 programmes : recherche, catégories et statistiques continuent de porter sur toute la liste chargée. Aucun changement des limites serveur préexistantes (200 modèles, 200 clients par variante de propriété).
+Compteurs d’assignation signalés en chargement tant que non confirmés. Aucun zéro provisoire présenté comme une valeur exacte.
+Aucun nouveau cache, document de synthèse, listener ou endpoint. Aucun changement de règle ou de contrôle des mutations. Aucun déploiement.
+
+BANC
+Build compilé de la véritable application, Firebase Auth/Firestore émulés, Chrome headless jetable 1440x1000, cache navigateur désactivé. Temps depuis navigation, connexion/admission incluses. Une mesure avant/après par volume, non une médiane ni une garantie.
+12/100/500 clients synthétiques, 12/50/200 modèles, deux programmes par client ; propriété répartie entre createdBy, coachId et coachIds. Aucun contenu réel.
+
+MESURES
+
+12 clients / 12 modèles :
+Premiers programmes : 540 → 541 ms. Compteurs confirmés : 846 → 847 ms.
+SDK navigateur : 16 → 16 opérations ; documents retournés : 39 → 39 ; lectures estimées : 38 → 38.
+API modèles : 1 → 1 appels ; SDK backend : 2 → 2 ; documents : 13 → 13 ; lectures estimées : 13 → 13.
+Écritures navigateur : 1 → 1 (écriture commune à la session du banc) ; backend : 0 → 0.
+Transfert total : 2383420 → 2384355 octets ; mémoire JS observée : 17138520 → 17093116 octets ; composants montés : 642 → 642 ; temps JS : 0.218616 → 0.23316 s.
+
+100 clients / 50 modèles :
+Premiers programmes : 435 → 429 ms. Compteurs confirmés : 1162 → 1170 ms.
+SDK navigateur : 104 → 104 opérations ; documents retournés : 303 → 303 ; lectures estimées : 302 → 302.
+API modèles : 1 → 1 appels ; SDK backend : 2 → 2 ; documents : 51 → 51 ; lectures estimées : 51 → 51.
+Écritures navigateur : 1 → 1 (écriture commune à la session du banc) ; backend : 0 → 0.
+Transfert total : 2388952 → 2387424 octets ; mémoire JS observée : 21591136 → 23194968 octets ; composants montés : 1476 → 932 ; temps JS : 0.350006 → 0.26251 s.
+
+500 clients / 200 modèles :
+Premiers programmes : 517 → 463 ms. Compteurs confirmés : 3503 → 2833 ms.
+SDK navigateur : 504 → 504 opérations ; documents retournés : 1503 → 1503 ; lectures estimées : 1502 → 1502.
+API modèles : 1 → 1 appels ; SDK backend : 2 → 2 ; documents : 201 → 201 ; lectures estimées : 201 → 201.
+Écritures navigateur : 1 → 1 (écriture commune à la session du banc) ; backend : 0 → 0.
+Transfert total : 2413191 → 2399621 octets ; mémoire JS observée : 49580048 → 25914340 octets ; composants montés : 4776 → 932 ; temps JS : 0.714214 → 0.258295 s.
+
+INTERPRÉTATION ET LIMITES
+La liste est utilisable en moins de deux secondes sur ce banc. Les compteurs du scénario 500 restent à 2,83 s : objectif non atteint pour le chargement confirmé complet. Les petits scénarios ne montrent pas de gain significatif de latence. Aucun maximum absolu revendiqué.
+Le nombre de lectures ne baisse pas : le gain vient du chevauchement des attentes et de la réduction du rendu. Le scan des assignations de chaque client reste la limite principale. Le transfert de petites ressources JavaScript peut légèrement augmenter ; ce n’est pas une nouvelle lecture Firestore.
+Le plafond 24 augmente la concurrence, pas le nombre de requêtes ; aucun échec observé sur les fixtures. Il doit encore être qualifié sur réseau lent et dossiers très volumineux. En cas d’échec précoce des modèles, les lectures parallèles déjà lancées peuvent constituer du travail supplémentaire par rapport au chargement séquentiel. Ne pas promettre une facture identique pour tous les scénarios d’erreur.
+Les émulateurs ne mesurent pas une facture réelle : lectures documentaires estimées, hors évaluations additionnelles de règles/index et facturation de réseau/CPU. Les appels annexes de messagerie et le 404 d’une route non montée dans le banc ne sont pas attribués à Mes programmes.
+La vérification de sécurité testée est celle du transport existant et du rejet des réponses périmées ; pas une nouvelle certification globale P0-3/P0-4.
+
+TESTS
+PASS testProgramsLoading.mjs : exécute le véritable fetchData avant/après avec mêmes requêtes, comptes exacts, alias programID, dossier vide, réponse périmée et erreur de modèles.
+PASS testProgramDuplication.mjs ; testProgramAssignmentSync.cjs ; testDashboardTemplates.cjs (accès, révisions, ajouts/suppressions, transport, fallback).
+PASS navigateur 500 : deuxième page de 25 programmes, recherche du programme 199 hors première page, version mobile, zéro nouvelle opération SDK pour ces interactions.
+PASS compilation npm run build et budgets JavaScript.
+Non testés sur cette passe : déploiement, compte réel, très gros dossiers au-delà de la fixture, réseau mobile ralenti et mutation réelle dans le navigateur.
+
+REPRODUCTION
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runProgramsLoading.cjs before --compiled
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runProgramsLoading.cjs after --compiled
+Ne pas exécuter simultanément : mêmes ports d’émulateurs. Sources avant et résultats dans audits/programs-loading.
+
+SUITE RECOMMANDÉE
+Pour descendre davantage avec 500 clients : étudier une lecture groupée des assignations ou un index exact existant, en comptant aussi les lectures d’autorisation et les écritures d’invalidation. Ne pas ajouter une projection persistante ou déplacer les coûts au backend sans comparaison chiffrée. Ce travail n’a pas été intégré dans cette passe.

@@ -53,15 +53,54 @@ export function mergeDashboardClientProgress(rows, completed) {
     const known = new Map((previous.programmesAssignes || []).map(p => [p.id, p]));
     return {
       ...previous,
+      _clientListActivityMs: completed._clientListActivityMs,
       programmesAssignes: (completed.programmesAssignes || []).map(program => {
         const scoped = known.get(program.id) || {};
         return {
           ...scoped,
           ...program,
+          _quickPlaceholder: false,
           _progressSessionsEffectuees: program.sessionsEffectuees || [],
           sessionsEffectuees: scoped.sessionsEffectuees || [],
         };
       }),
     };
   });
+}
+
+export function dashboardStatConfirmed(stat, roots, nutrition, core, nutritionOnly, activity = core) {
+  return stat.value == null || (stat.route === '/clients' ? roots :
+    !nutritionOnly && stat.route === '/clients?filter=active' ? roots && activity :
+    nutritionOnly || stat.route?.includes('nutrition') ? nutrition : core);
+}
+
+// Stable React type: callbacks contain no hooks and use the current view closure.
+export function DashboardCard({render, ...props}) { return render(props); }
+
+// Coalesce completed rows without discarding any row in the same network batch.
+// The identity check also runs inside React's deferred state updater.
+export function createDashboardProgressPublisher({ setClients, isCurrent, delay = 100 }) {
+  const pending = new Map();
+  let timer = null;
+  let closed = false;
+  const flush = () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+    const rows = [...pending.values()];
+    pending.clear();
+    if (!rows.length || !isCurrent()) return;
+    setClients(previous => {
+      if (!isCurrent()) return previous;
+      return rows.reduce(mergeDashboardClientProgress, previous);
+    });
+  };
+  return {
+    add(client) {
+      if (closed || !isCurrent()) return;
+      pending.set(client.id, client);
+      if (timer === null) timer = setTimeout(flush, delay);
+    },
+    flush,
+    finish() { closed = true; flush(); },
+  };
 }

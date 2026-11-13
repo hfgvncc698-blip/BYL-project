@@ -1,0 +1,59 @@
+RÉSUMÉS PERSISTANTS DU DASHBOARD — SÉCURITÉ ET EXPLOITATION
+13 novembre 2026 — qualification locale exclusivement
+
+Intégration dans backend/utils/coachDashboardBundles.js, sans nouvelle route.
+Le middleware Firebase Auth, la révocation et la transaction de vérification de
+l'utilisateur et des dossiers restent exécutés avant toute lecture du cache.
+La liste actuelle des programmes et leur updateTime sont relus dans Firestore.
+Un résumé n'est accepté que pour le projet, le chemin et la version exacte.
+Les suppressions ne réapparaissent pas ; les historiques restent canoniques.
+Les mutations Copilot conservent leur relecture transactionnelle de la source.
+
+Cache disque côté serveur exclusivement : aucun IndexedDB/localStorage ajouté.
+AES-256-GCM, nonce aléatoire par fichier, identité projet/collection et empreinte
+SHA-256 du code de projection + sérialisation dans les données authentifiées.
+Les noms de fichiers sont des empreintes, sans identifiants en clair. Le contenu
+chiffré peut contenir des données personnelles : ce n'est pas une anonymisation.
+Une personne disposant du compte serveur ET de la clé peut le déchiffrer.
+
+Activation facultative (non effectuée sur le backend local utilisateur ni en
+production) : BYL_DASHBOARD_OUTLINE_DIR = répertoire absolu serveur privé ;
+BYL_DASHBOARD_OUTLINE_KEY = secret aléatoire de 32 octets encodé en 64 hexadécimaux.
+Ni secret par défaut, ni clé dérivée d'un UID, ni clé commise, ni deuxième mot de
+passe utilisateur. Les runners génèrent une clé jetable pour chaque qualification.
+Sans ces deux paramètres valides, comportement mémoire précédent conservé.
+
+Répertoire final 0700, fichiers 0600, liens symboliques finaux refusés, lecture
+O_NOFOLLOW. Chemin parent/configuration sous contrôle de l'exploitant : ne pas
+placer ce répertoire sous une racine statique, web ou écrivable par d'autres.
+Écriture temporaire exclusive puis renommage atomique. Échec/corruption/changement
+de clé/expiration => cache ignoré et source canonique relue. Aucun ancien résumé
+n'est présenté comme frais en remplacement d'une vérification refusée.
+
+TTL d'utilisation 24 h ; éviction des fichiers anciens lors des écritures.
+Budget nominal 64 Mio de fichiers .outline par répertoire, 8 Mio par fichier.
+Employer un répertoire par processus/instance : le contrôle du budget est
+sérialisé dans un processus, pas verrouillé entre processus. Les remplacements
+concurrents restent authentifiés/versionnés, mais un budget global strict partagé
+n'est pas garanti. Aucun service externe ni volume réseau requis.
+Les fichiers temporaires issus d'un arrêt brutal peuvent nécessiter un entretien
+opérateur après arrêt du processus. L'expiration logique ne constitue pas un
+engagement d'effacement physique à heure fixe. Ne pas sauvegarder ce cache comme
+une donnée métier. La perte du volume ou de la clé affecte seulement la vitesse.
+
+Admissibilité : prescriptions >=64 Kio et résumé inférieur à la moitié de la
+source ; toute la collection du dossier doit pouvoir être conservée pour éviter
+la relecture systématique des petits programmes manquants à chaque redémarrage.
+Une collection devenue mixte retire son cache exploitable à la prochaine lecture.
+Le cache n'est jamais la seule copie d'un programme ou d'un brouillon.
+
+Retour arrière : retirer les paramètres d'activation et redémarrer le backend.
+Aucune migration Firestore, aucune règle modifiée, aucune écriture de résumé dans
+Firestore, aucune purge d'appareil utilisateur. La suppression éventuelle du
+cache serveur privé ne doit viser que ce répertoire dédié, service arrêté ; elle
+n'est ni réalisée ni nécessaire dans ce lot.
+
+Risques restant à qualifier avant activation : économie monétaire selon région et
+trafic réellement facturé, rotation/distribution du secret, volume persistant et
+permissions de l'hébergement, exploitation multi-instance, entretien des fichiers
+après interruption. Les P0-3/P0-4 antérieurs ne sont pas résolus par ce mécanisme.

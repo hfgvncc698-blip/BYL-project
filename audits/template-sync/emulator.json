@@ -1,0 +1,18 @@
+{
+  "checks": [
+    "own missing marker readable",
+    "foreign read and client write denied",
+    "create event delivers revision",
+    "update event delivers revision",
+    "delete event delivers revision",
+    "changed revision invalidates template cache only; duplicate ignored",
+    "revoked profile denied"
+  ],
+  "snapshots": 4,
+  "signalWrites": 3,
+  "limits": [
+    "Trigger callback executed against emulator, not a deployed Cloud Functions event delivery",
+    "Snapshot documents are observed events, not actual billed reads; rules can add dependent reads",
+    "No production writes or deployment"
+  ]
+}

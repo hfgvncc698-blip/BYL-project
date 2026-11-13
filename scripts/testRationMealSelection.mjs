@@ -1,3 +1,4 @@
+import { LOCAL_MACROS_PER100_BY_LABEL } from "../src/utils/rationFoodNutrition.js";
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -13,7 +14,7 @@ assert.deepEqual(initialRationMeals(null,2604),['petit_dej','dejeuner','collatio
 assert.ok(initialRationMeals({values:{milk:{meals:{collation_1:100}}}},2000).includes('collation_matin'));
 const source = fs.readFileSync('src/components/RationAutoGenerator.jsx','utf8');
 const pure = source.slice(source.indexOf('const num ='),source.indexOf('/* ==================== Component'));
-const sandbox = { ...micros, ...context, ...rules, ...overrides, selectedMealDistribution, i18n:{t:(_key,fallback)=>fallback} };
+const sandbox = { LOCAL_MACROS_PER100_BY_LABEL, ...micros, ...context, ...rules, ...overrides, selectedMealDistribution, i18n:{t:(_key,fallback)=>fallback} };
 vm.createContext(sandbox);
 vm.runInContext(pure+`;globalThis.engine={buildExcelLikeDefaultSlots,MEAL_KEYS,SLOTS_BY_MEAL,makeSlotId,parseRegimes,parsePathologies,capsForContext,estimateSlotKcal,applyCapsToSlots};`,sandbox);
 const e=sandbox.engine;

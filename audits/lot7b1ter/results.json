@@ -1,0 +1,322 @@
+{
+  "results": [
+    {
+      "name": "Firebase login and server-authorized synthetic program",
+      "passed": true,
+      "durationMs": 56.90358400000014
+    },
+    {
+      "name": "warm consultation adds no server request",
+      "passed": true,
+      "durationMs": 1.289792000000034
+    },
+    {
+      "name": "network cut retains program and pending draft",
+      "passed": true,
+      "durationMs": 305.59179200000017
+    },
+    {
+      "name": "reconnection automatically saves draft, no program publication",
+      "passed": true,
+      "durationMs": 114.3755000000001
+    },
+    {
+      "name": "retry same operation is idempotent",
+      "passed": true,
+      "durationMs": 17.34229200000027
+    },
+    {
+      "name": "remote version conflict preserves local edit",
+      "passed": true,
+      "durationMs": 216.8695000000007
+    },
+    {
+      "name": "remote draft conflict preserves both versions",
+      "passed": true,
+      "durationMs": 207.89108300000044
+    },
+    {
+      "name": "save failure remains explicit and retry recovers",
+      "passed": true,
+      "durationMs": 291.62566700000025
+    },
+    {
+      "name": "late response rejected after logout",
+      "passed": true,
+      "durationMs": 103.41412499999933
+    },
+    {
+      "name": "account B cannot use UI or application API to read A",
+      "passed": true,
+      "durationMs": 14.106416999999965
+    },
+    {
+      "name": "second tab account transition locks first tab",
+      "passed": true,
+      "durationMs": 16.13629200000014
+    },
+    {
+      "name": "role mutation with old token refused",
+      "passed": true,
+      "durationMs": 10.77179200000046
+    },
+    {
+      "name": "role current server check rejects old session",
+      "passed": true,
+      "durationMs": 15.082124999999905
+    },
+    {
+      "name": "club mutation with old token refused",
+      "passed": true,
+      "durationMs": 10.722791000000143
+    },
+    {
+      "name": "club current server check rejects old session",
+      "passed": true,
+      "durationMs": 12.894125000000713
+    },
+    {
+      "name": "revocation mutation with old token refused",
+      "passed": true,
+      "durationMs": 10.257292000000234
+    },
+    {
+      "name": "revocation current server check rejects old session",
+      "passed": true,
+      "durationMs": 12.479749999999513
+    },
+    {
+      "name": "old token after Auth disable refused by API",
+      "passed": true,
+      "durationMs": 7.47137500000008
+    },
+    {
+      "name": "fresh prototype writes no private persistent browser storage",
+      "passed": true,
+      "durationMs": 2.588416999999936
+    },
+    {
+      "name": "legacy nutrition remains raw-readable (known blocker, no migration)",
+      "passed": true,
+      "durationMs": 0.9835839999996097
+    },
+    {
+      "name": "virtual WebAuthn PRF repeatable key and distinct credential isolation",
+      "passed": true,
+      "durationMs": 543.7916660000001
+    },
+    {
+      "name": "authenticator without PRF fails closed",
+      "passed": true,
+      "durationMs": 156.9939999999997
+    },
+    {
+      "name": "full Chrome restart offline cannot recover session or draft",
+      "passed": true,
+      "durationMs": 512.8795419999997
+    },
+    {
+      "name": "restart online begins locked; server draft recovered only by A",
+      "passed": true,
+      "durationMs": 16.851290999999947
+    },
+    {
+      "name": "legacy nutrition survives restart unchanged",
+      "passed": true,
+      "durationMs": 1.1072909999993499
+    }
+  ],
+  "counters": {
+    "http": 27,
+    "sdkOperations": 24,
+    "sdkReads": 80,
+    "documents": 68,
+    "writes": 4
+  },
+  "baseline": {
+    "http": 1,
+    "sdkOperations": 1,
+    "sdkReads": 3,
+    "documents": 2,
+    "writes": 0
+  },
+  "afterSave": {
+    "http": 2,
+    "sdkOperations": 2,
+    "sdkReads": 7,
+    "documents": 4,
+    "writes": 2
+  },
+  "timings": [
+    {
+      "path": "load",
+      "ms": 47.099999994039536,
+      "bytes": 163,
+      "status": 200
+    },
+    {
+      "path": "save",
+      "ms": 30.099999994039536,
+      "bytes": 14,
+      "status": 200
+    },
+    {
+      "path": "save",
+      "ms": 16.099999994039536,
+      "bytes": 14,
+      "status": 200
+    },
+    {
+      "path": "save",
+      "ms": 22.799999982118607,
+      "bytes": 28,
+      "status": 409
+    },
+    {
+      "path": "load",
+      "ms": 13.900000005960464,
+      "bytes": 334,
+      "status": 200
+    },
+    {
+      "path": "save",
+      "ms": 9.699999988079071,
+      "bytes": 28,
+      "status": 409
+    },
+    {
+      "path": "load",
+      "ms": 13.200000017881393,
+      "bytes": 334,
+      "status": 200
+    },
+    {
+      "path": "save",
+      "ms": 6.0999999940395355,
+      "bytes": 33,
+      "status": 503
+    },
+    {
+      "path": "save",
+      "ms": 56.19999998807907,
+      "bytes": 14,
+      "status": 200
+    },
+    {
+      "path": "load",
+      "ms": 8.599999994039536,
+      "bytes": 18,
+      "status": 403
+    },
+    {
+      "path": "load",
+      "ms": 12.199999988079071,
+      "bytes": 334,
+      "status": 200
+    },
+    {
+      "path": "load",
+      "ms": 12.099999994039536,
+      "bytes": 334,
+      "status": 200
+    },
+    {
+      "path": "load",
+      "ms": 13.299999982118607,
+      "bytes": 18,
+      "status": 403
+    },
+    {
+      "path": "load",
+      "ms": 11.399999976158142,
+      "bytes": 334,
+      "status": 200
+    },
+    {
+      "path": "load",
+      "ms": 10.699999988079071,
+      "bytes": 18,
+      "status": 403
+    },
+    {
+      "path": "load",
+      "ms": 11.100000023841858,
+      "bytes": 334,
+      "status": 200
+    },
+    {
+      "path": "load",
+      "ms": 10.300000011920929,
+      "bytes": 18,
+      "status": 403
+    },
+    {
+      "path": "load",
+      "ms": 13.599999994039536,
+      "bytes": 334,
+      "status": 200
+    },
+    {
+      "path": "load",
+      "ms": 11.900000005960464,
+      "bytes": 18,
+      "status": 403
+    }
+  ],
+  "heap": {
+    "usedSize": 3300396,
+    "totalSize": 4636672,
+    "embedderHeapUsedSize": 2101480,
+    "backingStorageSize": 1742014
+  },
+  "version": "Chrome/157.0.8103.50",
+  "capability": {
+    "secure": true,
+    "publicKeyCredential": true,
+    "capabilities": {
+      "conditionalCreate": true,
+      "conditionalGet": true,
+      "extension:appid": true,
+      "extension:appidExclude": true,
+      "extension:cmtgKey": false,
+      "extension:credBlob": true,
+      "extension:credProps": true,
+      "extension:credentialProtectionPolicy": true,
+      "extension:crossDeviceFallbackUrl": false,
+      "extension:enforceCredentialProtectionPolicy": true,
+      "extension:getCredBlob": true,
+      "extension:hmacCreateSecret": true,
+      "extension:largeBlob": true,
+      "extension:minPinLength": true,
+      "extension:payment": true,
+      "extension:prf": true,
+      "hybridTransport": true,
+      "immediateGet": true,
+      "passkeyPlatformAuthenticator": true,
+      "relatedOrigins": true,
+      "signalAllAcceptedCredentials": true,
+      "signalCurrentUserDetails": true,
+      "signalUnknownCredential": true,
+      "userVerifyingPlatformAuthenticator": true
+    }
+  },
+  "prf": {
+    "enabled": true,
+    "recovered": true,
+    "otherDenied": true
+  },
+  "limits": [
+    "A/D prototype only",
+    "No production integration",
+    "No device authenticator qualified",
+    "Legacy cache remains exposed"
+  ],
+  "sourceBase": "5bdcd1b",
+  "command": "PATH=\"/opt/homebrew/opt/openjdk@21/bin:$PATH\" node scripts/runOfflineDraftLot7B1Ter.cjs",
+  "exitCode": 0,
+  "sourceSha256": {
+    "scripts/runOfflineDraftLot7B1Ter.cjs": "0d97dd397090743b58c61c8004f5773395a8c6144e308105cc9329a78cc81741",
+    "scripts/testOfflineDraftLot7B1Ter.cjs": "f50e2aa9227ba410c7f825684f7b7e187b9963bdc3144896d42fedab0b6ba763",
+    "scripts/fixtures/lot7b1ter/session.js": "4dcba518805f87f38379b9299db8da7f05ce80539dd60d4d323c63b88182ee57"
+  }
+}

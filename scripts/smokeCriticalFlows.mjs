@@ -308,7 +308,7 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       bubble.includes('bg="red.500"') &&
       bubble.includes('messaging.unread') &&
       bubble.includes('MESSAGING_NOTIFICATION_STORAGE_PREFIX') &&
-      bubble.includes('localStorage.setItem(') &&
+      bubble.includes('localSessionStorage.setItem(') &&
       bubble.includes('notificationTime(version)<=notificationTime(old)') &&
       bubble.includes('duration:1800') &&
       navbar.includes('link.to === ROUTES.messaging && messagingUnreadCount'),
@@ -423,7 +423,7 @@ check("geolocation respects permission renewal and never reuses a saved place", 
   assert.ok(
     geolocation.includes("const clearCachedGeo") &&
       geolocation.includes("maximumAge: 0") &&
-      geolocation.includes('localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) !== GEO_PAGE_LOAD_ID') &&
+      geolocation.includes('localSessionStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) !== GEO_PAGE_LOAD_ID') &&
       geolocation.includes("navigator.geolocation.watchPosition"),
     "Every app opening must discard stale coordinates before acquiring a genuinely current position"
   );
@@ -608,7 +608,7 @@ check("coach dashboard paints cached clients before expensive enrichment", () =>
     "The dashboard must hydrate a lightweight partial cache while refreshing it in the background"
   );
   assert.ok(
-    dashboard.includes("loadProgramBatches(source,effectiveCoachUid,quickDashboardClients)") &&
+    /loadProgramBatches\(source,effectiveCoachUid,quickDashboardClients(?:,|\))/.test(dashboard) &&
       dashboard.includes("primaryClientSnapPromise.then") &&
       dashboard.includes("setLoadingData(false)"),
     "The first client query must release the loading state without waiting for every client detail"
@@ -1135,7 +1135,7 @@ check("client account creation and identity resolution are fail-safe", () => {
   );
   assert.ok(
     authContext.includes("await syncAccountLanguage(data)") &&
-      authContext.includes('localStorage.setItem("i18nextLng", langCode)'),
+      authContext.includes('localSessionStorage.setItem("i18nextLng", langCode)'),
     "The client account language must be applied immediately after login"
   );
   assert.ok(
@@ -1549,7 +1549,7 @@ check("nutrition workflow uses the requested default modes", () => {
   );
 });
 
-check("program active weeks are editable and saved independently", () => {
+check("program active weeks are editable and included in private drafts", () => {
   const builder = read("src/components/ProgramBuilder.jsx");
   const durationUtils = read("src/utils/programDuration.js");
   const weekProgressConsumers = [
@@ -1564,10 +1564,10 @@ check("program active weeks are editable and saved independently", () => {
     "The active-weeks input must allow clearing and replacing the current value"
   );
   assert.ok(
-    builder.includes("const saveRequest = updateDoc(programDocRef") &&
-      builder.includes("durationWeeks: nextWeeks") &&
-      builder.includes("setActiveWeeksDirty(false)"),
-    "Active weeks must use a focused background save instead of rewriting the whole program"
+    builder.includes("const serverDraft = useProgramDraft(") &&
+      builder.includes("hasModifications||activeWeeksDirty") &&
+      builder.includes("durationWeeks: sanitizeActiveWeeks(programActiveWeeks)"),
+    "Active weeks must be autosaved as a private draft and published only by an explicit confirmed save"
   );
   assert.ok(
     builder.includes("return useMemo(() =>") &&
@@ -1908,11 +1908,11 @@ check("action loading preserves write confirmation and client synchronization", 
   const dashboard = read("src/components/CoachDashboard.jsx");
   const nutrition = read("src/components/NutritionQuickCreateModal.jsx");
   assert.match(builder, /if \(savingRef.current\) return;/);
-  assert.match(builder, /localEditTimeRef.current === savedEditTime/);
+  assert.match(builder, /if \(localEditTimeRef.current !== savedEditTime\) return;/);
   assert.equal((builder.match(/localEditTimeRef.current !== savedEditTime/g) || []).length, 2);
   assert.match(builder, /localEditTimeRef.current !== created.editVersion/);
   assert.match(builder, /createProgramCreationOperation/);
-  assert.equal((builder.match(/await syncSavedProgram\(programId\)/g) || []).length, 4, 'including the independent active-weeks save');
+  assert.equal((builder.match(/await syncSavedProgram\(programId\)/g) || []).length, 2, 'only explicit publication synchronizes assigned programs');
   assert.ok(!builder.includes('}, 1200)') && !builder.includes('}, 500)'), 'no artificial navigation delay after confirmed save');
   assert.match(dashboard, /source\.purge\(clientId\)/);
   assert.match(dashboard, /return fetchData\(\{silent:true\}\)/);

@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 import { EXERCISE_PARAMETER_KEYS } from "../utils/exerciseParameterOrder";
 import { commitSessionFeedback } from "../utils/commitSessionFeedback";
 import { apiFetch } from "../utils/api";
@@ -183,10 +184,10 @@ function getProgrammeDocRef({ clientId, programId }) {
 
 function getCachedVisitLocation() {
   try {
-    const country = String(localStorage.getItem("BYL_COUNTRY") || "").trim().toUpperCase();
-    const city = String(localStorage.getItem("BYL_CITY") || "").trim();
-    const lat = Number(localStorage.getItem("BYL_LAT"));
-    const lng = Number(localStorage.getItem("BYL_LNG"));
+    const country = String(localSessionStorage.getItem("BYL_COUNTRY") || "").trim().toUpperCase();
+    const city = String(localSessionStorage.getItem("BYL_CITY") || "").trim();
+    const lat = Number(localSessionStorage.getItem("BYL_LAT"));
+    const lng = Number(localSessionStorage.getItem("BYL_LNG"));
     const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
     const hasLabel = !!country || !!city;
     if (!hasCoords && !hasLabel) return null;
@@ -468,7 +469,7 @@ function useStopwatchTimer() {
 function readElapsedTimerState(storageKey) {
   if (!storageKey || typeof window === "undefined") return { startedAt: 0, stoppedAt: 0 };
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+    const parsed = JSON.parse(localSessionStorage.getItem(storageKey) || "{}");
     const startedAt = Number(parsed?.startedAt || 0);
     const stoppedAt = Number(parsed?.stoppedAt || 0);
     if (!Number.isFinite(startedAt) || startedAt <= 0) return { startedAt: 0, stoppedAt: 0 };
@@ -484,14 +485,14 @@ function readElapsedTimerState(storageKey) {
 function writeElapsedTimerState(storageKey, state) {
   if (!storageKey || typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(storageKey, JSON.stringify(state || {}));
+    localSessionStorage.setItem(storageKey, JSON.stringify(state || {}));
   } catch {}
 }
 
 function clearElapsedTimerState(storageKey) {
   if (!storageKey || typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(storageKey);
+    localSessionStorage.removeItem(storageKey);
   } catch {}
 }
 
@@ -2731,7 +2732,7 @@ function SessionPlayerBody({accessScope}) {
   const [autoFlowEnabled, setAutoFlowEnabled] = useState(() => {
     try {
       if (typeof window === "undefined") return true;
-      const stored = window.localStorage.getItem("BYL_PLAYER_AUTO_FLOW");
+      const stored = localSessionStorage.getItem("BYL_PLAYER_AUTO_FLOW");
       return stored == null ? true : stored !== "false";
     } catch {
       return true;
@@ -2740,7 +2741,7 @@ function SessionPlayerBody({accessScope}) {
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
       if (typeof window === "undefined") return true;
-      return window.localStorage.getItem("BYL_PLAYER_SOUND") !== "false";
+      return localSessionStorage.getItem("BYL_PLAYER_SOUND") !== "false";
     } catch {
       return true;
     }
@@ -2748,7 +2749,7 @@ function SessionPlayerBody({accessScope}) {
   const [hapticsEnabled, setHapticsEnabled] = useState(() => {
     try {
       if (typeof window === "undefined") return true;
-      return window.localStorage.getItem("BYL_PLAYER_HAPTICS") !== "false";
+      return localSessionStorage.getItem("BYL_PLAYER_HAPTICS") !== "false";
     } catch {
       return true;
     }
@@ -2795,19 +2796,19 @@ function SessionPlayerBody({accessScope}) {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem("BYL_PLAYER_AUTO_FLOW", autoFlowEnabled ? "true" : "false");
+      localSessionStorage.setItem("BYL_PLAYER_AUTO_FLOW", autoFlowEnabled ? "true" : "false");
     } catch {}
   }, [autoFlowEnabled]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem("BYL_PLAYER_SOUND", soundEnabled ? "true" : "false");
+      localSessionStorage.setItem("BYL_PLAYER_SOUND", soundEnabled ? "true" : "false");
     } catch {}
   }, [soundEnabled]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem("BYL_PLAYER_HAPTICS", hapticsEnabled ? "true" : "false");
+      localSessionStorage.setItem("BYL_PLAYER_HAPTICS", hapticsEnabled ? "true" : "false");
     } catch {}
   }, [hapticsEnabled]);
 

@@ -74,6 +74,8 @@ function createHarness({ permission = "granted", permissionsSupported = true, st
       }
     },
   };
+  context.localSessionStorage = context.localStorage;
+  context.tabSessionStorage = context.sessionStorage;
   vm.createContext(context);
   vm.runInContext(`${source}\nglobalThis.runHook = useGeolocation;`, context);
 
@@ -397,12 +399,12 @@ await test("blocked browsers never receive a native request, even at a new login
 
 await test("browser-block help is shown once per login, including after a reload", async () => {
   const source = (await readFile(new URL("../src/utils/geolocationSession.js", import.meta.url), "utf8"))
-    .replace(/export /g, "");
+    .replace(/^import .*;\n/gm, "").replace(/export /g, "");
   const stored = new Map();
   const context = vm.createContext({ Date, Math, localStorage: {
     getItem: key => stored.get(key), setItem: (key, value) => stored.set(key, value),
   } });
-  const claim = () => vm.runInContext(`${source}; claimGeolocationHelp`, vm.createContext({ Date, Math, localStorage: context.localStorage }));
+  const claim = () => vm.runInContext(`${source}; claimGeolocationHelp`, vm.createContext({ Date, Math, localSessionStorage: context.localStorage }));
   assert.equal(claim()("user:login-1"), true);
   assert.equal(claim()("user:login-1"), false);
   assert.equal(claim()("user:login-2"), true);

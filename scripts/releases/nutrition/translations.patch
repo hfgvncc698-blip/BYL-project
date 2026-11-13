@@ -1,0 +1,379 @@
+--- a/src/utils/ciqualLoader.js
++++ b/src/utils/ciqualLoader.js
+@@ -1,3 +1,4 @@
++import { registerCiqualTranslations, ciqualFoodAliases } from "./nutritionFoodI18n.js";
+ // src/utils/ciqualLoader.js
+ let _cache = null;
+ 
+@@ -7,7 +8,8 @@
+     .normalize("NFD")
+     .replace(/[\u0300-\u036f]/g, "")
+     .replace(/[’']/g, " ")
+-    .replace(/[^a-z0-9]+/g, " ")
++    .replace(/[œŒ]/g, "oe")
++    .replace(/[^\p{L}\p{N}]+/gu, " ")
+     .trim()
+     .replace(/\s+/g, " ");
+ 
+@@ -15,6 +17,7 @@
+ 
+ const canonicalToken = (token) => {
+   const aliases = {
++    eggs: "egg", oeufs: "oeuf", apples: "apple", raw: "cru", cooked: "cuit",
+     pates: "pate",
+     crue: "cru",
+     crues: "cru",
+@@ -23,7 +26,8 @@
+     cuites: "cuit",
+     cuits: "cuit",
+   };
+-  return aliases[token] || token;
++  const canonical = aliases[token] || token;
++  return /^ال[\u0621-\u064a]{2,}$/.test(canonical) ? canonical.slice(2) : canonical;
+ };
+ 
+ const canonicalTokens = (value) => normalize(value).split(" ").filter(Boolean).map(canonicalToken);
+@@ -48,8 +52,9 @@
+   };
+ };
+ 
+-function relevanceScore(item, query, intent) {
+-  const rawName = getFoodName(item);
++function relevanceScore(item, query, intent, alias) {
++  const rawName = alias || getFoodName(item);
++  const sourceCandidate = normalize(getFoodName(item));
+   const candidate = normalize(rawName);
+   if (!candidate) return null;
+ 
+@@ -62,7 +67,7 @@
+   if (!containsAllTokens(candidateTokens, queryTokens)) return null;
+ 
+   const phraseIndex = tokenSequenceIndex(candidateTokens, queryTokens);
+-  const mainTokens = canonicalTokens(rawName.split(/[,;(]/, 1)[0]);
++  const mainTokens = canonicalTokens(rawName.split(/[,;،(]/, 1)[0]);
+   const mainName = mainTokens.join(" ");
+   const canonicalQuery = queryTokens.join(" ");
+   const canonicalCandidate = candidateTokens.join(" ");
+@@ -87,11 +92,11 @@
+ 
+   // À pertinence lexicale comparable, les aliments simples passent avant
+   // leurs versions séchées, concentrées ou déjà intégrées à une préparation.
+-  if (/\b(cru|crue|crus|crues)\b/.test(candidate)) score += 1_000;
+-  if (/\bnature\b/.test(candidate)) score += 350;
+-  if (/\b(seche|sechee|seches|deshydrate|deshydratee|concentre|concentree)\b/.test(candidate)) score -= 1_100;
+-  if (/\b(puree|compote|soupe|salade|tarte|jus|nectar)\b/.test(candidate)) score -= 650;
+-  if (/\b(preemballe|preemballee|appertise|appertisee)\b/.test(candidate)) score -= 400;
++  if (/\b(cru|crue|crus|crues)\b/.test(sourceCandidate)) score += 1_000;
++  if (/\bnature\b/.test(sourceCandidate)) score += 350;
++  if (/\b(seche|sechee|seches|deshydrate|deshydratee|concentre|concentree)\b/.test(sourceCandidate)) score -= 1_100;
++  if (/\b(puree|compote|soupe|salade|tarte|jus|nectar)\b/.test(sourceCandidate)) score -= 650;
++  if (/\b(preemballe|preemballee|appertise|appertisee)\b/.test(sourceCandidate)) score -= 400;
+ 
+   // Pour un terme court comme « pomme », un nom composé (« pomme de terre »)
+   // est moins pertinent qu'un aliment dont « pomme » est le nom principal.
+@@ -106,13 +111,28 @@
+   return score;
+ }
+ 
++let loading;
+ export async function loadCiqual() {
+   if (_cache) return _cache;
+-  const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
+-  if (!res.ok) throw new Error("Impossible de charger ciqual_2025.json");
+-  const data = await res.json();
+-  _cache = Array.isArray(data) ? data : [];
+-  return _cache;
++  if (loading) return loading;
++  loading = (async () => {
++    const read = async path => {
++      const res = await fetch(path, { cache: "force-cache" });
++      if (!res.ok) throw new Error(`Impossible de charger ${path}`);
++      return res.json();
++    };
++    const [rows, results] = await Promise.all([
++      read("/ciqual_2025.json"),
++      Promise.allSettled(["en", "es", "de", "it", "ar", "ru"].map(lang => read(`/ciqual-locales/${lang}.json`))),
++    ]);
++    const catalogs = results.filter(result => result.status === "fulfilled").map(result => result.value);
++    registerCiqualTranslations(rows, Object.fromEntries(catalogs.map(catalog => [catalog.language, catalog])));
++    // Keep the original foods available during a translation download failure;
++    // a later call retries the missing catalogs instead of caching an incomplete load.
++    if (catalogs.length === results.length) _cache = rows;
++    return rows;
++  })().finally(() => { loading = null; });
++  return loading;
+ }
+ 
+ export function searchCiqual(list, q, limit = 20) {
+@@ -121,7 +141,10 @@
+   const intent = queryFoodIntent(q);
+ 
+   return (list || [])
+-    .map((item, index) => ({ item, index, score: relevanceScore(item, nq, intent) }))
++    .map((item, index) => {
++      const scores = ciqualFoodAliases(item).map(name => relevanceScore(item, nq, intent, name)).filter(score => score != null);
++      return { item, index, score: scores.length ? Math.max(...scores) : null };
++    })
+     .filter((entry) => entry.score != null)
+     .sort((a, b) => b.score - a.score || a.index - b.index)
+     .slice(0, limit)
+--- a/src/utils/nutritionFoodI18n.js
++++ b/src/utils/nutritionFoodI18n.js
+@@ -1,3 +1,4 @@
++import rationTranslations from "./rationFoodTranslations.js";
+ const stripDiacritics = (value) =>
+   String(value || "")
+     .normalize("NFD")
+@@ -547,12 +548,41 @@
+   "sans gluten": { en: "gluten-free", es: "sin gluten", de: "glutenfrei", it: "senza glutine", ar: "خالٍ من الغلوتين", ru: "без глютена" },
+ };
+ 
++const catalogByName = new Map();
++const catalogByCode = new Map();
++export function registerCiqualTranslations(rows, catalogs) {
++  for (const row of rows) {
++    const labels = { fr: row.name };
++    for (const [lang, catalog] of Object.entries(catalogs)) {
++      if (catalog.names?.[row.code]) labels[lang] = catalog.names[row.code];
++    }
++    catalogByCode.set(String(row.code), labels);
++    for (const label of Object.values(labels)) catalogByName.set(normalizeFoodKey(label), labels);
++  }
++}
++const rationByName = new Map();
++for (const labels of rationTranslations) {
++  for (const label of Object.values(labels)) rationByName.set(normalizeFoodKey(label), labels);
++}
++export function localizedFoodName(food, language = "fr") {
++  const lang = language.split("-")[0];
++  const name = typeof food === "string" ? food : food?.name || food?.label || "";
++  const code = typeof food === "object" ? food?.ciqualCode || food?.code : "";
++  return catalogByCode.get(String(code))?.[lang] || translateNutritionFoodName(name, lang);
++}
++export function ciqualFoodAliases(food) {
++  return Object.values(catalogByCode.get(String(food.code)) || { fr: food.name });
++}
++
+ export const translateNutritionFoodName = (name, language = "fr") => {
+   const lang = String(language || "fr").split("-")[0];
+-  if (!name || lang === "fr") return name;
++  if (!name) return name;
+ 
+   const raw = String(name).trim();
+   const key = normalizeFoodKey(raw);
++  const catalog = rationByName.get(key)?.[lang] || catalogByName.get(key)?.[lang];
++  if (catalog) return catalog;
++  if (lang === "fr") return name;
+   const direct = baseTranslations[key]?.[lang];
+   if (direct) return direct;
+ 
+@@ -564,9 +594,5 @@
+     if (base && translations[lang]) return `${base} ${translations[lang]}`;
+   }
+ 
+-  const partial = Object.entries(baseTranslations)
+-    .filter(([source]) => source.length >= 6 && key.includes(source))
+-    .sort((a, b) => b[0].length - a[0].length)[0];
+-
+-  return partial?.[1]?.[lang] || raw;
++  return raw;
+ };
+--- a/src/components/CiqualFoodPicker.jsx
++++ b/src/components/CiqualFoodPicker.jsx
+@@ -1,3 +1,6 @@
++import { useTranslation } from "react-i18next";
++import { localizedFoodName } from "../utils/nutritionFoodI18n";
++import { loadCiqual, searchCiqual } from "../utils/ciqualLoader";
+ import NutritionMicroPanel from "./NutritionMicroPanel";
+ import { targetForMicroNutrient } from "../utils/rationMicroTargets";
+  
+@@ -408,6 +411,8 @@
+   );
+ 
+   /* ===== State ===== */
++  const { i18n: foodI18n } = useTranslation();
++  const foodLabel = food => localizedFoodName(food, foodI18n.resolvedLanguage || foodI18n.language);
+   const [ciqual, setCiqual] = useState([]);
+   const [byCode, setByCode] = useState({});
+   const [loading, setLoading] = useState(false);
+@@ -431,8 +436,7 @@
+     (async () => {
+       setLoading(true);
+       try {
+-        const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
+-        const data = await res.json();
++        const data = await loadCiqual();
+         const map = {};
+         data.forEach((r) => (map[r.code] = r));
+         setCiqual(data);
+@@ -502,8 +506,7 @@
+ 
+   const results = useMemo(() => {
+     if (!query) return [];
+-    const q = normalize(query);
+-    return ciqual.filter((r) => normalize(r.name).includes(q)).slice(0, 25);
++    return searchCiqual(ciqual, query, 25);
+   }, [query, ciqual]);
+ 
+   const addFood = (row) => {
+@@ -958,7 +961,7 @@
+                 onPointerDown={() => addFood(r)}
+               >
+                 <Text fontWeight="600" noOfLines={2}>
+-                  {r.name}
++                  {foodLabel(r)}
+                 </Text>
+               </Box>
+             ))}
+@@ -1054,7 +1057,7 @@
+                           >
+                             <HStack justify="space-between" align="start">
+                               <Text fontWeight="800" lineHeight="1.2" pr={2} noOfLines={2}>
+-                                {it.name}
++                                {foodLabel(it)}
+                               </Text>
+                               <IconButton
+                                 size="sm"
+@@ -1164,7 +1167,7 @@
+                             const n = r?.nutrients || {};
+                             return (
+                               <Tr key={it.id}>
+-                                <Td minW="260px">{it.name}</Td>
++                                <Td minW="260px">{foodLabel(it)}</Td>
+                                 <Td minW="170px">
+                                   <Select
+                                     value={it.meal || "dejeuner"}
+--- a/src/components/ClientNutritionDailyJournal.jsx
++++ b/src/components/ClientNutritionDailyJournal.jsx
+@@ -62,6 +62,7 @@
+   nutritionDateKey,
+   roundNutritionTotals,
+ } from "../utils/nutritionDailyLog";
++import { localizedFoodName } from "../utils/nutritionFoodI18n";
+ import { loadCiqual, searchCiqual } from "../utils/ciqualLoader";
+ import i18n from "../i18n/index";
+ import { manualRationDefaultQuantity } from "../utils/manualRationNutrition";
+@@ -221,6 +222,7 @@
+   const handledCoachFeedbackFocusRef = useRef(false);
+   const coachFeedbackSectionRef = useRef(null);
+   const locale = translationI18n.resolvedLanguage || translationI18n.language || "fr";
++  const foodLabel = (food) => localizedFoodName(food, locale);
+   const translatedMealLabel = (mealKey, fallback = "") => {
+     const keyByMeal = {
+       petit_dej: "breakfast",
+@@ -524,7 +526,7 @@
+       unit: rationReference?.unit || defaultReference?.unit || "g",
+       nutritionPer100: ciqualNutritionPer100(row),
+     }));
+-    setFoodQuery(row.name || "");
++    setFoodQuery(foodLabel(row));
+   };
+ 
+   const selectRationFood = (option, mealKey = "") => {
+@@ -578,7 +580,7 @@
+                 colorScheme={isSelected ? "blue" : "gray"}
+                 onClick={() => selectRationFood(option, mealKey)}
+               >
+-                {option.label}
++                {foodLabel(option.sourceLabel || option.label)}
+               </Button>
+             );
+           })}
+@@ -746,12 +748,12 @@
+                           minW={0}
+                         >
+                           <HStack spacing={2}>
+-                            <Text noOfLines={2}>{entry.name}</Text>
++                            <Text noOfLines={2}>{foodLabel(entry)}</Text>
+                             {entry.source === "extra" ? <Badge size="sm" borderRadius="full" colorScheme="purple">{t("clientNutritionJournal.addition")}</Badge> : null}
+                           </HStack>
+                         </Checkbox>
+                         <InputGroup size="sm">
+-                          <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: entry.name })} />
++                          <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: foodLabel(entry) })} />
+                           <InputRightElement color={theme.mutedText} fontSize="xs" pointerEvents="none">{entry.unit || "g"}</InputRightElement>
+                         </InputGroup>
+                       </Grid>
+@@ -794,14 +796,14 @@
+                         const per100 = ciqualNutritionPer100(row);
+                         return (
+                           <Box as="button" type="button" key={row.code} w="full" textAlign="left" px={3} py={2} borderBottomWidth="1px" borderBottomColor={theme.borderColor} _hover={{ bg: theme.surfaceBg }} onClick={() => selectCiqualFood(row, currentMeal?.key)}>
+-                            <Text fontWeight="800" fontSize="sm">{row.name}</Text>
++                            <Text fontWeight="800" fontSize="sm">{foodLabel(row)}</Text>
+                             <Text fontSize="xs" color={theme.mutedText}>{Math.round(per100.kcal)} kcal · {t("coachNutritionJournal.macroShort.protein")} {per100.p.toFixed(1)} g · {t("coachNutritionJournal.macroShort.fat")} {per100.f.toFixed(1)} g · {t("coachNutritionJournal.macroShort.carbs")} {per100.c.toFixed(1)} g / 100 g</Text>
+                           </Box>
+                         );
+                       })}
+                     </Box>
+                   ) : null}
+-                  {hasSelectedFood ? <HStack borderWidth="1px" borderColor={theme.borderColor} borderRadius="12px" py={2} px={3} justify="space-between" gap={3}><Box minW={0}><Text fontWeight="900" fontSize="sm" noOfLines={1}>{extra.name}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.selectedFood")}</Text></Box></HStack> : null}
++                  {hasSelectedFood ? <HStack borderWidth="1px" borderColor={theme.borderColor} borderRadius="12px" py={2} px={3} justify="space-between" gap={3}><Box minW={0}><Text fontWeight="900" fontSize="sm" noOfLines={1}>{foodLabel(extra)}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.selectedFood")}</Text></Box></HStack> : null}
+                   {extra.nutritionPer100 ? (() => {
+                     const factor = safeNumber(extra.actualQuantity) / 100;
+                     return <Text fontSize="sm" color={theme.mutedText}>{t("clientNutritionJournal.forThisQuantity")} <Text as="span" fontWeight="900" color={theme.textColor}>{Math.round(extra.nutritionPer100.kcal * factor)} kcal · {t("coachNutritionJournal.macroShort.protein")} {(extra.nutritionPer100.p * factor).toFixed(1)} g · {t("coachNutritionJournal.macroShort.fat")} {(extra.nutritionPer100.f * factor).toFixed(1)} g · {t("coachNutritionJournal.macroShort.carbs")} {(extra.nutritionPer100.c * factor).toFixed(1)} g</Text></Text>;
+@@ -924,10 +926,10 @@
+                         fontSize="sm"
+                         minW={0}
+                       >
+-                        <Text noOfLines={2}>{entry.name}</Text>
++                        <Text noOfLines={2}>{foodLabel(entry)}</Text>
+                       </Checkbox>
+                       <InputGroup size="sm">
+-                        <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: entry.name })} />
++                        <Input type="number" min={0} pr="30px" value={entry.actualQuantity ?? ""} onChange={(event) => replaceEntry(entry.id, { actualQuantity: event.target.value })} onBlur={() => persist(entries)} isDisabled={!entry.eaten} borderRadius="full" aria-label={t("clientNutritionJournal.consumedQuantityAria", { food: foodLabel(entry) })} />
+                         <InputRightElement color={theme.mutedText} fontSize="xs" pointerEvents="none">{entry.unit || "g"}</InputRightElement>
+                       </InputGroup>
+                     </Grid>
+@@ -999,7 +1001,7 @@
+                   const per100 = ciqualNutritionPer100(row);
+                   return (
+                     <Box as="button" type="button" key={row.code} w="full" textAlign="left" px={3} py={2.5} bg={theme.surfaceBgStrong} borderBottomWidth="1px" borderBottomColor={theme.borderColor} _hover={{ bg: "rgba(37,124,255,0.08)" }} onClick={() => selectCiqualFood(row, extra.mealKey)}>
+-                      <Text fontWeight="800" fontSize="sm">{row.name}</Text>
++                      <Text fontWeight="800" fontSize="sm">{foodLabel(row)}</Text>
+                       <Text fontSize="xs" color={theme.mutedText}>{Math.round(per100.kcal)} kcal · {t("coachNutritionJournal.macroShort.protein")} {per100.p.toFixed(1)} g · {t("coachNutritionJournal.macroShort.fat")} {per100.f.toFixed(1)} g · {t("coachNutritionJournal.macroShort.carbs")} {per100.c.toFixed(1)} g / 100 g</Text>
+                     </Box>
+                   );
+@@ -1010,7 +1012,7 @@
+           {hasSelectedFood ? (
+             <Box mt={3} borderWidth="1px" borderColor="rgba(37,124,255,0.35)" bg="rgba(37,124,255,0.06)" borderRadius="16px" p={3}>
+               <HStack justify="space-between" align="start" gap={3}>
+-                <Box><Text fontWeight="900">{extra.name}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.ciqualReference", { code: extra.ciqualCode })}</Text></Box>
++                <Box><Text fontWeight="900">{foodLabel(extra)}</Text><Text fontSize="xs" color={theme.mutedText}>{extra.rationFoodKey ? t("clientNutritionJournal.fromManualRation") : t("clientNutritionJournal.ciqualReference", { code: extra.ciqualCode })}</Text></Box>
+                 <Button size="xs" variant="ghost" onClick={() => { setExtra(emptyExtra); setFoodQuery(""); }}>{t("clientNutritionJournal.change")}</Button>
+               </HStack>
+             </Box>
+@@ -1073,6 +1075,7 @@
+   const toast = useToast();
+   const theme = useNutritionTheme();
+   const locale = translationI18n.resolvedLanguage || translationI18n.language || "fr";
++  const foodLabel = (food) => localizedFoodName(food, locale);
+   const translatedMealLabel = (mealKey, fallback = "") => {
+     const keyByMeal = {
+       petit_dej: "breakfast",
+@@ -1447,7 +1450,7 @@
+                                             <Badge colorScheme={entry.eaten ? "green" : "gray"} borderRadius="full">{entry.eaten ? t("coachNutritionJournal.eaten") : t("coachNutritionJournal.notEaten")}</Badge>
+                                             {entry.source === "extra" ? <Badge colorScheme="purple" borderRadius="full">{t("coachNutritionJournal.clientAddition")}</Badge> : null}
+                                           </HStack>
+-                                          <Text mt={1} fontWeight="800" fontSize="sm">{entry.name}</Text>
++                                          <Text mt={1} fontWeight="800" fontSize="sm">{foodLabel(entry)}</Text>
+                                           {entry.source === "extra" && entry.ciqualCode ? <Text fontSize="xs" color={theme.mutedText}>CIQUAL {entry.ciqualCode}</Text> : null}
+                                         </Box>
+                                         <Box textAlign="right" flexShrink={0}>
+--- a/src/components/MenuJournalierFromRation.jsx
++++ b/src/components/MenuJournalierFromRation.jsx
+@@ -1,3 +1,4 @@
++import { loadCiqual as loadTranslatedCiqual } from "../utils/ciqualLoader";
+ import { hydrationReferenceText } from "../utils/nutritionHydration";
+ import { buildRationMeals } from "../utils/rationMenu";
+ import { useNavigationSave } from "../hooks/useNavigationSave";
+@@ -670,9 +671,7 @@
+     setCiqualLoading(true);
+     setCiqualError("");
+     try {
+-      const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
+-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+-      const data = await res.json();
++      const data = await loadTranslatedCiqual();
+ 
+       const arr = Array.isArray(data)
+         ? data

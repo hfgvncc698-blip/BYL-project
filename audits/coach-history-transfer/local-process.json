@@ -1,0 +1,8 @@
+{
+  "previousApiPid": 3084,
+  "apiPid": 6359,
+  "port": 5050,
+  "frontendRestarted": false,
+  "workersStarted": false,
+  "healthEndpointCalled": false
+}

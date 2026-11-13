@@ -1,0 +1,44 @@
+{
+  "deployed": false,
+  "runtimeChanged": false,
+  "runtimeHashesMatchPreviousQualification": true,
+  "sourceSha256": {
+    "scripts/experiments/coachSummaryPilot.cjs": "e053acd22cfb578cca64d77acfae2a46e1201b7767ef8992a5053bb4828a7906",
+    "scripts/testCoachSummaryPilot.cjs": "2455cb79317f1a4f29ac0fa55184baebfd8435684f42a1ae05b4b7f11fa44662",
+    "scripts/runCoachSummaryTrial.cjs": "1e7c4bf7d01c3f1e13e75d272cd11bb96ef7450c22b103e1dde894e735abd325",
+    "scripts/runCoachSummaryBrowser.cjs": "c2a386299c6c72ae90f8faaac7c98397c55d7c148b2f5ba69888fc999421c926",
+    "scripts/reportCoachSummaryTrial.py": "b22e38babb47582a667f752ba522d5c1863cd42c570acc899e94cf26c88844dd"
+  },
+  "checks": [
+    {
+      "name": "trial",
+      "exitCode": 0
+    },
+    {
+      "name": "before-1",
+      "exitCode": 0
+    },
+    {
+      "name": "after-1",
+      "exitCode": 0
+    },
+    {
+      "name": "before-2",
+      "exitCode": 0
+    },
+    {
+      "name": "after-2",
+      "exitCode": 0
+    }
+  ],
+  "finalExpandedTrialExitCode": 0,
+  "finalExpandedTrialPassed": true,
+  "acceptance": {
+    "payloadParity": true,
+    "uiSynchronization": true,
+    "currentServerAuthorization": true,
+    "allRealWritersFreshness": false,
+    "costNeverIncreases": false,
+    "productionEligible": false
+  }
+}

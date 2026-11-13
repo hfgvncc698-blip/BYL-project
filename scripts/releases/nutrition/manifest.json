@@ -1,0 +1,21 @@
+{
+  "patchSha256": "ed5e436c1a1f3462d7a9f7ccb1999e550b2e3fcbd85ea6d60e60a0ea57b24d7f",
+  "modified": [
+    "src/utils/ciqualLoader.js",
+    "src/utils/nutritionFoodI18n.js",
+    "src/components/CiqualFoodPicker.jsx",
+    "src/components/ClientNutritionDailyJournal.jsx",
+    "src/components/MenuJournalierFromRation.jsx"
+  ],
+  "payload": {
+    "src/utils/rationFoodTranslations.js": "ce680ca20c0119fd2ff92a1daec6efed6dc05267419f1c3130f6fc93fc3e6dbf",
+    "public/ciqual-locales/en.json": "7875ef61a91151beb522575227ada205e4d1b4ea666189898a5b56523c26cc1c",
+    "public/ciqual-locales/es.json": "fbbe85a8f4b7a99b5d7836f7e017d10d66f87e9a1eb91446aa9c3362ab6ed3fb",
+    "public/ciqual-locales/de.json": "fdedb49e60550c5cfdea0ed3aa3b236e8fa0024d7d6be20475b5e2c2caafee23",
+    "public/ciqual-locales/it.json": "d5ca5ec64354cdd35044f525caed42348042844d13aac3e10fda24b533f4cacf",
+    "public/ciqual-locales/ar.json": "1f33ee606d5f3cba2b2d70124e5bd0ee16e0fa4beb2b47734851b8e845e2247a",
+    "public/ciqual-locales/ru.json": "cae2d9a7d2b579016bb8fd523830dfd09031edd4c21687eece165c2e31367c8d",
+    "scripts/testCiqualTranslations.mjs": "c4319ef35ab72eb1129db349723914fa51e0462cb4d25efcd70c9ba386e0ce39",
+    "scripts/testCiqualSearch.mjs": "67c706643f2570fc281a6d0ac41b6edddf4494d3ee4312e3e89bb3297f679a12"
+  }
+}

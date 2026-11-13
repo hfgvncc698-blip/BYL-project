@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../../utils/privateStorage.js";
 import { useMessagingIdentity } from './messagingFeed';
 import PlanInclusionBadge from "../../components/PlanInclusionBadge";
 import { canUseIntegratedMessaging } from "../../utils/proPlanAccess";
@@ -79,7 +80,7 @@ function MessagingBubble({notificationsOnly=false}) {
   useEffect(() => {
     const storageKey = `${MESSAGING_NOTIFICATION_STORAGE_PREFIX}${user?.uid || "anonymous"}`;
     try {
-      const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+      const saved = JSON.parse(localSessionStorage.getItem(storageKey) || "{}");
       previousActivityByContactRef.current = new Map(
         Object.entries(saved).map(([contactId, activity]) => [contactId, activity])
       );
@@ -95,23 +96,32 @@ function MessagingBubble({notificationsOnly=false}) {
     const notify=()=>{
       if(!live || document.hidden) return;
       const saved=previousActivityByContactRef.current;
-      try { for(const [id,v] of Object.entries(JSON.parse(localStorage.getItem(key)||'{}'))) saved.set(id,v); } catch { /* local fallback */ }
+      try { for(const [id,v] of Object.entries(JSON.parse(localSessionStorage.getItem(key)||'{}'))) saved.set(id,v); } catch { /* local fallback */ }
       let changed=false;
+      const pendingNotifications=[];
       for(const c of contacts){
         if(!c.unread) continue;
         const version=c.receivedVersion || String(c.lastActivityAt);
         const old=saved.get(c.id);
         if(notificationTime(version)<=notificationTime(old)) continue;
         saved.delete(c.id); saved.set(c.id,version); changed=true;
+        pendingNotifications.push({contact:c,version});
+      }
+      if(pendingNotifications.length>3){
+        toast({
+          title:t('messaging.newConversationsSummary',{count:pendingNotifications.length,defaultValue:'{{count}} conversations ont de nouveaux messages'}),
+          description:t('messaging.openFull','Ouvrir toute la messagerie'),onClick:()=>navigate('/messages'),
+          status:'info',duration:1800,isClosable:false,position:'top-right',containerStyle:{maxWidth:'260px'}});
+      } else for(const {contact:c,version} of pendingNotifications){
         toast({ id:'message-'+c.id+'-'+version, title:t('messaging.newMessage','Nouveau message'),description:c.title,
           status:'info',duration:1800,isClosable:false,position:'top-right',containerStyle:{maxWidth:'260px'} });
       }
-      if(changed) try { localStorage.setItem(key,JSON.stringify(Object.fromEntries([...saved].slice(-200)))); } catch { /* local fallback */ }
+      if(changed) try { localSessionStorage.setItem(key,JSON.stringify(Object.fromEntries([...saved].slice(-200)))); } catch { /* local fallback */ }
     };
     const check=()=>{if(navigator.locks) navigator.locks.request(key,notify).catch(()=>{});else notify();};
     check(); document.addEventListener('visibilitychange',check);
     return ()=>{live=false;document.removeEventListener('visibilitychange',check);};
-  },[contacts,t,toast,user?.uid]);
+  },[contacts,t,toast,user?.uid,navigate]);
 
   useEffect(() => {
     if (!open) return undefined;

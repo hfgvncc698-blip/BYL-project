@@ -81,6 +81,7 @@
     "noContactsBody": "People linked to your account will appear here.",
     "new": "New",
     "newMessage": "New message",
+    "newConversationsSummary": "New messages in {{count}} conversations",
     "sent": "Sent",
     "read": "Read",
     "startConversation": "Start a conversation",
@@ -316,6 +317,7 @@
     "delete": "Delete"
   },
   "common": {
+    "showMore": "Show more",
     "loading": "Loading…",
     "loading_details": "Loading details…",
     "view": "See",
@@ -5101,6 +5103,11 @@
       "back": "back"
     },
     "RationAutoGenerator": {
+      "recalculate": "Recalculate the meal plan",
+      "resetTitle": "Recalculate the meal plan?",
+      "resetDescription": "The foods and quantities you have changed will be replaced with a new meal plan calculated from the current needs recorded in the profile. Your selected meals and dietary restrictions will be kept.",
+      "resetCancel": "Cancel",
+      "resetConfirm": "Recalculate",
       "donnees_alimentaires": "Food data",
       "totaux_jour": "Day totals",
       "kcal": "kcal",
@@ -8617,5 +8624,32 @@
     "unlimited": "Unlimited",
     "saveCapacity": "Save access and limits",
     "emptyUnlimited": "An empty field means unlimited. Manual settings override plan limits."
+  },
+  "cacheMigration": {
+    "detected": "An old backup was detected.",
+    "checking": "Verifying your account and your rights.",
+    "recoverable": "A draft can be retrieved.",
+    "ambiguous": "This backup cannot be recovered automatically.",
+    "recovered": "The draft was retrieved without publishing the program.",
+    "blocked": "Another BYL tab is still open.",
+    "interrupted": "Cleaning has been interrupted. The checks must be repeated.",
+    "recontaminated": "An old save has reappeared. The cleaning remains incomplete.",
+    "local-verified-incomplete": "The authorized areas have been checked. The overall cleaning of this device remains incomplete.",
+    "started": "Checking and cleaning in progress.",
+    "error": "Verification is unavailable. No automatic recovery.",
+    "later": "Later",
+    "explanation": "This device contains data from an older version of BYL. You can check if a draft program is recoverable, or continue as normal.",
+    "options": "Recovery options",
+    "check": "Check recovery possibilities",
+    "confirmRecovery": "Retrieve this draft from BYL without publishing the program?",
+    "recover": "Recover the draft",
+    "cleanup": "Controlled cleaning",
+    "cleanupHelp": "Cleaning this device requires your confirmation and a previously qualified plan.",
+    "plan": "Authorized plan reference",
+    "confirmCleanup": "Confirm the cleaning of only the areas qualified by this plan?",
+    "clean": "Confirm cleaning",
+    "verify": "Check plan areas",
+    "title": "Old saves",
+    "operationError": "This operation cannot be performed. The remaining data is retained."
   }
 }

@@ -1,0 +1,124 @@
+DASHBOARD COACH — COMPTEUR ACTIFS (30 J)
+13 novembre 2026 — codex/firebase-performance-audit
+
+Correction intégrée
+Le compteur attendait coreConfirmed, incluant le calendrier et la réconciliation
+coach. Pourtant _clientListActivityMs est déjà le maximum de toutes les séances
+validées du dossier. La réconciliation calendrier reprend un sous-ensemble des
+mêmes séances : son maximum ne peut pas augmenter celui des données canoniques.
+Le compteur a maintenant son propre état de disponibilité : tous les dossiers
+et leurs historiques doivent être confirmés, mais le calendrier n'est plus un
+prérequis. La publication progressive transporte l'activité canonique ; le
+chiffre n'est révélé qu'après la fin complète des détails, jamais sur un total
+partiel. Aucun chiffre approximatif n'est introduit.
+
+Sécurité et invalidation
+Les requêtes et contrôles serveur existants sont inchangés. Les racines doivent
+être fraîches ; le domaine activité repasse en attente à chaque rafraîchissement,
+en erreur sur échec des détails ou refus d'accès. Les mises à jour différées
+conservent la garde de génération d'identité. La nutrition conserve son propre
+contrat de disponibilité. Aucun cache persistant ni résumé serveur ajouté.
+
+Mesures : véritable application en développement, Chrome froid jetable,
+Firebase Auth/Firestore émulés, données uniquement synthétiques.
+Fixture : 36 et 100 dossiers, deux programmes par dossier, 40 événements,
+historiques légers sur les cinq premiers dossiers et 25 validations par programme
+sur les autres. Tous les clients de ces fixtures sont actifs.
+Temps = apparition du chiffre confirmé dans le bloc DOM, pas le squelette.
+Une exécution par scénario/version : résultats indicatifs, pas des percentiles.
+
+Scénario                    Avant       Après
+36 clients, normal          2,214 s     2,080 s
+100 clients, normal         1,746 s     1,689 s
+36, calendrier retardé 4 s  5,470 s     1,863 s
+
+Le troisième scénario injecte volontairement une attente de 4 secondes dans la
+préparation du calendrier, dans la copie de test seulement. Il démontre la
+suppression de la dépendance, pas un gain réel observé chez l'utilisateur.
+Le gain normal est faible ; la cible 2 secondes reste non atteinte à 36 clients
+sur cette exécution. Les historiques nécessaires au chiffre exact doivent
+encore arriver. Les 12 secondes auparavant signalées sur les clients récents
+ne sont pas reproduites et ne sont pas déclarées corrigées par ce test.
+
+Coûts : avant / après
+36 : 9 appels API / 9 ; 1 683 lectures documentaires HTTP backend estimées /
+1 683 ; 1 675 documents retournés / 1 675 ; 45 opérations SDK navigateur / 45.
+100 : 11 appels API / 11 ; 5 081 lectures documentaires HTTP backend estimées /
+5 081 ; 5 069 documents retournés / 5 069 ; 109 opérations SDK navigateur / 109.
+Aucune écriture métier supplémentaire : backend 0, navigateur 2 communes au
+parcours mesuré. Le compteur lui-même ne crée ni requête ni écriture ni écouteur.
+Les compteurs globaux Admin SDK et ceux des routes HTTP ont des périmètres
+différents : ils ne sont pas additionnés pour fabriquer une facture.
+
+Le compteur navigateur des snapshots varie avec leur ordre d'arrivée :
+36 normal : documents 103 -> 99, estimation instrumentale 108 -> 112,
+malgré 45 opérations SDK identiques. 100 : 153 documents et 250 estimées
+identiques. Scénario retardé : 98 documents, 113 estimées et 45 opérations SDK
+identiques. Cette variation de callbacks n'est pas une preuve de différence
+facturable. Les requêtes sont inchangées ; aucune économie de facture réelle
+Firebase ou Google n'est revendiquée.
+
+Tests réussis
+- testDashboardActivity : parité avec le maximum final pour toutes les parties
+  visibles des historiques testés ; frontière 30 jours ; dates historiques ;
+  séances partielles exclues ; suppression remet zéro ; identité périmée rejetée ;
+  admission des racines et contrat nutrition préservés.
+- testCoachProgressPaint, testCoachDashboardLoading, testRecentClientPriority,
+  testCoachProgramBatchLot8B, testPrivateSessionLot7B1Octies.
+- Navigateur intégré : 36 et 100 clients normaux, avant/après ; 36 avec calendrier
+  retardé, avant/après. Chiffres exacts vérifiés contre la fixture.
+- Sur le scénario après retardé : suppression distante des validations du premier
+  dossier -> 35 actifs ; rétablissement -> 36, via invalidation de révision existante.
+  Ces interactions sont réalisées après la capture des coûts d'ouverture.
+- git diff --check sur les fichiers de production concernés : réussi.
+
+Limite de build
+Vite compile. npm run build reste en échec au contrôle de taille de
+CoachDashboard (70,1 KiB gzip pour un plafond 70 KiB), déjà en échec avant cette
+modification. Le seuil n'a pas été relevé ; le build complet n'est pas validé.
+Les tests navigateur utilisent Vite développement, sans déploiement.
+
+Fichiers
+src/components/CoachDashboard.jsx
+src/utils/coachDashboardLoading.js
+scripts/testDashboardActivity.mjs
+scripts/runActiveClientsLoading.cjs
+Preuves : audits/active-clients-loading/*.json ; sources avant dans before/.
+
+Limites restantes
+Pas de mesure sur données réelles, ni garantie de temps sur machine/réseau de
+l'utilisateur. Pas de qualification exhaustive des autres fonctionnalités.
+Le chargement intégral des historiques reste un facteur du temps du compteur.
+Aucune nouvelle lecture n'a été ajoutée pour le contourner. Les corrections
+précédentes et les règles de sécurité sont conservées ; P0-3/P0-4 restent ouverts.
+Aucun déploiement, aucune donnée réelle ni cache utilisateur modifiés.
+
+CORRECTIF APRÈS RETOUR UTILISATEUR — ATTENTE > 30 SECONDES
+Le compteur restait indéfiniment sur « … » sans ?dashboardPerf : le nouveau
+jalon activity était filtré par useDashboardTiming lorsque le diagnostic était
+désactivé. Les mesures précédentes utilisaient ce diagnostic et ne qualifiaient
+donc pas le parcours normal. Il s'agit d'une régression de la modification du
+compteur, pas d'une lenteur Firebase démontrée sur le poste utilisateur.
+
+Correction : ajout de activity à la liste des états fonctionnels toujours
+conservés dans src/hooks/useDashboardTiming.js. Sans diagnostic, seuls les
+statuts sont stockés en mémoire ; aucun chronométrage, donnée privée, requête
+ni écriture supplémentaires. Les changements préexistants du hook sont conservés.
+
+Reproduction : scripts/testDashboardTimingActivity.mjs échoue avant correction
+avec activity undefined en mode diagnostic désactivé ; réussit après correction
+pour loading/ready/error et nouvelle tentative, avec diagnostic activé ou non.
+
+Test intégré : scripts/runActiveClientsLoading.cjs after --dev-probe --normal-mode
+Chrome jetable, émulateurs, véritable route /coach-dashboard sans query string
+(assertion dans le banc). La copie de test expose uniquement les états existants
+pour observation ; elle n'active pas dashboardPerf. 36 clients, chiffre confirmé
+36 en 1,943 s ; suppression distante -> 35 ; revalidation -> 36.
+9 appels API, 45 appels SDK navigateur, 99 documents navigateur retournés,
+112 lectures navigateur estimées ; 1 683 lectures backend HTTP estimées.
+Deux écritures navigateur communes au parcours, aucune nouvelle écriture liée
+au compteur. Résultats : audits/active-clients-loading/after-development-normal-mode.json.
+Tests de progression, isolation de session et chargement Dashboard réussis.
+Les mesures restent synthétiques : aucun délai réel garanti sur le poste utilisateur.
+Le blocage préexistant de budget JavaScript n'est pas traité par ce correctif.
+Aucun déploiement. Aucun accès aux données réelles.

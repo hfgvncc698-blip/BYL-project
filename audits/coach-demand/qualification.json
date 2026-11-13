@@ -1,0 +1,85 @@
+{
+  "deployed": false,
+  "sourceSha256": {
+    "backend/utils/coachDashboardBundles.js": "5ce0083754ac68353c980f77250e7bc0ad470250b4ec2277a3e1ecda31a1a1dd",
+    "backend/routes/coachProgramRead.js": "e5907870d250e08af4e52a59d0b2913af46a59cfc423736414668e94b311acb3",
+    "src/utils/coachProgramBatch.js": "81784f0f961776a69092762de1b589bab5a879991db994e9f267da3b7c925731"
+  },
+  "checks": [
+    {
+      "name": "before-1",
+      "exitCode": 0
+    },
+    {
+      "name": "after-1",
+      "exitCode": 0
+    },
+    {
+      "name": "before-2",
+      "exitCode": 0
+    },
+    {
+      "name": "after-2",
+      "exitCode": 0
+    },
+    {
+      "name": "p01",
+      "exitCode": 0
+    },
+    {
+      "name": "p02",
+      "exitCode": 0
+    },
+    {
+      "name": "smoke",
+      "exitCode": 0
+    },
+    {
+      "name": "build",
+      "exitCode": 0
+    }
+  ],
+  "local": {
+    "before": {
+      "coreMs": 17029,
+      "rootsMs": 2110,
+      "detailsMs": 16912,
+      "snapshotChars": 32175207,
+      "apiRequests": 2,
+      "fallbackClients": 0
+    },
+    "afterIntermediate": {
+      "coreMs": 13785,
+      "rootsMs": 1067,
+      "detailsMs": 13673,
+      "snapshotChars": 24098135,
+      "apiRequests": 2,
+      "fallbackClients": 0
+    },
+    "afterFinal": {
+      "coreMs": 13772,
+      "rootsMs": 929,
+      "detailsMs": 13676,
+      "snapshotChars": 24098135,
+      "apiRequests": 2,
+      "fallbackClients": 0
+    },
+    "unchangedCounts": {
+      "clients": 36,
+      "templates": 57,
+      "completed": 422,
+      "planned": 258,
+      "calendarEvents": 274
+    }
+  },
+  "limitations": [
+    "One local before and two local after observations, not a statistical production guarantee.",
+    "Intermediate projection omitted redundant embedded histories; final preserves them for legacy compatibility. Synthetic fixtures do not contain these embedded fields.",
+    "Only aggregate diagnostic timing and counters retained from local browser.",
+    "Firebase actual billing and Google service memory/CPU billing not measured.",
+    "P0-3 and P0-4 remain open."
+  ],
+  "finalCoachSuitePassed": true,
+  "pureProjectionPassed": true,
+  "batchPassed": true
+}

@@ -1,3 +1,4 @@
+import { localSessionStorage } from "./privateStorage.js";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { resolveClientSnapshotForUser } from "./clientResolver";
@@ -13,7 +14,7 @@ export function isFirestoreDiagnosticsEnabled() {
     return (
       params.get("debugFirestore") === "1" ||
       params.get("bylDebug") === "firestore" ||
-      window.localStorage.getItem(DEBUG_STORAGE_KEY) === "1"
+      localSessionStorage.getItem(DEBUG_STORAGE_KEY) === "1"
     );
   } catch {
     return false;

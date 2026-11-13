@@ -1,0 +1,26 @@
+[
+  {
+    "group": "main",
+    "exitCode": 0,
+    "ms": 126677
+  },
+  {
+    "group": "slow",
+    "exitCode": 0,
+    "ms": 147071
+  },
+  {
+    "group": "cpu",
+    "exitCode": 0,
+    "ms": 123655
+  },
+  {
+    "group": "transitions",
+    "exitCode": 0,
+    "ms": 245775
+  },
+  {
+    "group": "security",
+    "exitCode": 0
+  }
+]

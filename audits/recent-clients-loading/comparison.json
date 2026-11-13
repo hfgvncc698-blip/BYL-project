@@ -1,0 +1,222 @@
+[
+  {
+    "clients": 12,
+    "before": {
+      "cardProgramsReadyMs": 1848.8899999999994,
+      "dashboardCoreMs": 1791,
+      "http": 8,
+      "batches": 1,
+      "backendEstimated": 408,
+      "backendDocuments": 402,
+      "backendSdk": 49,
+      "browser": {
+        "sdkCalls": 21,
+        "documentsReturned": 73,
+        "estimatedReads": 66,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2808686,
+      "heap": 34665560,
+      "execution": {
+        "LayoutDuration": 0.029407,
+        "ScriptDuration": 0.797851,
+        "TaskDuration": 1.013726
+      },
+      "complete": 3940.4327919999987
+    },
+    "after": {
+      "cardProgramsReadyMs": 2472.5395829999998,
+      "dashboardCoreMs": 2412,
+      "http": 8,
+      "batches": 1,
+      "backendEstimated": 408,
+      "backendDocuments": 402,
+      "backendSdk": 49,
+      "browser": {
+        "sdkCalls": 21,
+        "documentsReturned": 73,
+        "estimatedReads": 66,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2808979,
+      "heap": 48968944,
+      "execution": {
+        "LayoutDuration": 0.027233,
+        "ScriptDuration": 0.809086,
+        "TaskDuration": 1.035074
+      },
+      "complete": 4155.593166000001
+    },
+    "tests": null
+  },
+  {
+    "clients": 36,
+    "before": {
+      "cardProgramsReadyMs": 2757.989125,
+      "dashboardCoreMs": 2701,
+      "http": 9,
+      "batches": 2,
+      "backendEstimated": 1683,
+      "backendDocuments": 1675,
+      "backendSdk": 125,
+      "browser": {
+        "sdkCalls": 45,
+        "documentsReturned": 89,
+        "estimatedReads": 122,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2811928,
+      "heap": 55324136,
+      "execution": {
+        "LayoutDuration": 0.023416,
+        "ScriptDuration": 0.887441,
+        "TaskDuration": 1.113943
+      },
+      "complete": 4426.320709
+    },
+    "after": {
+      "cardProgramsReadyMs": 1195.3466669999998,
+      "dashboardCoreMs": 2975,
+      "http": 9,
+      "batches": 2,
+      "backendEstimated": 1683,
+      "backendDocuments": 1675,
+      "backendSdk": 125,
+      "browser": {
+        "sdkCalls": 45,
+        "documentsReturned": 89,
+        "estimatedReads": 122,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2811986,
+      "heap": 55357436,
+      "execution": {
+        "LayoutDuration": 0.034166,
+        "ScriptDuration": 0.913283,
+        "TaskDuration": 1.134917
+      },
+      "complete": 4698.219417
+    },
+    "tests": {
+      "mobileThreeCards": true,
+      "resizeExtraSdkCalls": 0,
+      "remoteProgramInvalidation": true
+    }
+  },
+  {
+    "clients": 100,
+    "before": {
+      "cardProgramsReadyMs": 3230.774042000001,
+      "dashboardCoreMs": 3382,
+      "http": 11,
+      "batches": 4,
+      "backendEstimated": 5081,
+      "backendDocuments": 5069,
+      "backendSdk": 325,
+      "browser": {
+        "sdkCalls": 109,
+        "documentsReturned": 153,
+        "estimatedReads": 250,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2820300,
+      "heap": 39861388,
+      "execution": {
+        "LayoutDuration": 0.03241,
+        "ScriptDuration": 0.943286,
+        "TaskDuration": 1.227572
+      },
+      "complete": 5061.668582999999
+    },
+    "after": {
+      "cardProgramsReadyMs": 1361.8798339999994,
+      "dashboardCoreMs": 3578,
+      "http": 11,
+      "batches": 4,
+      "backendEstimated": 5081,
+      "backendDocuments": 5069,
+      "backendSdk": 325,
+      "browser": {
+        "sdkCalls": 109,
+        "documentsReturned": 153,
+        "estimatedReads": 250,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2820562,
+      "heap": 41827932,
+      "execution": {
+        "LayoutDuration": 0.024202,
+        "ScriptDuration": 1.102217,
+        "TaskDuration": 1.391682
+      },
+      "complete": 5265.125458999999
+    },
+    "tests": null
+  },
+  {
+    "clients": 500,
+    "before": {
+      "cardProgramsReadyMs": 3437.6078750000015,
+      "dashboardCoreMs": 15013,
+      "http": 23,
+      "batches": 16,
+      "backendEstimated": 26317,
+      "backendDocuments": 26281,
+      "backendSdk": 1573,
+      "browser": {
+        "sdkCalls": 509,
+        "documentsReturned": 553,
+        "estimatedReads": 1050,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2874292,
+      "heap": 35042412,
+      "execution": {
+        "LayoutDuration": 0.027509,
+        "ScriptDuration": 2.689964,
+        "TaskDuration": 3.517197
+      },
+      "complete": 17813.819333
+    },
+    "after": {
+      "cardProgramsReadyMs": 2796.966790999999,
+      "dashboardCoreMs": 13739,
+      "http": 23,
+      "batches": 16,
+      "backendEstimated": 26317,
+      "backendDocuments": 26281,
+      "backendSdk": 1573,
+      "browser": {
+        "sdkCalls": 509,
+        "documentsReturned": 1018,
+        "estimatedReads": 585,
+        "confirmedWrites": 2,
+        "failures": 0
+      },
+      "backendWrites": 0,
+      "networkBytes": 2875048,
+      "heap": 62087016,
+      "execution": {
+        "LayoutDuration": 0.026577,
+        "ScriptDuration": 2.665497,
+        "TaskDuration": 3.474573
+      },
+      "complete": 15972.096833
+    },
+    "tests": null
+  }
+]

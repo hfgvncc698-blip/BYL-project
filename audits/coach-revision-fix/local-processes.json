@@ -1,0 +1,12 @@
+{
+  "apiPid": 3084,
+  "frontPid": 3085,
+  "ports": [
+    5050,
+    5173
+  ],
+  "apiResponds": true,
+  "healthEndpointCalled": false,
+  "workersStarted": false,
+  "output": "discarded; no persistent application request log created"
+}

@@ -17,14 +17,33 @@ function validated(row) {
     Boolean(row.dateEffectuee || row.completedAt || row.validatedAt || row.finishedAt || row.playedAt) ||
     (Number.isFinite(Number(row.pourcentageTermine ?? row.completionPct ?? row.completionPercent)) && Number(row.pourcentageTermine ?? row.completionPct ?? row.completionPercent)>=90);
 }
-async function summarize(tx,ref,since,{sport,nutrition}) {
-  const programs=sport ? await tx.get(ref.collection('programmes').select(...programFields,'sessions','seances')) : {docs:[]};
-  const result=[];
+// Share a bounded query budget across the entire page, not one serial queue
+// per dossier. This preserves the queried documents and the transaction snapshot.
+function createReadScheduler(tx, limit = 25) {
+  const queue = [];
+  let active = 0;
+  const drain = () => {
+    while (active < limit && queue.length) {
+      const {query, resolve, reject} = queue.shift();
+      active++;
+      Promise.resolve().then(() => tx.get(query)).then(resolve, reject).finally(() => {
+        active--;
+        drain();
+      });
+    }
+  };
+  return query => new Promise((resolve, reject) => {
+    queue.push({query, resolve, reject});
+    drain();
+  });
+}
+async function summarize(read,ref,since,{sport,nutrition}) {
+  const programs=sport ? await read(ref.collection('programmes').select(...programFields,'sessions','seances')) : {docs:[]};
   let lastMs=0;const recent=[];
-  for(const doc of programs.docs) {
+  const result=await Promise.all(programs.docs.map(async doc => {
     const {sessions,seances,...meta}=doc.data();
     if(Array.isArray(sessions) || Array.isArray(seances)) meta._total=(Array.isArray(sessions)?sessions:seances).length;
-    const history=await tx.get(doc.ref.collection('sessionsEffectuees').select(...historyFields));
+    const history=await read(doc.ref.collection('sessionsEffectuees').select(...historyFields));
     if(history.size) meta._done=0;
     for(const row of history.docs){
       const data=row.data();
@@ -46,11 +65,11 @@ async function summarize(tx,ref,since,{sport,nutrition}) {
       const converted=Number(value);
       numeric[key]=Number.isFinite(converted) ? converted : 0;
     }
-    result.push(numeric);
-  }
+    return numeric;
+  }));
   let assessmentCount=null, nutritionLast=0;
   if(nutrition){
-    const assessments=await tx.get(ref.collection('nutrition_assessments').select('sharedAt','updatedAt','createdAt','date'));
+    const assessments=await read(ref.collection('nutrition_assessments').select('sharedAt','updatedAt','createdAt','date'));
     assessmentCount=assessments.size;
     for(const doc of assessments.docs) for(const value of Object.values(doc.data())){
       const ms=value?.toMillis?.() ?? (typeof value==='number' ? (value>1e12?value:value*1000) : Date.parse(value));
@@ -67,6 +86,7 @@ async function readListSummaries(db,tx,docs,since,options,refreshId) {
   const views=docs.map(doc=>db.collection('coachPageLists').doc(doc.id).collection('coachClientListViews').doc(variant));
   const saved=persistent ? await tx.getAll(...views) : [];
   const pending=[];
+  const read=createReadScheduler(tx);
   const rows=await Promise.all(docs.map(async(doc,i)=>{
     const entry=saved[i]?.data();
     const now=Date.now();
@@ -75,7 +95,7 @@ async function readListSummaries(db,tx,docs,since,options,refreshId) {
     let data=entry?.data;
     if(!usable){
       const earliest=Math.min(since,now-8*86400000);
-      data=await summarize(tx,doc.ref,earliest,options);
+      data=await summarize(read,doc.ref,earliest,options);
       if(persistent && Buffer.byteLength(JSON.stringify(data))<=128*1024)
         pending.push([views[i],{version:doc.updateTime,at:now,since:earliest,data}]);
     }

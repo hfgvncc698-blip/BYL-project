@@ -1,3 +1,4 @@
+import { privateTicket, assertPrivateTicket } from "./privateSession.js";
 // src/utils/api.js
 import { enabled as metricsEnabled, recordMetric } from './browserMetrics';
 import { getApiBase } from './apiBase';
@@ -7,6 +8,7 @@ const API_BASE = getApiBase();
 const requests = createRequestCoordinator();
 
 export async function apiFetch(path, { json = true, timeoutMs = 20000, ...opts } = {}) {
+  const ticket = privateTicket();
   const url = path.startsWith('http') ? path :
               path.startsWith('/api/') ? `${API_BASE}${path.slice(4)}` : // évite /api/api
               `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
@@ -18,13 +20,18 @@ export async function apiFetch(path, { json = true, timeoutMs = 20000, ...opts }
     Object.entries(authHeaders).forEach(([key, value]) => headers.set(key, value));
   }
 
+  if (headers.has('Authorization') && !ticket.identity) throw Object.assign(new Error('private-session-unconfirmed'), {code:'private-session-unconfirmed'});
+
   const activity = metricsEnabled && ((path === '/coach-offers' || path === '/coach-offers?view=summary') ? 'offers'
     : path === '/programs/dashboard-templates' ? 'dashboard-templates'
     : path === '/programs/client-list-summary' ? 'client-list-summary'
     : path === '/programs/dashboard-client-programs' ? 'dashboard-client-programs' : null);
-  const run = () => {
+  const run = async () => {
+    assertPrivateTicket(ticket);
     if (activity) recordMetric(activity, 'http');
-    return performRequest(url, headers, opts, timeoutMs);
+    const result = await performRequest(url, headers, opts, timeoutMs);
+    assertPrivateTicket(ticket);
+    return result;
   };
   const method = String(opts.method || 'GET').toUpperCase();
   // These listing POSTs only read scoped page data.
@@ -60,6 +67,8 @@ async function performRequest(url, headers, opts, timeoutMs) {
     res = await fetch(url, {
       credentials: 'include',
       ...opts,
+      // Authenticated responses must not enter the browser HTTP disk cache.
+      cache: headers.has('Authorization') ? 'no-store' : opts.cache,
       headers,
       signal: externalSignal || timeoutController?.signal,
     });

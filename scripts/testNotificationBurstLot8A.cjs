@@ -1,0 +1,7 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+function scenario(file,n){const text=fs.readFileSync(file,'utf8'),a=text.indexOf('const notify=()=>{'),b=text.indexOf('const check=',a);assert(a>=0&&b>a);const toasts=[],contacts=Array.from({length:n},(_,i)=>({id:'synthetic'+i,title:'Synthetic',unread:true,receivedVersion:'1000'}));const context={live:true,document:{hidden:false},contacts,previousActivityByContactRef:{current:new Map()},localSessionStorage:{getItem:()=>null,setItem:()=>{}},key:'fixture',notificationTime:v=>BigInt(v||0),toast:x=>toasts.push(x),t:()=>'',navigate:()=>{}};vm.runInNewContext(text.slice(a,b)+'this.notify=notify;',context);context.notify();return {toasts,context,contacts};}
+assert.equal(scenario('audits/lot8a/baseline/DashboardMessagingBubble.jsx',1000).toasts.length,1000);
+const actual=scenario('src/components/messaging/DashboardMessagingBubble.jsx',1000);assert.equal(actual.toasts.length,1);actual.context.notify();assert.equal(actual.toasts.length,1);actual.contacts[0].receivedVersion='1001';actual.context.notify();assert.equal(actual.toasts.length,2);assert.equal(actual.toasts[1].description,'Synthetic');
+assert.equal(scenario('src/components/messaging/DashboardMessagingBubble.jsx',3).toasts.length,3);
+assert.equal(scenario('src/components/messaging/DashboardMessagingBubble.jsx',0).toasts.length,0);
+console.log('PASS actual notification callback: 1000→1 toast, replay deduplicated, newer message retained, 0/3 unchanged');

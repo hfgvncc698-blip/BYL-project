@@ -1,0 +1,46 @@
+src/consent/ConsentContext.jsx:34:      const raw = localStorage.getItem(STORAGE_KEY);
+src/consent/ConsentContext.jsx:49:      const legacy = localStorage.getItem(LEGACY_KEY);
+src/consent/ConsentContext.jsx:61:        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+src/consent/ConsentContext.jsx:83:    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+src/consent/ConsentContext.jsx:85:    localStorage.setItem(LEGACY_KEY, JSON.stringify(merged));
+src/consent/ConsentContext.jsx:104:    localStorage.removeItem(STORAGE_KEY);
+src/consent/ConsentContext.jsx:105:    localStorage.removeItem(LEGACY_KEY);
+src/pages/ProfilePageClient.jsx:252:    localStorage.setItem("i18nextLng", next);
+src/i18n/index.js:75:       * 2) localStorage
+src/i18n/index.js:80:      order: ["querystring", "localStorage", "path", "navigator", "htmlTag"],
+src/i18n/index.js:89:      caches: ["localStorage"],
+src/pages/SettingsPageCoach.jsx:182:      localStorage.setItem("i18nextLng", newLang);
+src/hooks/useAutoRevertColorMode.js:18:  const ts = Number(localStorage.getItem(KEY_TS) || 0);
+src/hooks/useAutoRevertColorMode.js:19:  const manualValue = localStorage.getItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:20:  const version = localStorage.getItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:22:    localStorage.removeItem("chakra-ui-color-mode");
+src/hooks/useAutoRevertColorMode.js:23:    localStorage.removeItem(KEY_TS);
+src/hooks/useAutoRevertColorMode.js:24:    localStorage.removeItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:25:    localStorage.removeItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:26:    localStorage.removeItem(LEGACY_SUN_KEY);
+src/hooks/useAutoRevertColorMode.js:30:    localStorage.removeItem("chakra-ui-color-mode");
+src/hooks/useAutoRevertColorMode.js:31:    localStorage.removeItem(KEY_TS);
+src/hooks/useAutoRevertColorMode.js:32:    localStorage.removeItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:33:    localStorage.removeItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:34:    localStorage.removeItem(LEGACY_SUN_KEY);
+src/hooks/useAutoRevertColorMode.js:44:    localStorage.removeItem("chakra-ui-color-mode");
+src/hooks/useAutoRevertColorMode.js:45:    localStorage.removeItem(KEY_TS);
+src/hooks/useAutoRevertColorMode.js:46:    localStorage.removeItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:47:    localStorage.removeItem(KEY_VERSION);
+src/hooks/useAutoRevertColorMode.js:48:    localStorage.removeItem(LEGACY_SUN_KEY);
+src/hooks/useAutoRevertColorMode.js:53:      const ts = Number(localStorage.getItem(KEY_TS) || 0);
+src/hooks/useAutoRevertColorMode.js:54:      const manualValue = localStorage.getItem(KEY_MODE);
+src/hooks/useAutoRevertColorMode.js:103:      localStorage.setItem(KEY_TS, String(Date.now()));
+src/hooks/useAutoRevertColorMode.js:104:      localStorage.setItem(KEY_MODE, String(nextMode));
+src/hooks/useAutoRevertColorMode.js:105:      localStorage.setItem(KEY_VERSION, MANUAL_VERSION);
+src/hooks/useGeolocation.js:126:  // Helper: écrit localStorage + déclenche event pour RouteAnalyticsListener
+src/hooks/useGeolocation.js:307:          // ✅ localStorage pour RouteAnalyticsListener + event
+src/utils/privateStorage.js:28:export const localSessionStorage = storage('localStorage');
+src/utils/privateStorage.js:29:export const tabSessionStorage = storage('sessionStorage');
+src/pages/SettingsPageClient.jsx:115:      localStorage.setItem("i18nextLng", newLang);
+src/components/MenuJournalierAuto.jsx:1845:  // Les anciens menus peuvent avoir gardé "Légumes" en entrée en localStorage/Firebase.
+src/components/LanguageRouteSync.jsx:41:      const storedLng = localStorage.getItem(STORAGE_KEY)?.split("-")[0]?.toLowerCase();
+src/utils/dashboardSnapshotCache.js:2:// localStorage quota, and never stores credentials or unsaved form values.
+src/utils/persistedPageCache.js:2:// preferences or unsaved drafts: Firebase also needs room in localStorage.
+src/components/LanguageSwitcher.jsx:29:    localStorage.getItem("i18nextLng") ||
+src/components/LanguageSwitcher.jsx:46:    localStorage.setItem("i18nextLng", lng);

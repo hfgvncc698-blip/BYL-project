@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 // src/SunColorModeSync.js
 import React, { useEffect, useMemo, useState } from "react";
 import { useColorMode } from "@chakra-ui/react";
@@ -18,7 +19,7 @@ const STORAGE_KEY = "byl_color_mode_manual";
 
 function getManualOverride() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localSessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
 
     const parsed = JSON.parse(raw);
@@ -26,7 +27,7 @@ function getManualOverride() {
 
     // Expiré → on nettoie
     if (Date.now() > parsed.expiresAt) {
-      localStorage.removeItem(STORAGE_KEY);
+      localSessionStorage.removeItem(STORAGE_KEY);
       return null;
     }
 
@@ -38,8 +39,8 @@ function getManualOverride() {
 
 function getCachedPosition() {
   try {
-    const lat = Number(localStorage.getItem("BYL_LAT"));
-    const lng = Number(localStorage.getItem("BYL_LNG"));
+    const lat = Number(localSessionStorage.getItem("BYL_LAT"));
+    const lng = Number(localSessionStorage.getItem("BYL_LNG"));
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return null;
     return { lat, lng };
   } catch {
@@ -50,7 +51,7 @@ function getCachedPosition() {
 export function setColorModeManual(mode) {
   // mode: "light" | "dark"
   try {
-    localStorage.setItem(
+    localSessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         mode,
@@ -62,7 +63,7 @@ export function setColorModeManual(mode) {
 
 export function clearColorModeManual() {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localSessionStorage.removeItem(STORAGE_KEY);
   } catch {}
 }
 

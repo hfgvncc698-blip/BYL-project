@@ -1,0 +1,233 @@
+[
+  {
+    "clients": 12,
+    "templates": 12,
+    "beforeMs": 855,
+    "afterMs": [
+      640,
+      679
+    ],
+    "browserReadsBeforeScoped": 36,
+    "backendReadsAfterScoped": 39,
+    "modeledMinimumDependentRuleReadsBefore": 15,
+    "modeledMinimumTotalBefore": 51,
+    "modeledTotalAfter": 39,
+    "newPersistentWrites": 0,
+    "beforeBrowserSdkAll": {
+      "sdkCalls": 16,
+      "documentsReturned": 39,
+      "estimatedReads": 38,
+      "confirmedWrites": 1,
+      "failures": 0
+    },
+    "afterBrowserSdkAll": {
+      "sdkCalls": 1,
+      "documentsReturned": 3,
+      "estimatedReads": 2,
+      "confirmedWrites": 1,
+      "failures": 0
+    },
+    "newRoute": {
+      "scope": "http",
+      "activity": "program-assignments",
+      "sample": "cff06562-d0b0-4d91-bcec-30c02a96cbc3",
+      "httpRequests": 1,
+      "sdkReads": 18,
+      "documentsReturned": 37,
+      "estimatedDocumentReads": 39,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 17
+      },
+      "method": "POST",
+      "domains": {
+        "messagingRevocations": {
+          "reads": 2,
+          "docs": 0,
+          "estimate": 2
+        },
+        "users": {
+          "reads": 1,
+          "docs": 1,
+          "estimate": 1
+        },
+        "clients": {
+          "reads": 3,
+          "docs": 12,
+          "estimate": 12
+        },
+        "programmes": {
+          "reads": 12,
+          "docs": 24,
+          "estimate": 24
+        }
+      },
+      "durationMs": 154,
+      "status": 200,
+      "responseBytes": 321,
+      "unestimatedSdkReads": 0
+    },
+    "networkBytesBefore": 2384673,
+    "networkBytesAfter": 2383677,
+    "browserHeapBefore": 17187812,
+    "browserHeapAfter": 15345564
+  },
+  {
+    "clients": 100,
+    "templates": 50,
+    "beforeMs": 1062,
+    "afterMs": [
+      549,
+      601
+    ],
+    "browserReadsBeforeScoped": 300,
+    "backendReadsAfterScoped": 303,
+    "modeledMinimumDependentRuleReadsBefore": 103,
+    "modeledMinimumTotalBefore": 403,
+    "modeledTotalAfter": 303,
+    "newPersistentWrites": 0,
+    "beforeBrowserSdkAll": {
+      "sdkCalls": 104,
+      "documentsReturned": 303,
+      "estimatedReads": 302,
+      "confirmedWrites": 1,
+      "failures": 0
+    },
+    "afterBrowserSdkAll": {
+      "sdkCalls": 1,
+      "documentsReturned": 3,
+      "estimatedReads": 2,
+      "confirmedWrites": 1,
+      "failures": 0
+    },
+    "newRoute": {
+      "scope": "http",
+      "activity": "program-assignments",
+      "sample": "895a00b0-ac95-4a1f-9371-bd964c28c88f",
+      "httpRequests": 1,
+      "sdkReads": 106,
+      "documentsReturned": 301,
+      "estimatedDocumentReads": 303,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 105
+      },
+      "method": "POST",
+      "domains": {
+        "messagingRevocations": {
+          "reads": 2,
+          "docs": 0,
+          "estimate": 2
+        },
+        "users": {
+          "reads": 1,
+          "docs": 1,
+          "estimate": 1
+        },
+        "clients": {
+          "reads": 3,
+          "docs": 100,
+          "estimate": 100
+        },
+        "programmes": {
+          "reads": 100,
+          "docs": 200,
+          "estimate": 200
+        }
+      },
+      "durationMs": 263,
+      "status": 200,
+      "responseBytes": 1363,
+      "unestimatedSdkReads": 0
+    },
+    "networkBytesBefore": 2387742,
+    "networkBytesAfter": 2384968,
+    "browserHeapBefore": 25004352,
+    "browserHeapAfter": 22480868
+  },
+  {
+    "clients": 500,
+    "templates": 200,
+    "beforeMs": 2716,
+    "afterMs": [
+      980,
+      1048
+    ],
+    "browserReadsBeforeScoped": 1500,
+    "backendReadsAfterScoped": 1503,
+    "modeledMinimumDependentRuleReadsBefore": 503,
+    "modeledMinimumTotalBefore": 2003,
+    "modeledTotalAfter": 1503,
+    "newPersistentWrites": 0,
+    "beforeBrowserSdkAll": {
+      "sdkCalls": 504,
+      "documentsReturned": 1503,
+      "estimatedReads": 1502,
+      "confirmedWrites": 1,
+      "failures": 0
+    },
+    "afterBrowserSdkAll": {
+      "sdkCalls": 1,
+      "documentsReturned": 3,
+      "estimatedReads": 2,
+      "confirmedWrites": 1,
+      "failures": 0
+    },
+    "newRoute": {
+      "scope": "http",
+      "activity": "program-assignments",
+      "sample": "11a568df-3e1a-420b-b36a-fb9a3f0fa2b8",
+      "httpRequests": 1,
+      "sdkReads": 506,
+      "documentsReturned": 1501,
+      "estimatedDocumentReads": 1503,
+      "aggregates": 0,
+      "failedReads": 0,
+      "actualBilledReads": null,
+      "transactionAttempts": 1,
+      "operations": {
+        "document": 1,
+        "transactionGet": 505
+      },
+      "method": "POST",
+      "domains": {
+        "messagingRevocations": {
+          "reads": 2,
+          "docs": 0,
+          "estimate": 2
+        },
+        "users": {
+          "reads": 1,
+          "docs": 1,
+          "estimate": 1
+        },
+        "clients": {
+          "reads": 3,
+          "docs": 500,
+          "estimate": 500
+        },
+        "programmes": {
+          "reads": 500,
+          "docs": 1000,
+          "estimate": 1000
+        }
+      },
+      "durationMs": 720,
+      "status": 200,
+      "responseBytes": 6858,
+      "unestimatedSdkReads": 0
+    },
+    "networkBytesBefore": 2399588,
+    "networkBytesAfter": 2391325,
+    "browserHeapBefore": 25802000,
+    "browserHeapAfter": 19378332
+  }
+]

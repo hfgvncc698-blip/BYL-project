@@ -1,0 +1,772 @@
+{
+  "label": "after",
+  "samples": [
+    {
+      "kind": "clients",
+      "n": 36,
+      "h": 0,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 137.13845799999945,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 654.9880830000002,
+      "primaryMs": 1892.7083329999996,
+      "networkSettledMs": 3941.4792499999994,
+      "observationMs": 3942.5727909999996,
+      "networkBytes": 2106783,
+      "backend": {
+        "reads": 4,
+        "documents": 1,
+        "estimated": 4,
+        "writes": 25
+      },
+      "api": {
+        "requests": 4,
+        "completed": 3,
+        "responseBytes": 498,
+        "durationMs": 1236.176625,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "eebb5eac-1408-430e-ba1c-ba5ad88b5cec",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 84,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "client-list-summary",
+          "sample": "1ea87af8-2cd2-4fe2-a862-f2423c28853b",
+          "httpRequests": 1,
+          "sdkReads": 123,
+          "documentsReturned": 774,
+          "estimatedDocumentReads": 826,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 120,
+            "transactionGetAll": 2
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 25,
+              "estimate": 25
+            },
+            "coachClientListViews": {
+              "reads": 1,
+              "docs": 0,
+              "estimate": 25
+            },
+            "programmes": {
+              "reads": 25,
+              "docs": 68,
+              "estimate": 68
+            },
+            "sessionsEffectuees": {
+              "reads": 68,
+              "docs": 680,
+              "estimate": 680
+            },
+            "nutrition_assessments": {
+              "reads": 25,
+              "docs": 0,
+              "estimate": 25
+            }
+          },
+          "durationMs": 1151,
+          "status": 200,
+          "responseBytes": 248,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {
+          "clients/listener-snapshot/users": {
+            "calls": 3,
+            "documentsReturned": 3,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 1
+          },
+          "clients/listener-snapshot/clients": {
+            "calls": 2,
+            "documentsReturned": 36,
+            "failures": 0,
+            "estimate": 36,
+            "serverChanges": 36
+          }
+        },
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "clients/listener-start": {
+            "calls": 3
+          },
+          "clients/listener-snapshot": {
+            "calls": 5,
+            "added": 36,
+            "modified": 0,
+            "removed": 0,
+            "serverChanges": 37,
+            "estimatedDocumentReads": 37,
+            "documentsReturned": 39,
+            "first": 3,
+            "fromCache": 0,
+            "server": 5,
+            "pendingWrites": 1
+          },
+          "client-list-summary/http": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 4,
+        "documentsReturned": 42,
+        "estimatedReads": 40,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 1370,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Q": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 44,
+        "g": 6,
+        "qS": 1023,
+        "Yt": 2,
+        "Re": 2,
+        "Ne": 2,
+        "ke": 2,
+        "st": 2,
+        "Ke": 2,
+        "Y": 2,
+        "it": 1,
+        "U": 4,
+        "A": 2,
+        "lT": 124,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 9,
+        "Qt": 2,
+        "v": 39,
+        "m": 2,
+        "W": 2,
+        "En": 3,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "At": 1,
+        "R": 1,
+        "jt": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "Rt": 31,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 24449640,
+        "totalSize": 49659904,
+        "embedderHeapUsedSize": 4703720,
+        "backingStorageSize": 2074305
+      },
+      "execution": {
+        "LayoutDuration": 0.018618,
+        "ScriptDuration": 0.3463,
+        "TaskDuration": 0.479661
+      },
+      "state": {
+        "ready": true,
+        "path": "/clients",
+        "text": "IF\t\n\n4/4 séances\n\n100%\n\nSéances / sem. : 20\n\n\t\nModifier\nAssigner\n‹\n\n1 / 2\n\n›\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "clients",
+      "n": 100,
+      "h": 0,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 134.9092500000006,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 462.33970800000134,
+      "primaryMs": 1393.144875,
+      "networkSettledMs": 3759.0886250000003,
+      "observationMs": 3760.2630830000016,
+      "networkBytes": 2106801,
+      "backend": {
+        "reads": 4,
+        "documents": 1,
+        "estimated": 4,
+        "writes": 25
+      },
+      "api": {
+        "requests": 4,
+        "completed": 3,
+        "responseBytes": 501,
+        "durationMs": 924.1327089999977,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "865d022f-7415-4efb-8430-2b124934f966",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 15,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "client-list-summary",
+          "sample": "a797aa53-a7d4-4a31-bdd7-ccc79596f9f7",
+          "httpRequests": 1,
+          "sdkReads": 123,
+          "documentsReturned": 774,
+          "estimatedDocumentReads": 826,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 120,
+            "transactionGetAll": 2
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 25,
+              "estimate": 25
+            },
+            "coachClientListViews": {
+              "reads": 1,
+              "docs": 0,
+              "estimate": 25
+            },
+            "programmes": {
+              "reads": 25,
+              "docs": 68,
+              "estimate": 68
+            },
+            "sessionsEffectuees": {
+              "reads": 68,
+              "docs": 680,
+              "estimate": 680
+            },
+            "nutrition_assessments": {
+              "reads": 25,
+              "docs": 0,
+              "estimate": 25
+            }
+          },
+          "durationMs": 909,
+          "status": 200,
+          "responseBytes": 251,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {
+          "clients/listener-snapshot/users": {
+            "calls": 3,
+            "documentsReturned": 3,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 1
+          },
+          "clients/listener-snapshot/clients": {
+            "calls": 2,
+            "documentsReturned": 100,
+            "failures": 0,
+            "estimate": 100,
+            "serverChanges": 100
+          }
+        },
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "clients/listener-start": {
+            "calls": 3
+          },
+          "clients/listener-snapshot": {
+            "calls": 5,
+            "added": 100,
+            "modified": 0,
+            "removed": 0,
+            "serverChanges": 101,
+            "estimatedDocumentReads": 101,
+            "documentsReturned": 103,
+            "first": 3,
+            "fromCache": 0,
+            "server": 5,
+            "pendingWrites": 1
+          },
+          "client-list-summary/http": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 4,
+        "documentsReturned": 106,
+        "estimatedReads": 104,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 1363,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Q": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 44,
+        "g": 6,
+        "qS": 1019,
+        "Yt": 2,
+        "Re": 2,
+        "Ne": 2,
+        "ke": 2,
+        "st": 2,
+        "Ke": 2,
+        "Y": 2,
+        "it": 1,
+        "U": 4,
+        "A": 2,
+        "lT": 123,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 8,
+        "Qt": 2,
+        "v": 39,
+        "m": 2,
+        "W": 2,
+        "En": 2,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "At": 1,
+        "R": 1,
+        "jt": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "Rt": 31,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 25410568,
+        "totalSize": 48611328,
+        "embedderHeapUsedSize": 4736024,
+        "backingStorageSize": 2074289
+      },
+      "execution": {
+        "LayoutDuration": 0.016397,
+        "ScriptDuration": 0.362656,
+        "TaskDuration": 0.504892
+      },
+      "state": {
+        "ready": true,
+        "path": "/clients",
+        "text": "IF\t\n\n4/4 séances\n\n100%\n\nSéances / sem. : 20\n\n\t\nModifier\nAssigner\n‹\n\n1 / 4\n\n›\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      }
+    },
+    {
+      "kind": "clients",
+      "n": 500,
+      "h": 0,
+      "group": "main",
+      "viewport": 1440,
+      "shellMs": 129.75645799999984,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 457.32174999999916,
+      "primaryMs": 1602.9247919999998,
+      "networkSettledMs": 3765.966042,
+      "observationMs": 3766.865999999998,
+      "networkBytes": 2108209,
+      "backend": {
+        "reads": 4,
+        "documents": 1,
+        "estimated": 4,
+        "writes": 25
+      },
+      "api": {
+        "requests": 4,
+        "completed": 3,
+        "responseBytes": 501,
+        "durationMs": 938.6632090000003,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "4349ada7-123d-44d4-a0e8-b942c0f67a86",
+          "httpRequests": 1,
+          "sdkReads": 2,
+          "documentsReturned": 1,
+          "estimatedDocumentReads": 2,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2
+          },
+          "method": "GET",
+          "durationMs": 19,
+          "status": 200,
+          "responseBytes": 213,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "client-list-summary",
+          "sample": "14656311-c5f3-4aa9-b5e9-0bb978b80fd3",
+          "httpRequests": 1,
+          "sdkReads": 123,
+          "documentsReturned": 774,
+          "estimatedDocumentReads": 826,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 1,
+          "operations": {
+            "document": 1,
+            "transactionGet": 120,
+            "transactionGetAll": 2
+          },
+          "method": "POST",
+          "domains": {
+            "messagingRevocations": {
+              "reads": 2,
+              "docs": 0,
+              "estimate": 2
+            },
+            "users": {
+              "reads": 1,
+              "docs": 1,
+              "estimate": 1
+            },
+            "clients": {
+              "reads": 1,
+              "docs": 25,
+              "estimate": 25
+            },
+            "coachClientListViews": {
+              "reads": 1,
+              "docs": 0,
+              "estimate": 25
+            },
+            "programmes": {
+              "reads": 25,
+              "docs": 68,
+              "estimate": 68
+            },
+            "sessionsEffectuees": {
+              "reads": 68,
+              "docs": 680,
+              "estimate": 680
+            },
+            "nutrition_assessments": {
+              "reads": 25,
+              "docs": 0,
+              "estimate": 25
+            }
+          },
+          "durationMs": 919,
+          "status": 200,
+          "responseBytes": 251,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {
+          "clients/listener-snapshot/users": {
+            "calls": 3,
+            "documentsReturned": 3,
+            "failures": 0,
+            "estimate": 1,
+            "serverChanges": 1
+          },
+          "clients/listener-snapshot/clients": {
+            "calls": 6,
+            "documentsReturned": 500,
+            "failures": 0,
+            "estimate": 500,
+            "serverChanges": 500
+          }
+        },
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "clients/listener-start": {
+            "calls": 7
+          },
+          "clients/listener-snapshot": {
+            "calls": 9,
+            "added": 500,
+            "modified": 0,
+            "removed": 0,
+            "serverChanges": 501,
+            "estimatedDocumentReads": 501,
+            "documentsReturned": 503,
+            "first": 7,
+            "fromCache": 0,
+            "server": 9,
+            "pendingWrites": 1
+          },
+          "client-list-summary/http": {
+            "calls": 1
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 8,
+        "documentsReturned": 506,
+        "estimatedReads": 504,
+        "confirmedWrites": 1,
+        "failures": 0
+      },
+      "mounts": 1983,
+      "mountNames": {
+        "fE": 1,
+        "anonymous": 12,
+        "jf": 1,
+        "yf": 1,
+        "Kd": 1,
+        "bf": 1,
+        "ColorModeProvider": 1,
+        "vf": 1,
+        "wf": 1,
+        "EnvironmentProvider": 1,
+        "Vt": 1,
+        "ot": 1,
+        "en": 1,
+        "$t": 1,
+        "sn": 1,
+        "Xt": 1,
+        "Q": 1,
+        "$C": 1,
+        "Portal": 2,
+        "JC": 2,
+        "qf": 64,
+        "g": 6,
+        "qS": 1519,
+        "Yt": 2,
+        "Re": 2,
+        "Ne": 2,
+        "ke": 2,
+        "st": 2,
+        "Ke": 2,
+        "Y": 2,
+        "it": 1,
+        "U": 4,
+        "A": 2,
+        "lT": 183,
+        "FP": 2,
+        "Modal": 7,
+        "f": 2,
+        "N": 4,
+        "D": 2,
+        "ButtonIcon": 8,
+        "Qt": 2,
+        "v": 59,
+        "m": 2,
+        "W": 2,
+        "En": 2,
+        "Menu": 1,
+        "AvatarImage": 1,
+        "AvatarName": 1,
+        "At": 1,
+        "R": 1,
+        "jt": 1,
+        "d": 1,
+        "c": 1,
+        "_": 1,
+        "Rt": 51,
+        "C": 1,
+        "fe": 1,
+        "ue": 1,
+        "oe": 1,
+        "se": 1
+      },
+      "heap": {
+        "usedSize": 40683348,
+        "totalSize": 59752448,
+        "embedderHeapUsedSize": 6591096,
+        "backingStorageSize": 2278139
+      },
+      "execution": {
+        "LayoutDuration": 0.017681,
+        "ScriptDuration": 0.542061,
+        "TaskDuration": 0.749671
+      },
+      "state": {
+        "ready": true,
+        "path": "/clients",
+        "text": "F\t\n\n4/4 séances\n\n100%\n\nSéances / sem. : 20\n\n\t\nModifier\nAssigner\n‹\n\n1 / 20\n\n›\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "interactions": {
+        "nextPageNewWrites": 25,
+        "warmPageWrites": 0,
+        "searchPassed": true
+      }
+    }
+  ]
+}

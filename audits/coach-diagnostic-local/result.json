@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-11",
+  "environment": "local development, existing signed-in browser",
+  "diagnosticOnly": true,
+  "sourceRestoredByteForByte": true,
+  "backendRestarted": false,
+  "deployed": false,
+  "timingsMs": [
+    {
+      "sample": 1,
+      "mount": 508,
+      "directory": 895,
+      "templates": 1023,
+      "core": "loading, no roots/details completion"
+    },
+    {
+      "sample": 2,
+      "mount": 481,
+      "directory": 865,
+      "templates": 1025,
+      "core": "loading, no roots/details completion"
+    },
+    {
+      "sample": 3,
+      "temporaryDiagnostic": true,
+      "mount": 526,
+      "accessFailure": 769,
+      "directory": 859,
+      "templates": 1122,
+      "core": "loading, no roots/details completion"
+    }
+  ],
+  "failure": {
+    "domain": "templateRevision",
+    "code": "permission-denied"
+  },
+  "processes": {
+    "apiPort5050": "started 2026-11-09 18:53:38",
+    "vitePort5173": "started 2026-11-09 18:53:38"
+  },
+  "limitations": [
+    "No response bodies, tokens or client records exported",
+    "Remote deployed rules not inspected",
+    "No actual billing measurements",
+    "Seven-second successful load not reproduced; blocked load reproduced instead",
+    "Browser resource/CPU timing unavailable via current read-only tool"
+  ]
+}

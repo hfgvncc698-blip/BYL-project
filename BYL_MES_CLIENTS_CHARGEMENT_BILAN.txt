@@ -1,0 +1,68 @@
+MES CLIENTS — MESURES DU 13 NOVEMBRE 2026
+
+Périmètre : src/components/Clients.jsx, src/utils/clientVisibleMetrics.js, backend/utils/coachClientListSummary.js.
+Aucun déploiement. Pas de changement de règle, de droits, ni de résumé persistant supplémentaire.
+Les tests utilisent Firebase Auth/Firestore émulés, Chrome headless jetable, écran 1440x1000.
+Build réel instrumenté seulement dans le banc. Cache navigateur désactivé, profils neufs.
+Connexion/admission incluses : mesure depuis la navigation initiale, pas depuis le montage de la page.
+Un passage avant/après compilé par volume : résultats ponctuels, pas une garantie ni une médiane.
+Chaque client possède deux programmes et dix historiques par programme, sauf le premier qui en possède vingt.
+Anciens formats de propriétaire répartis entre createdBy, coachId et coachIds. Aucun contenu réel.
+
+CAUSES ET CORRECTIONS
+1. Les premiers documents de l’annuaire arrivent par identifiant, alors que la page est triée par nom. Les indicateurs demandaient des dossiers de cette vue partielle puis ceux de la vue finale. Le choix des dossiers utilise désormais directement la liste confirmée et le même tri/recherche/pagination que le rendu.
+2. Les historiques étaient séquentiels dans chaque dossier. Le backend les planifie avec un budget partagé de 25 requêtes simultanées maximum, identique au pic précédent. Aucun document supplémentaire demandé. Les lectures restent transactionnelles ; toutes finissent avant les écritures.
+Le test avec latence synthétique de 5 ms démontre 118 requêtes et 25 écritures dans les deux versions, mêmes résultats et pic de concurrence de 25. Ce test ne mesure pas une facture Firebase.
+
+TEMPS ET COÛTS PAR PREMIÈRE OUVERTURE
+
+36 clients :
+Liste utilisable : 738 → 655 ms ; indicateurs confirmés : 2075 → 1893 ms.
+HTTP résumés : 2 → 1 ; opérations SDK backend résumés : 152 → 123.
+Documents retournés par les résumés : 913 → 774 ; lectures documentaires estimées : 979 → 826.
+Lectures navigateur estimées : 40 → 40 ; écritures navigateur : 1 → 1.
+Écritures backend observées (résumés) : 31 → 25.
+Transfert total navigateur : 2106970 → 2106783 octets ; mémoire JS observée : 24397428 → 24449640 octets.
+
+100 clients :
+Liste utilisable : 470 → 462 ms ; indicateurs confirmés : 1488 → 1393 ms.
+HTTP résumés : 2 → 1 ; opérations SDK backend résumés : 152 → 123.
+Documents retournés par les résumés : 913 → 774 ; lectures documentaires estimées : 979 → 826.
+Lectures navigateur estimées : 104 → 104 ; écritures navigateur : 1 → 1.
+Écritures backend observées (résumés) : 31 → 25.
+Transfert total navigateur : 2106986 → 2106801 octets ; mémoire JS observée : 25434556 → 25410568 octets.
+
+500 clients :
+Liste utilisable : 434 → 457 ms ; indicateurs confirmés : 1568 → 1603 ms.
+HTTP résumés : 2 → 1 ; opérations SDK backend résumés : 148 → 123.
+Documents retournés par les résumés : 890 → 774 ; lectures documentaires estimées : 954 → 826.
+Lectures navigateur estimées : 504 → 504 ; écritures navigateur : 1 → 1.
+Écritures backend observées (résumés) : 30 → 25.
+Transfert total navigateur : 2108389 → 2108209 octets ; mémoire JS observée : 40412480 → 40683348 octets.
+
+INTERPRÉTATION
+Le seuil de deux secondes pour les indicateurs est atteint sur ces trois passages compilés. À 500 clients, la latence monte légèrement de 1568 à 1603 ms : aucun gain de vitesse revendiqué sur ce scénario.
+Le mode développement a également été mesuré : après correction, 2017/2442/1930 ms pour 36/100/500 clients. Le seuil n’y est donc pas atteint systématiquement. Il transfère environ 30 Mo contre 2,1 Mo compilés. Ces écarts ne sont pas des économies attribuables au correctif.
+La stabilisation du réseau inclut une fenêtre artificielle de 1,5 s et des éléments secondaires ; elle ne représente pas le moment où la liste devient utilisable.
+Les compteurs globaux backend get() ne comprennent pas toutes les lectures transactionnelles. Les coûts ci-dessus utilisent les métriques par route qui les instrumentent.
+Les requêtes annexes de messagerie et une route absente du banc (404) ne sont pas attribuées à Mes clients. Détails bruts conservés dans les JSON.
+
+FACTURATION
+Les émulateurs ne facturent rien. Les lectures indiquées sont documentaires estimées (minimum des requêtes vides inclus), pas des mesures réelles de facturation. Les évaluations de règles facturables, index, bande passante serveur et ressources CPU ne permettent pas de calculer ici un prix exact en euros. Aucun appel à une API Google payante n’a été ajouté.
+Les 25 écritures de résumés existaient déjà ; aucun nouveau stockage persistant. Elles ne doivent pas être comptées comme une nouvelle économie architecturale des lots précédents.
+
+TESTS
+PASS testClientSummaryScheduling.cjs : parité exacte, ordre des programmes, mêmes requêtes/écritures, concurrence bornée, écritures après toutes les lectures.
+PASS testClientVisibleMetricsLot8A.mjs : 500 dossiers, ordre document/nom différent, recherche accentuée, résultat vide, pagination et filtres exhaustifs.
+PASS navigateur compilé 500 : page suivante (25 nouvelles écritures), retour sur page déjà visitée (0 nouvelle écriture), recherche du dernier client.
+PASS testCoachPagesLot4.cjs sur émulateurs : résumés, cache, formats historiques, validation/suppression, révisions, rôle/club/transfert, aperçu admin, nutrition, révocation, absence de résurrection.
+PASS npm run build et budgets JavaScript.
+ÉCHEC PRÉEXISTANT testClientsFollowType.mjs : la partie classification et langues passe, mais la suite cherche un ancien bloc de chargement nutrition supprimé avant cette tâche. Son ancre est aussi absente de la copie avant correction. Non modifié ici ; les tests backend actuels couvrent le périmètre nutrition.
+Non remesuré sur un compte réel ni sur réseau mobile. Pas de garantie universelle < 2 s. Pas de requalification P0-3/P0-4.
+
+REPRODUCTION
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runClientsLoading.cjs before --compiled
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runClientsLoading.cjs after --compiled
+Enlever --compiled pour le banc de développement. Ne pas exécuter simultanément : mêmes ports locaux.
+Avant figé dans audits/clients-loading/before ; résultats JSON dans ce même dossier parent.
+Le backend local habituel n’a pas été redémarré pendant ces tests ; son PID 10535 est distinct des API émulées. Le changement backend prendra effet après son redémarrage local. Aucun redémarrage production autorisé ou réalisé.

@@ -1,0 +1,82 @@
+{
+  "branch": "codex/firebase-performance-audit",
+  "head": "5bdcd1bb3339b7adf3dd5e81311d76200b756ffd",
+  "scope": "local synthetic emulators and disposable Chrome profiles; no deployment",
+  "sourceSha256": {
+    "src/App.jsx": "751f916b4421340f765edf980b07b13fdb36cba059f26a2f199c25d9d6a8ad8c",
+    "src/components/Clients.jsx": "3a959ec2703aeb913eec8be34ff4778a9d644783ed7555e42fd2ccd429d8695f",
+    "src/utils/clientVisibleMetrics.js": "5fa9ef3543f2866c9b9054e6df2f4086276dae463ec387240d53d77872d09ded",
+    "src/pages/MessagingPage.jsx": "f1ed8744de550c9aed3b9517cf1d40216981452ba8e2198e231e152fe82d7d57",
+    "src/components/messaging/MessagingContactList.jsx": "6f0a777bb2e80a5c62a93c57e54e7ec7b2c578c553be5ba84813bdf64488ae3d",
+    "src/components/messaging/DashboardMessagingBubble.jsx": "ed778f35c86529d00884e73ad6642fd23b286c75cd7df9a0eb75447b3a33bee2",
+    "scripts/measureColdLot8A.cjs": "75e95f2f037c4ca9f6942a23ba90d8660714631f1e6b7a66cdfb971963f5455b",
+    "scripts/runColdLot8A.cjs": "4f9638c65ebaf90cc0d57dfe6564509844123298a5d1cd8508a1de11eef9ed60",
+    "scripts/fixtures/lot8a/firestore.js": "3b19d422f700b1eeeae8e70af13d2b1f543ffae6733852be6020c4e582bed2a2",
+    "scripts/testClientProgressLot5.cjs": "fa620225c9b73924fe9e91ea6e02df6f09ed878b63a573099971655f4ae21669",
+    "scripts/testPaidProgramDelivery.cjs": "20156d1358c89ab44daec56d52c2e339c5bb51b9cd89e50dd597cf73a889b012"
+  },
+  "baselineSha256": {
+    "audits/lot8a/baseline/DashboardMessagingBubble.jsx": "072e3dfc513dfa43b3ae6d09454827b14e56853d7059ee23c9ad7e5e7dfde25b",
+    "audits/lot8a/baseline/MessagingContactList.jsx": "1ca32964ac46b64cecfd36747099ca3a2219be32f90824c5a2872744828eadc5",
+    "audits/lot8a/baseline/Clients.jsx": "99d4c49a87a444173b098a7c79ea1f50fe10efd06bda164f5d7c2d6f25dc1d7d",
+    "audits/lot8a/baseline/App.jsx": "84318d1ea8a38e4e6d8871de07a98dc6b2f324e7992e1ec9284b4604d56c76c6",
+    "audits/lot8a/baseline/MessagingPage.jsx": "eb6ec70befc8af00007de01b3f1dd044233014f8c0b03e57ba667e7ba8907146"
+  },
+  "successfulRunners": {
+    "delivered-before-main.log": true,
+    "delivered-after-main.log": true,
+    "final-before-messages.log": true,
+    "final-after-messages.log": true,
+    "final-before-calendar.log": true,
+    "final-after-calendar.log": true,
+    "delivered-progress-membership.log": true,
+    "regression-coach.log": true,
+    "regression-calendar.log": true,
+    "regression-p01.log": true,
+    "regression-p02.log": true,
+    "regression-messaging.log": true,
+    "integrated-security.log": true
+  },
+  "observations": {
+    "before.json": {
+      "count": 11,
+      "failures": [],
+      "sha256": "2b006527ae1ba11b9a8949c170f27b65b982b0a64efa1615963bd75d2fe16ca6"
+    },
+    "before-calendar.json": {
+      "count": 3,
+      "failures": [],
+      "sha256": "93e78c330ce26cbabc817447d183f9c952c78d44f84f2272b1b5ff32f223686c"
+    },
+    "before-messages.json": {
+      "count": 2,
+      "failures": [
+        {
+          "kind": "messages",
+          "n": 1000,
+          "failure": "not-settled-within-probe-window"
+        }
+      ],
+      "sha256": "b902d45b45a625e7d91d100ef6290e22f0ec4af362dc188536a66d544e9ee16d"
+    },
+    "after.json": {
+      "count": 11,
+      "failures": [],
+      "sha256": "f9049b200751a6b8d934aae828b2d9fa5fcbd8a987421f7f7fa997e69b16d0df"
+    },
+    "after-calendar.json": {
+      "count": 3,
+      "failures": [],
+      "sha256": "de36bbd9dfebbe0a868d68951b03c6b54368e637103f4c4584ee01b708701aa3"
+    },
+    "after-messages.json": {
+      "count": 2,
+      "failures": [],
+      "sha256": "420e05b87eb6eae1ac15d942a17246769db522b6fe36afa7b8b88fd111336c00"
+    }
+  },
+  "securityIssuesStillOpen": [
+    "P0-3",
+    "P0-4"
+  ]
+}

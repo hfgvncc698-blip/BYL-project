@@ -81,6 +81,7 @@
     "noContactsBody": "Les personnes reliées à votre espace apparaîtront ici.",
     "new": "Nouveau",
     "newMessage": "Nouveau message",
+    "newConversationsSummary": "{{count}} conversations ont de nouveaux messages",
     "sent": "Envoyé",
     "read": "Lu",
     "startConversation": "Démarrer une conversation",
@@ -316,6 +317,7 @@
     "delete": "Supprimer"
   },
   "common": {
+    "showMore": "Afficher davantage",
     "loading": "Chargement…",
     "loading_details": "Chargement des détails…",
     "view": "Voir",
@@ -5216,6 +5218,11 @@
       "back": "back"
     },
     "RationAutoGenerator": {
+      "recalculate": "Recalculer la ration",
+      "resetTitle": "Recalculer la ration ?",
+      "resetDescription": "Les aliments et quantités que vous avez modifiés seront remplacés par une nouvelle ration calculée à partir des besoins actuels du dossier. Les repas choisis et les contraintes alimentaires sont conservés.",
+      "resetCancel": "Annuler",
+      "resetConfirm": "Recalculer",
       "donnees_alimentaires": "Données alimentaires",
       "totaux_jour": "Totaux jour",
       "kcal": "kcal",
@@ -7579,5 +7586,32 @@
     "unlimited": "Illimité",
     "saveCapacity": "Enregistrer les accès et limites",
     "emptyUnlimited": "Un champ vide signifie illimité. Ces réglages manuels priment sur les limites de l’offre."
+  },
+  "cacheMigration": {
+    "detected": "Une ancienne sauvegarde a été détectée.",
+    "checking": "Vérification de votre compte et de vos droits.",
+    "recoverable": "Un brouillon peut être récupéré.",
+    "ambiguous": "Cette sauvegarde ne peut pas être récupérée automatiquement.",
+    "recovered": "Le brouillon a été récupéré sans publier le programme.",
+    "blocked": "Un autre onglet BYL est encore ouvert.",
+    "interrupted": "Le nettoyage a été interrompu. Les vérifications doivent être reprises.",
+    "recontaminated": "Une ancienne sauvegarde est réapparue. Le nettoyage reste incomplet.",
+    "local-verified-incomplete": "Les zones autorisées ont été vérifiées. Le nettoyage global de cet appareil reste incomplet.",
+    "started": "Vérification et nettoyage en cours.",
+    "error": "La vérification est indisponible. Aucune récupération automatique.",
+    "later": "Plus tard",
+    "explanation": "Cet appareil contient des données d’une ancienne version de BYL. Vous pouvez vérifier si un brouillon de programme est récupérable, ou continuer normalement.",
+    "options": "Options de récupération",
+    "check": "Vérifier les possibilités de récupération",
+    "confirmRecovery": "Récupérer ce brouillon sur BYL sans publier le programme ?",
+    "recover": "Récupérer le brouillon",
+    "cleanup": "Nettoyage contrôlé",
+    "cleanupHelp": "Le nettoyage de cet appareil nécessite votre confirmation et un plan préalablement qualifié.",
+    "plan": "Référence du plan autorisé",
+    "confirmCleanup": "Confirmer le nettoyage des seules zones qualifiées par ce plan ?",
+    "clean": "Confirmer le nettoyage",
+    "verify": "Vérifier les zones du plan",
+    "title": "Anciennes sauvegardes",
+    "operationError": "Cette opération ne peut pas être effectuée. Les données restantes sont conservées."
   }
 }

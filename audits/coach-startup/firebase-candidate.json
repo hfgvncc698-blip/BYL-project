@@ -1,0 +1,5 @@
+{
+  "version": "12.13.0",
+  "dependencies.@firebase/firestore": "4.14.1",
+  "dist.integrity": "sha512-iutR8ejvAqk6qUClnsPz3U3VIjTWp243AX4cD3iifak5t56to1J29xUIQgSDDzaAqKvhshZerzSahwMQj2TlvA=="
+}

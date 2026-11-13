@@ -1,0 +1,37 @@
+[
+  {
+    "name": "final-before-main",
+    "exitCode": 1,
+    "durationMs": 77417
+  },
+  {
+    "name": "final-after-main",
+    "exitCode": 1,
+    "durationMs": 59967
+  },
+  {
+    "name": "final-before-messages",
+    "exitCode": 0,
+    "durationMs": 52333
+  },
+  {
+    "name": "final-after-messages",
+    "exitCode": 0,
+    "durationMs": 19910
+  },
+  {
+    "name": "final-before-calendar",
+    "exitCode": 0,
+    "durationMs": 26407
+  },
+  {
+    "name": "final-after-calendar",
+    "exitCode": 0,
+    "durationMs": 26955
+  },
+  {
+    "name": "final-regression-progress",
+    "exitCode": 2,
+    "durationMs": 75951
+  }
+]

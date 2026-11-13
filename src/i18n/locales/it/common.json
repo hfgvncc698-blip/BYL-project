@@ -81,6 +81,7 @@
     "noContactsBody": "Le persone collegate al tuo spazio appariranno qui.",
     "new": "Nuovo",
     "newMessage": "Nuovo messaggio",
+    "newConversationsSummary": "Nuovi messaggi in {{count}} conversazioni",
     "sent": "Inviato",
     "read": "Letto",
     "startConversation": "Inizia una conversazione",
@@ -316,6 +317,7 @@
     "delete": "Elimina"
   },
   "common": {
+    "showMore": "Mostra altro",
     "loading": "Caricamento…",
     "loading_details": "Caricamento dettagli…",
     "view": "Vedi",
@@ -5095,6 +5097,11 @@
       "back": "indietro"
     },
     "RationAutoGenerator": {
+      "recalculate": "Ricalcola il piano alimentare",
+      "resetTitle": "Ricalcolare il piano alimentare?",
+      "resetDescription": "Gli alimenti e le quantità che hai modificato saranno sostituiti da un nuovo piano alimentare calcolato in base alle esigenze attuali registrate nella scheda. I pasti selezionati e le restrizioni alimentari saranno mantenuti.",
+      "resetCancel": "Annulla",
+      "resetConfirm": "Ricalcola",
       "donnees_alimentaires": "Dati alimentari",
       "totaux_jour": "Totali giornalieri",
       "kcal": "kcal",
@@ -8615,5 +8622,32 @@
     "unlimited": "Illimitato",
     "saveCapacity": "Salva accesso e limiti",
     "emptyUnlimited": "Un campo vuoto significa illimitato. Le impostazioni manuali prevalgono sui limiti del piano."
+  },
+  "cacheMigration": {
+    "detected": "È stato rilevato un vecchio backup.",
+    "checking": "Verifica il tuo account e i tuoi diritti.",
+    "recoverable": "È possibile recuperare una bozza.",
+    "ambiguous": "Questo backup non può essere ripristinato automaticamente.",
+    "recovered": "La bozza è stata recuperata senza pubblicare il programma.",
+    "blocked": "Un'altra scheda BYL è ancora aperta.",
+    "interrupted": "La pulizia è stata interrotta. I controlli devono essere ripetuti.",
+    "recontaminated": "È ricomparso un vecchio salvataggio. La pulizia rimane incompleta.",
+    "local-verified-incomplete": "Le aree autorizzate sono state controllate. La pulizia complessiva di questo dispositivo rimane incompleta.",
+    "started": "Controllo e pulizia in corso.",
+    "error": "La verifica non è disponibile. Nessun ripristino automatico.",
+    "later": "Più tardi",
+    "explanation": "Questo dispositivo contiene dati di una versione precedente di BYL. Puoi verificare se una bozza di programma è recuperabile o continuare normalmente.",
+    "options": "Opzioni di ripristino",
+    "check": "Controlla le possibilità di recupero",
+    "confirmRecovery": "Recuperare questa bozza da BYL senza pubblicare il programma?",
+    "recover": "Recupera la bozza",
+    "cleanup": "Pulizia controllata",
+    "cleanupHelp": "La pulizia di questo dispositivo richiede la tua conferma e un piano precedentemente qualificato.",
+    "plan": "Riferimento al piano autorizzato",
+    "confirmCleanup": "Confermi la pulizia solo delle aree qualificate da questo piano?",
+    "clean": "Conferma la pulizia",
+    "verify": "Controllare le aree del piano",
+    "title": "Vecchi salvataggi",
+    "operationError": "Questa operazione non può essere eseguita. I restanti dati vengono conservati."
   }
 }

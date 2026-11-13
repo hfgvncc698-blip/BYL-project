@@ -1,0 +1,94 @@
+{
+  "branch": "codex/firebase-performance-audit",
+  "productionDeployed": false,
+  "realDataUsed": false,
+  "overallUnder2SecondsAchieved": false,
+  "independentBlocksDemonstrated": true,
+  "benchmarks": [
+    {
+      "name": "before-1-build",
+      "exitCode": 0
+    },
+    {
+      "name": "after-1-build",
+      "exitCode": 0
+    },
+    {
+      "name": "before-2-build",
+      "exitCode": 0
+    },
+    {
+      "name": "after-2-build",
+      "exitCode": 0
+    },
+    {
+      "name": "before-3-build",
+      "exitCode": 0
+    },
+    {
+      "name": "after-3-build",
+      "exitCode": 0
+    }
+  ],
+  "tests": [
+    {
+      "name": "independent",
+      "exitCode": 0
+    },
+    {
+      "name": "coach",
+      "exitCode": 0
+    },
+    {
+      "name": "calendar",
+      "exitCode": 0
+    },
+    {
+      "name": "p01",
+      "exitCode": 0
+    },
+    {
+      "name": "p02",
+      "exitCode": 0
+    },
+    {
+      "name": "drafts",
+      "exitCode": 0
+    },
+    {
+      "name": "smoke",
+      "exitCode": 0
+    },
+    {
+      "name": "build",
+      "exitCode": 0
+    }
+  ],
+  "unitTests": [
+    "testCoachDirectoryBlocks.mjs",
+    "testCoachDashboardLoading.mjs",
+    "testCoachProgramBatchLot8B.mjs"
+  ],
+  "runtimeFiles": {
+    "src/components/CoachDashboard.jsx": "9d6bdd9139bc0f8a90a6cc0f9f3dab8db5e63c5c7b413558f4bae515e58936aa",
+    "src/utils/coachDirectoryFeed.js": "e1876ec55d2ccdedef9c66cc2abc8fd993d4fab4416bda037693b86166a8a4a9",
+    "src/hooks/useDashboardTiming.js": "aefc805f4c8044cfb62fc66db0e3195365d9e7e5e6aa2c677820567635e6212c"
+  },
+  "evidence": {
+    "after-1-build.json": "2c9d011a41727292225557b771e9a253543486b71506cc07bc8c789fdebe91ee",
+    "before-1-build.json": "d4b9ac43ebc65e2aecc112c9ee1acee69d30ec53e6b5ad5cd0cce4763380191f",
+    "after-3-build.json": "debf8444ddff4c881bbc7d489653e224b5dcc0358f17a3c1faba49050d87b554",
+    "before-3-build.json": "cef3f801589f9e407aaabd69e9815ad11598ad95089e394231560c08d794411c",
+    "after-1-delayed-build.json": "6a2b983176a47eaedbf0c8f380327b8c4f3d93e979213faf98c88b33b83e62fc",
+    "after-2-build.json": "a358826d6443cea5aa5fab28a0305991345bcb14b0f027ccf8f0fe2526290d5c",
+    "before-2-build.json": "6fc0ecc4d07fa98b1b425b22f78843258df2362dd8c6251afcc5ef3da26020ee"
+  },
+  "knownLimits": [
+    "Cold initial 36-client latency regressed",
+    "Backend histories still fully loaded",
+    "No actual Firebase/Google invoice measurement",
+    "Some secondary fixture routes not mounted",
+    "P0-3/P0-4 remain open",
+    "Prior OCTIES missing migration notice unchanged"
+  ]
+}

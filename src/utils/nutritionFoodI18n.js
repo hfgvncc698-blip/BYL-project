@@ -1,3 +1,4 @@
+import rationTranslations from "./rationFoodTranslations.js";
 const stripDiacritics = (value) =>
   String(value || "")
     .normalize("NFD")
@@ -547,12 +548,41 @@ const suffixTranslations = {
   "sans gluten": { en: "gluten-free", es: "sin gluten", de: "glutenfrei", it: "senza glutine", ar: "خالٍ من الغلوتين", ru: "без глютена" },
 };
 
+const catalogByName = new Map();
+const catalogByCode = new Map();
+export function registerCiqualTranslations(rows, catalogs) {
+  for (const row of rows) {
+    const labels = { fr: row.name };
+    for (const [lang, catalog] of Object.entries(catalogs)) {
+      if (catalog.names?.[row.code]) labels[lang] = catalog.names[row.code];
+    }
+    catalogByCode.set(String(row.code), labels);
+    for (const label of Object.values(labels)) catalogByName.set(normalizeFoodKey(label), labels);
+  }
+}
+const rationByName = new Map();
+for (const labels of rationTranslations) {
+  for (const label of Object.values(labels)) rationByName.set(normalizeFoodKey(label), labels);
+}
+export function localizedFoodName(food, language = "fr") {
+  const lang = language.split("-")[0];
+  const name = typeof food === "string" ? food : food?.name || food?.label || "";
+  const code = typeof food === "object" ? food?.ciqualCode || food?.code : "";
+  return catalogByCode.get(String(code))?.[lang] || translateNutritionFoodName(name, lang);
+}
+export function ciqualFoodAliases(food) {
+  return Object.values(catalogByCode.get(String(food.code)) || { fr: food.name });
+}
+
 export const translateNutritionFoodName = (name, language = "fr") => {
   const lang = String(language || "fr").split("-")[0];
-  if (!name || lang === "fr") return name;
+  if (!name) return name;
 
   const raw = String(name).trim();
   const key = normalizeFoodKey(raw);
+  const catalog = rationByName.get(key)?.[lang] || catalogByName.get(key)?.[lang];
+  if (catalog) return catalog;
+  if (lang === "fr") return name;
   const direct = baseTranslations[key]?.[lang];
   if (direct) return direct;
 
@@ -564,9 +594,5 @@ export const translateNutritionFoodName = (name, language = "fr") => {
     if (base && translations[lang]) return `${base} ${translations[lang]}`;
   }
 
-  const partial = Object.entries(baseTranslations)
-    .filter(([source]) => source.length >= 6 && key.includes(source))
-    .sort((a, b) => b[0].length - a[0].length)[0];
-
-  return partial?.[1]?.[lang] || raw;
+  return raw;
 };

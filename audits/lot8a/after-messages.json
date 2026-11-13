@@ -1,0 +1,712 @@
+{
+  "label": "after",
+  "samples": [
+    {
+      "kind": "messages",
+      "n": 100,
+      "h": 0,
+      "group": "messages",
+      "viewport": 1440,
+      "shellMs": 694.7096250000004,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 956.976584,
+      "primaryMs": 956.976584,
+      "networkSettledMs": 3582.4473340000004,
+      "observationMs": 3583.736709,
+      "networkBytes": 31017638,
+      "backend": {
+        "reads": 8,
+        "documents": 4,
+        "estimated": 8,
+        "writes": 0
+      },
+      "api": {
+        "requests": 5,
+        "completed": 3,
+        "responseBytes": 49773,
+        "durationMs": 183.40654200000063,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 100,
+          "changes": 100,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 10,
+          "changes": 10,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 1,
+          "changes": 1,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "9ddf0e9f-09c0-4060-8b21-6faca08a714c",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 45,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "aedb4385-ffd0-4ac1-a1f9-ffac3b592b4e",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 101,
+          "estimatedDocumentReads": 102,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2,
+            "getAll": 1
+          },
+          "method": "GET",
+          "durationMs": 138,
+          "status": 200,
+          "responseBytes": 49475,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "club-inbox/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 1,
+        "documentsReturned": 1,
+        "estimatedReads": 1,
+        "confirmedWrites": 0,
+        "failures": 0
+      },
+      "mounts": 1125,
+      "mountNames": {
+        "ColorModeScript": 1,
+        "ChakraProvider": 1,
+        "Provider": 1,
+        "ThemeProvider": 2,
+        "CSSVars": 1,
+        "ColorModeProvider": 1,
+        "CSSReset": 1,
+        "GlobalStyle": 1,
+        "EnvironmentProvider": 1,
+        "BrowserRouter": 1,
+        "Router": 1,
+        "AppResume": 1,
+        "PullToRefresh": 1,
+        "AppErrorBoundary": 1,
+        "App": 1,
+        "AuthProvider": 1,
+        "ToastProvider": 1,
+        "Portal": 2,
+        "DefaultPortal": 2,
+        "AnimatePresence": 11,
+        "ConsentProvider": 2,
+        "Insertion": 833,
+        "AppContent": 2,
+        "RouteIntentPreloader": 2,
+        "SeoManager": 2,
+        "LanguageRouteSync": 2,
+        "Routes": 2,
+        "RenderedRoute": 2,
+        "ProtectedRoute": 2,
+        "Navigate": 1,
+        "LazyBackground": 4,
+        "DownloadBoundary": 13,
+        "CookieConsentBanner": 2,
+        "ButtonContent": 70,
+        "Trans": 4,
+        "Login": 2,
+        "ButtonIcon": 5,
+        "FcGoogle": 2,
+        "IconBase": 2,
+        "Footer": 2,
+        "Navbar": 2,
+        "Drawer": 2,
+        "Modal": 5,
+        "IdleMount": 2,
+        "CacheMigrationNotice": 1,
+        "QuickCoachActions": 2,
+        "Menu": 1,
+        "AvatarImage": 51,
+        "AvatarName": 51,
+        "MessagingPage": 1,
+        "ProfessionalMessagingPage": 1,
+        "AppSurface": 2,
+        "PageBackButton": 1,
+        "PlanInclusionBadge": 1,
+        "DashboardMessagingBubble": 1,
+        "MessagingBubble": 1,
+        "MessagingContactList": 1,
+        "AlertDialog": 1,
+        "PresenceChild": 1,
+        "ToastComponent": 1,
+        "MeasureLayout": 1,
+        "MeasureLayoutWithContext": 1,
+        "Toast": 1,
+        "AlertIcon": 1,
+        "InfoIcon": 1,
+        "RouteAnalyticsListener": 1,
+        "GuidedTutorial": 1
+      },
+      "heap": {
+        "usedSize": 45531004,
+        "totalSize": 58818560,
+        "embedderHeapUsedSize": 9190280,
+        "backingStorageSize": 30968764
+      },
+      "execution": {
+        "LayoutDuration": 0.013258,
+        "ScriptDuration": 0.256366,
+        "TaskDuration": 0.396897
+      },
+      "state": {
+        "ready": true,
+        "path": "/messages",
+        "text": "onversation\n\nChoisissez une personne pour commencer ou reprendre l’échange.\n\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "loadMorePassed": true
+    },
+    {
+      "kind": "messages",
+      "n": 1000,
+      "h": 0,
+      "group": "messages",
+      "viewport": 1440,
+      "shellMs": 474.45629199999894,
+      "calendarShellMs": null,
+      "calendarEventMs": null,
+      "firstUsefulMs": 683.6649170000001,
+      "primaryMs": 683.6649170000001,
+      "networkSettledMs": 3244.670791999999,
+      "observationMs": 3245.080667,
+      "networkBytes": 31471956,
+      "backend": {
+        "reads": 8,
+        "documents": 4,
+        "estimated": 8,
+        "writes": 0
+      },
+      "api": {
+        "requests": 5,
+        "completed": 3,
+        "responseBytes": 504073,
+        "durationMs": 233.75420900000154,
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      },
+      "listeners": [
+        {
+          "scope": "club-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 0,
+          "changes": 0,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "professional-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 1000,
+          "changes": 1000,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 1,
+          "changes": 1,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 10,
+          "changes": 10,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        },
+        {
+          "scope": "inbox-policy-watch",
+          "activity": "snapshot",
+          "initial": true,
+          "documentsReturned": 30,
+          "changes": 30,
+          "actualBilledReads": null
+        }
+      ],
+      "http": [
+        {
+          "scope": "http",
+          "activity": "club-inbox",
+          "sample": "bbd55d29-6373-426c-9c06-7cb30b8a5b81",
+          "httpRequests": 1,
+          "sdkReads": 3,
+          "documentsReturned": 2,
+          "estimatedDocumentReads": 3,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 3
+          },
+          "method": "GET",
+          "durationMs": 61,
+          "status": 200,
+          "responseBytes": 261,
+          "unestimatedSdkReads": 0
+        },
+        {
+          "scope": "http",
+          "activity": "professional-inbox",
+          "sample": "706db651-0f04-4dd7-9f54-4313e9c028e1",
+          "httpRequests": 1,
+          "sdkReads": 12,
+          "documentsReturned": 1001,
+          "estimatedDocumentReads": 1002,
+          "aggregates": 0,
+          "failedReads": 0,
+          "actualBilledReads": null,
+          "transactionAttempts": 0,
+          "operations": {
+            "document": 2,
+            "getAll": 10
+          },
+          "method": "GET",
+          "durationMs": 173,
+          "status": 200,
+          "responseBytes": 503775,
+          "unestimatedSdkReads": 0
+        }
+      ],
+      "browser": {
+        "scope": "browser",
+        "actualBilledReads": null,
+        "resources": {},
+        "counters": {
+          "messaging-professional/http": {
+            "calls": 2
+          },
+          "club-inbox/http": {
+            "calls": 2
+          }
+        }
+      },
+      "allBrowser": {
+        "sdkCalls": 1,
+        "documentsReturned": 1,
+        "estimatedReads": 1,
+        "confirmedWrites": 0,
+        "failures": 0
+      },
+      "mounts": 1125,
+      "mountNames": {
+        "ColorModeScript": 1,
+        "ChakraProvider": 1,
+        "Provider": 1,
+        "ThemeProvider": 2,
+        "CSSVars": 1,
+        "ColorModeProvider": 1,
+        "CSSReset": 1,
+        "GlobalStyle": 1,
+        "EnvironmentProvider": 1,
+        "BrowserRouter": 1,
+        "Router": 1,
+        "AppResume": 1,
+        "PullToRefresh": 1,
+        "AppErrorBoundary": 1,
+        "App": 1,
+        "AuthProvider": 1,
+        "ToastProvider": 1,
+        "Portal": 2,
+        "DefaultPortal": 2,
+        "AnimatePresence": 11,
+        "ConsentProvider": 2,
+        "Insertion": 833,
+        "AppContent": 2,
+        "RouteIntentPreloader": 2,
+        "SeoManager": 2,
+        "LanguageRouteSync": 2,
+        "Routes": 2,
+        "RenderedRoute": 2,
+        "ProtectedRoute": 2,
+        "Navigate": 1,
+        "LazyBackground": 4,
+        "DownloadBoundary": 13,
+        "CookieConsentBanner": 2,
+        "ButtonContent": 70,
+        "Trans": 4,
+        "Login": 2,
+        "ButtonIcon": 5,
+        "FcGoogle": 2,
+        "IconBase": 2,
+        "Footer": 2,
+        "Navbar": 2,
+        "Drawer": 2,
+        "Modal": 5,
+        "IdleMount": 2,
+        "CacheMigrationNotice": 1,
+        "QuickCoachActions": 2,
+        "Menu": 1,
+        "AvatarImage": 51,
+        "AvatarName": 51,
+        "MessagingPage": 1,
+        "ProfessionalMessagingPage": 1,
+        "AppSurface": 2,
+        "PageBackButton": 1,
+        "PlanInclusionBadge": 1,
+        "DashboardMessagingBubble": 1,
+        "MessagingBubble": 1,
+        "MessagingContactList": 1,
+        "AlertDialog": 1,
+        "PresenceChild": 1,
+        "ToastComponent": 1,
+        "MeasureLayout": 1,
+        "MeasureLayoutWithContext": 1,
+        "Toast": 1,
+        "AlertIcon": 1,
+        "InfoIcon": 1,
+        "RouteAnalyticsListener": 1,
+        "GuidedTutorial": 1
+      },
+      "heap": {
+        "usedSize": 40846312,
+        "totalSize": 58146816,
+        "embedderHeapUsedSize": 8502776,
+        "backingStorageSize": 31421113
+      },
+      "execution": {
+        "LayoutDuration": 0.012953,
+        "ScriptDuration": 0.249444,
+        "TaskDuration": 0.37794
+      },
+      "state": {
+        "ready": true,
+        "path": "/messages",
+        "text": "onversation\n\nChoisissez une personne pour commencer ou reprendre l’échange.\n\nContinuer sans consentir\n\nCookies & confidentialité\n\nNous utilisons des cookies nécessaires au bon fonctionnement du site (obligatoires). Pour les statistiques et le marketing, nous avons besoin de votre accord. Le thème clair/sombre peut utiliser votre position sans la stocker. En savoir plus.\n\nTout accepter\nTout refuser"
+      },
+      "loadMorePassed": true,
+      "searchAndSelectionPassed": true
+    }
+  ]
+}

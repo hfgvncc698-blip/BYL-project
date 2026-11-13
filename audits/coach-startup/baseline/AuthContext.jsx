@@ -1,0 +1,1323 @@
+import { admitPrivateSession, lockPrivateSession, privateSessionVersion, privateSessionIdentity, onPrivateSessionChange } from "./utils/privateSession.js";
+import { localSessionStorage } from "./utils/privateStorage.js";
+// src/AuthContext.jsx
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
+import { auth, db } from "./firebaseConfig";
+import {
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+  deleteUser,
+  reload,
+  sendEmailVerification,
+  getAdditionalUserInfo,
+} from "firebase/auth";
+import {
+  doc,
+  collection,
+  getDoc,
+  getDocFromCache,
+  getDocs,
+  query,
+  where,
+  limit,
+  setDoc,
+  writeBatch,
+  serverTimestamp,
+  Timestamp,
+  onSnapshot,
+} from "firebase/firestore";
+import { getApiBase } from "./utils/apiBase";
+import { getProPlanAccess, isActiveCoachTrial, hasProfessionalWorkspaceAccess } from "./utils/proPlanAccess";
+import i18n, { ensureLanguageLoaded } from "./i18n";
+import { getRegistrationErrorMessage } from "./utils/registrationErrors";
+
+async function prepareSignupRollback(user) {
+  const response=await fetch(getApiBase()+'/messaging/registration-rollback',{
+    method:'POST',headers:{Authorization:'Bearer '+await user.getIdToken()}
+  });
+  if(!response.ok) throw new Error('registration-rollback-unavailable');
+}
+
+const AuthContext = createContext();
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  const previewSearch = typeof window === "undefined" ? "" : window.location.search;
+  return useMemo(() => {
+  // Local visual QA only. No subscription or account data is written.
+  if (!import.meta.env.DEV || context?.user?.role !== "admin") return context;
+  const params = new URLSearchParams(previewSearch);
+  const pack = params.get("previewPack");
+  if (!["sport", "nutrition", "complete"].includes(pack) || params.get("previewTier") !== "solo") return context;
+  const access = getProPlanAccess(pack, "solo");
+  return {
+    ...context,
+    user: { ...context.user, ...access, role: "coach", accountType: "coach", clubId: null, clubRole: null, proAccess: access, nutritionAccess: pack !== "sport", hasNutritionAccess: pack !== "sport", sportAccess: pack !== "nutrition", hasSportAccess: pack !== "nutrition", features: {}, subscriptionStatus: "active", hasActiveSubscription: true, planPreview: `${pack} · Solo` },
+    isAdmin: false, isCoach: true, effectiveRole: "coach", viewAs: "coach", showAdminView: false, isTrialActive: false, hasCoachAccess: true,
+  };
+  }, [context, previewSearch]);
+};
+
+const TRIAL_DAYS = 14;
+const VIEW_AS_KEY = "BYL_VIEW_AS"; // persistance de la vue choisie (admin/coach)
+const ADMIN_PRO_ACCESS = getProPlanAccess("complete", "unlimited");
+const FULL_PRO_TRIAL_ACCESS = getProPlanAccess("complete", "unlimited");
+const FULL_CLUB_TRIAL_ACCESS = getProPlanAccess("club", "network");
+const AUTH_REQUEST_TIMEOUT_MS = 15000;
+const PROFILE_REQUEST_TIMEOUT_MS = 12000;
+
+function rejectAfterTimeout(promise, timeoutMs, code) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = globalThis.setTimeout(() => {
+      const timeoutError = new Error(code);
+      timeoutError.code = code;
+      reject(timeoutError);
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    globalThis.clearTimeout(timeoutId);
+  });
+}
+
+function getLoginErrorMessage(error) {
+  const code = String(error?.code || "");
+  if (code === "auth/request-timeout" || code === "auth/profile-timeout") {
+    return i18n.t(
+      "auth.login.errors.timeout",
+      "La connexion prend trop de temps. Vérifiez votre réseau puis réessayez."
+    );
+  }
+  if (code === "auth/network-request-failed") {
+    return i18n.t(
+      "auth.login.errors.network",
+      "Problème réseau. Vérifiez votre connexion et réessayez."
+    );
+  }
+  if (code === "auth/too-many-requests") {
+    return i18n.t(
+      "auth.login.errors.tooMany",
+      "Trop de tentatives. Réessayez plus tard."
+    );
+  }
+  if (
+    code === "auth/invalid-credential" ||
+    code === "auth/invalid-login-credentials" ||
+    code === "auth/user-not-found" ||
+    code === "auth/wrong-password"
+  ) {
+    return i18n.t(
+      "auth.login.errors.invalidCredentials",
+      "E-mail ou mot de passe incorrect."
+    );
+  }
+  return i18n.t("auth.login.errors.generic", "Échec de la connexion.");
+}
+
+async function createStripeCustomerForRegisteredUser(fbUser, payload) {
+  if (!fbUser?.getIdToken) return;
+  try {
+    const token = await fbUser.getIdToken(true);
+    const response = await fetch(`${getApiBase()}/payments/register-customer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.warn("[register] Stripe customer not created:", response.status, text);
+    }
+  } catch (error) {
+    console.warn("[register] Stripe customer creation skipped:", error?.message || error);
+  }
+}
+
+/* ----------------- Utils ----------------- */
+const toDate = (v) =>
+  v?.toDate
+    ? v.toDate()
+    : typeof v === "number" || typeof v === "string"
+    ? new Date(v)
+    : null;
+
+const safeTime = (d) => {
+  const dt = d instanceof Date ? d : null;
+  const t = dt ? dt.getTime() : NaN;
+  return Number.isFinite(t) ? t : null;
+};
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const verificationReturnUrl = (lang = "fr") => {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://boostyourlife.coach";
+  const url = new URL("/verify-email", origin);
+  url.searchParams.set("pending", "1");
+  url.searchParams.set("lang", langCodeFromAny(lang));
+  return url.toString();
+};
+
+const langCodeFromAny = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return (navigator.language || "fr").slice(0, 2).toLowerCase();
+  if (raw.startsWith("en") || raw.includes("english") || raw.includes("anglais")) return "en";
+  if (raw.startsWith("es") || raw.includes("español") || raw.includes("espanol") || raw.includes("espagnol")) return "es";
+  if (raw.startsWith("de") || raw.includes("deutsch") || raw.includes("allemand")) return "de";
+  if (raw.startsWith("it") || raw.includes("italiano")) return "it";
+  if (raw.startsWith("ru") || raw.includes("русский")) return "ru";
+  if (raw.startsWith("ar") || raw.includes("العربية") || raw.includes("arab")) return "ar";
+  return "fr";
+};
+
+async function syncAccountLanguage(data = {}) {
+  const storedLanguage =
+    data?.settings?.defaultLanguage ||
+    data?.settings?.langCode ||
+    data?.preferredLang ||
+    data?.preferredLanguage;
+  if (!storedLanguage) return;
+  const langCode = langCodeFromAny(storedLanguage);
+  await ensureLanguageLoaded(langCode);
+  if ((i18n.language || "").split("-")[0] !== langCode) {
+    await i18n.changeLanguage(langCode);
+  }
+  try {
+    localSessionStorage.setItem("i18nextLng", langCode);
+  } catch {}
+}
+
+function queueWelcomeEmail(fbUser, data = {}) {
+  if (!fbUser?.uid || !fbUser?.email) return;
+  // Signing in while finishing activation must not send welcome before it completes.
+  if (data.passwordSetupRequired === true) return;
+  if (data.emailVerificationRequired === true && fbUser.emailVerified !== true) return;
+  const authCreatedAtMs = Date.parse(fbUser.metadata?.creationTime || "");
+  const isRecentlyCreatedAccount =
+    Number.isFinite(authCreatedAtMs) &&
+    Date.now() - authCreatedAtMs >= 0 &&
+    Date.now() - authCreatedAtMs <= 24 * 60 * 60 * 1000;
+  if (!isRecentlyCreatedAccount) return;
+  const lifecycle = data.lifecycleEmails || {};
+  if (
+    lifecycle.welcomeSentAt ||
+    lifecycle.welcomeAttemptedAt ||
+    data["lifecycleEmails.welcomeSentAt"] ||
+    data["lifecycleEmails.welcomeAttemptedAt"]
+  ) {
+    return;
+  }
+  // Most visits never send an email: don't download Functions on every page.
+  void import("firebase/functions").then(({ getFunctions, httpsCallable }) => httpsCallable(
+    getFunctions(undefined, "europe-west1"), "sendWelcomeEmail"
+  )({
+    email: fbUser.email,
+    firstName: data.firstName || data.prenom || fbUser.displayName || "",
+    role: data.role || "particulier",
+    lang:
+      data.preferredLang ||
+      data.preferredLanguage ||
+      data.settings?.defaultLanguage ||
+      i18n.language ||
+      "fr",
+  })).catch((error) => {
+    console.warn("[auth] welcome email skipped:", error?.message || error);
+  });
+}
+
+const normalizeUserDoc = (uid, data, fb) => {
+  const isClubAccount =
+    data?.accountType === "club_owner" ||
+    data?.accountType === "club_member" ||
+    data?.clubRole === "owner" ||
+    data?.onboardingPackage === "club" ||
+    data?.packageKey === "club";
+  const rawRole = data?.role ?? "particulier"; // "admin" | "coach" | "particulier"
+  const role = rawRole;
+  const isAdminUser = role === "admin";
+  const trialEndsAt = toDate(data?.trialEndsAt || data?.trialEnd);
+  const hasActiveCoachTrial = isActiveCoachTrial({
+    ...data,
+    role,
+    trialEndsAt,
+  });
+  const isClubTrial = isClubAccount;
+  const adminAccess = isAdminUser
+    ? {
+        ...ADMIN_PRO_ACCESS,
+        modules: [...ADMIN_PRO_ACCESS.modules],
+      }
+    : null;
+  const trialAccess = hasActiveCoachTrial
+    ? {
+        ...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS),
+        modules: [...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS.modules : FULL_PRO_TRIAL_ACCESS.modules)],
+      }
+    : null;
+
+  return {
+    uid,
+    email: fb?.email ?? data?.email ?? null,
+    emailVerified:
+      typeof fb?.emailVerified === "boolean"
+        ? fb.emailVerified
+        : data?.emailVerified === true,
+    emailVerificationRequired: data?.emailVerificationRequired === true,
+    firstName: data?.firstName ?? data?.prenom ?? "Utilisateur",
+    lastName: data?.lastName ?? data?.nom ?? "",
+    role,
+    messagingDisabled: Boolean(data?.disabled || data?.disabledByClub || data?.deletedFromClub || ['club_disabled','club_deleted'].includes(data?.subscriptionStatus) || ['disabled','deleted','removed','inactive','club_deleted'].includes(data?.status)),
+    accountType: data?.accountType ?? (data?.clubRole ? "club_member" : ""),
+    clubId: data?.clubId ?? null,
+    clubRole: data?.clubRole ?? null,
+    clubName: data?.clubName ?? null,
+    clubLogoUrl: data?.clubLogoUrl ?? null,
+    clubPrimaryColor: data?.clubPrimaryColor ?? null,
+
+    // ⚠️ harmonisation : parfois tu écris preferredLanguage, parfois preferredLang
+    preferredLang:
+      data?.preferredLang ??
+      data?.preferredLanguage ??
+      (navigator.language || "fr").slice(0, 2).toLowerCase(),
+
+    // ⚠️ IMPORTANT : ce flag doit refléter un abonnement PAYANT.
+    // Un coach en TRIAL doit avoir hasActiveSubscription=false (accès géré par trialEndsAt + subscriptionStatus).
+    hasActiveSubscription: !!data?.hasActiveSubscription,
+    subscriptionStatus: data?.subscriptionStatus ?? null,
+    planType: data?.planType ?? null,
+    packageKey: adminAccess?.packageKey ?? trialAccess?.packageKey ?? data?.packageKey ?? data?.onboardingPackage ?? "",
+    packageTier: adminAccess?.packageTier ?? trialAccess?.packageTier ?? data?.packageTier ?? data?.onboardingPackageTier ?? "",
+    clientLimit: adminAccess ? adminAccess.clientLimit : trialAccess ? trialAccess.clientLimit : data?.clientLimit ?? null,
+    proLimit: adminAccess ? adminAccess.proLimit : trialAccess ? trialAccess.proLimit : data?.proLimit ?? null,
+    modules: adminAccess ? adminAccess.modules : trialAccess ? trialAccess.modules : data?.modules ?? [],
+    proAccess: adminAccess ?? trialAccess ?? data?.proAccess ?? null,
+    workspaceAccess: data?.workspaceAccess ?? null,
+    manualEntitlements: data?.manualEntitlements === true,
+    storageLimitGb: data?.storageLimitGb ?? null,
+
+    trialStartedAt: toDate(data?.trialStartedAt),
+    trialEndsAt,
+    nextInvoiceAt: toDate(data?.nextInvoiceAt),
+
+    stripeCustomerId: data?.stripeCustomerId ?? null,
+    stripeSubscriptionId: data?.stripeSubscriptionId ?? null,
+    linkedClientId: data?.linkedClientId ?? null,
+    emailPreferences: data?.emailPreferences ?? {},
+
+    logoUrl: data?.logoUrl ?? null,
+    primaryColor: data?.primaryColor ?? null,
+    settings: data?.settings ?? {},
+    // Firebase Auth is authoritative, even if an old profile is recreated.
+    authCreatedAt: fb?.metadata?.creationTime || null,
+  };
+};
+
+async function findClientProfileForAuthUser(firebaseUser) {
+  const email = normalizeEmail(firebaseUser?.email);
+  const queries = [];
+
+  if (firebaseUser?.uid) {
+    queries.push(query(collection(db, "clients"), where("linkedUserId", "==", firebaseUser.uid), limit(1)));
+    queries.push(query(collection(db, "clients"), where("accountUid", "==", firebaseUser.uid), limit(1)));
+    queries.push(query(collection(db, "clients"), where("uid", "==", firebaseUser.uid), limit(1)));
+  }
+  if (email) {
+    queries.push(query(collection(db, "clients"), where("emailLower", "==", email), limit(1)));
+    queries.push(query(collection(db, "clients"), where("email", "==", email), limit(1)));
+  }
+
+  const candidates = new Map();
+  await Promise.all(
+    queries.map(async (q) => {
+      try {
+        const snap = await getDocs(q);
+        snap.docs.forEach((docSnap) => candidates.set(docSnap.id, docSnap));
+      } catch {}
+    })
+  );
+  const ranked = Array.from(candidates.values())
+    .map((docSnap) => {
+      const data = docSnap.data() || {};
+      const candidateEmail = normalizeEmail(data.emailLower || data.email);
+      let score = candidateEmail && candidateEmail === email ? 100 : 0;
+      if (data.linkedUserId === firebaseUser.uid) score += 160;
+      if (data.accountUid === firebaseUser.uid) score += 150;
+      if (data.uid === firebaseUser.uid) score += 70;
+      return { docSnap, score };
+    })
+    .sort((a, b) => b.score - a.score);
+  const best = ranked[0]?.docSnap;
+  return best ? { id: best.id, data: best.data() || {} } : null;
+}
+
+async function seedUserDocFromClient(firebaseUser, provider = null) {
+  const linkedClient = await findClientProfileForAuthUser(firebaseUser);
+  const c = linkedClient?.data || {};
+  const email = normalizeEmail(firebaseUser?.email || c.email);
+  const firstName = String(c.prenom || c.firstName || firebaseUser?.displayName?.split(" ")?.[0] || "").trim();
+  const lastName = String(c.nom || c.lastName || "").trim();
+  const defaultLanguage = c.settings?.defaultLanguage || c.settings?.langCode || c.langue || c.language || c.lang || "fr";
+  const langCode = langCodeFromAny(defaultLanguage);
+
+  return {
+    email: email || firebaseUser?.email || null,
+    emailLower: email || null,
+    firstName: firstName || "Utilisateur",
+    lastName: lastName || "",
+    displayName: `${firstName} ${lastName}`.trim() || firebaseUser?.displayName || "",
+    role: "particulier",
+    hasActiveSubscription: false,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    preferredLang: langCode,
+    provider,
+    linkedClientId: linkedClient?.id || null,
+    settings: {
+      defaultLanguage,
+      langCode,
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
+function verifiedCoachTrialPatch(data = {}) {
+  const isClubOwner =
+    data.accountType === "club_owner" ||
+    data.clubRole === "owner" ||
+    data.onboardingPackage === "club" ||
+    data.packageKey === "club";
+  const selectedAccess = isClubOwner ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS;
+  const requestedTrialDays = Number(data.trialDays || TRIAL_DAYS);
+  const trialDays =
+    Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
+      ? Math.min(Math.round(requestedTrialDays), 30)
+      : TRIAL_DAYS;
+  const now = Date.now();
+
+  return {
+    subscriptionStatus: "trialing",
+    trialStatus: "running",
+    trialStartedAt: Timestamp.fromDate(new Date(now)),
+    trialEndsAt: Timestamp.fromDate(new Date(now + trialDays * 24 * 60 * 60 * 1000)),
+    trialDays,
+    onboardingPackage: selectedAccess.packageKey,
+    onboardingPackageTier: selectedAccess.packageTier,
+    packageKey: selectedAccess.packageKey,
+    packageTier: selectedAccess.packageTier,
+    clientLimit: selectedAccess.clientLimit,
+    proLimit: selectedAccess.proLimit,
+    modules: selectedAccess.modules,
+    proAccess: selectedAccess,
+    hasActiveSubscription: false,
+  };
+}
+
+async function syncVerifiedEmailAccount(fbUser, initialData = {}) {
+  if (!fbUser?.uid || fbUser.emailVerified !== true) return initialData;
+  if (
+    initialData.emailVerified === true &&
+    initialData.subscriptionStatus !== "pending_verification"
+  ) {
+    return initialData;
+  }
+  const userRef = doc(db, "users", fbUser.uid);
+  const trialPatch =
+    initialData.role === "coach" && initialData.subscriptionStatus === "pending_verification"
+      ? verifiedCoachTrialPatch(initialData)
+      : {};
+  const patch = {
+    ...trialPatch,
+    emailVerified: true,
+    emailVerifiedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(userRef, patch, { merge: true });
+
+  if (
+    initialData.role === "coach" &&
+    initialData.subscriptionStatus === "pending_verification" &&
+    (initialData.accountType === "club_owner" || initialData.clubRole === "owner")
+  ) {
+    const clubId = initialData.clubId || fbUser.uid;
+    await setDoc(
+      doc(db, "clubs", clubId),
+      {
+        status: "trialing",
+        trialStartedAt: trialPatch.trialStartedAt,
+        trialEndsAt: trialPatch.trialEndsAt,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    ).catch((error) => {
+      console.warn("[auth] club trial activation sync skipped:", error?.message || error);
+    });
+  }
+
+  const updatedSnap = await getDoc(userRef);
+  return updatedSnap.data() || { ...initialData, ...patch };
+}
+
+async function createRegistrationProfile(fbUser, { firstName, lastName, role = "particulier", birthDate, consent = {} }) {
+  const email = normalizeEmail(fbUser.email);
+  const birthday = new Date(birthDate);
+  const adultDate = new Date();
+  adultDate.setFullYear(adultDate.getFullYear() - 18);
+  if (!email || !String(firstName || "").trim() || !String(lastName || "").trim() ||
+      !["coach", "particulier"].includes(role)) {
+    throw new Error("registration-details-required");
+  }
+  if (!Number.isFinite(birthday.getTime()) || birthday > new Date())
+    throw new Error("registration-invalid-birth-date");
+  if (birthday > adultDate) throw new Error("registration-underage");
+  if (consent.ageVerified !== true || consent.cguAccepted !== true || consent.cgvAccepted !== true)
+    throw new Error("registration-consent-required");
+  if ((consent.accountType === "club_owner" || consent.onboardingPackage === "club") && !String(consent.clubName || "").trim())
+    throw new Error("registration-club-name-required");
+  const userRef = doc(db, "users", fbUser.uid);
+
+  const isClubOwner =
+    role === "coach" &&
+    (consent?.accountType === "club_owner" || consent?.onboardingPackage === "club");
+  const clubId = isClubOwner ? fbUser.uid : consent?.clubId || null;
+  const clubName =
+    consent?.clubName ||
+    (isClubOwner ? `${firstName || "Club"} ${lastName || ""}`.trim() : "");
+
+  const base = {
+    email,
+    emailVerified: false,
+    emailVerificationRequired: true,
+    firstName: firstName || "Utilisateur",
+    lastName: lastName || "",
+    role,
+    accountType: isClubOwner ? "club_owner" : consent?.accountType || "",
+    clubId,
+    clubRole: isClubOwner ? "owner" : consent?.clubRole || "",
+    clubName,
+    birthDate: birthDate || "",
+    accountCreationSource: "self-registration",
+    passwordSetupRequired: false,
+    preferredLang: langCodeFromAny(
+      consent?.preferredLanguage || navigator.language || "fr"
+    ),
+    ageVerified: !!consent?.ageVerified,
+    cguAccepted: !!consent?.cguAccepted,
+    cgvAccepted: !!consent?.cgvAccepted,
+    acceptedAt: consent?.acceptedAt || new Date().toISOString(),
+    cguVersion: consent?.cguVersion || "v1.0",
+    cgvVersion: consent?.cgvVersion || "v1.0",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  let trialPart = {};
+  if (role === "coach") {
+    const requestedPackageKey = consent?.onboardingPackage || "";
+    const requestedPackageTier = consent?.onboardingPackageTier || "";
+    const selectedAccess = isClubOwner ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS;
+    const requestedTrialDays = Number(consent?.trialDays || TRIAL_DAYS);
+    const trialDays =
+      Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
+        ? Math.min(Math.round(requestedTrialDays), 30)
+        : TRIAL_DAYS;
+    trialPart = {
+      subscriptionStatus: "pending_verification",
+      trialStatus: "pending_verification",
+      trialDays,
+      requestedPackageKey,
+      requestedPackageTier,
+      onboardingPackage: selectedAccess.packageKey,
+      onboardingPackageTier: selectedAccess.packageTier,
+      packageKey: selectedAccess.packageKey,
+      packageTier: selectedAccess.packageTier,
+      clientLimit: selectedAccess.clientLimit,
+      proLimit: selectedAccess.proLimit,
+      modules: selectedAccess.modules,
+      proAccess: selectedAccess,
+
+      // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
+      hasActiveSubscription: false,
+
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+    };
+  } else {
+    trialPart = {
+      hasActiveSubscription: false,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      subscriptionStatus: "free",
+    };
+  }
+
+  const registrationBatch = writeBatch(db);
+  registrationBatch.set(userRef, { ...base, ...trialPart }, { merge: true });
+
+  if (role !== "coach") {
+    registrationBatch.set(
+      doc(db, "clients", fbUser.uid),
+      {
+        uid: fbUser.uid,
+        authUid: fbUser.uid,
+        linkedUserId: fbUser.uid,
+        accountUid: fbUser.uid,
+        email: normalizeEmail(email),
+        emailLower: normalizeEmail(email),
+        firstName: firstName || "Utilisateur",
+        lastName: lastName || "",
+        prenom: firstName || "Utilisateur",
+        nom: lastName || "",
+        role: "particulier",
+        source: "self-registration",
+        accountCreationSource: "self-registration",
+        passwordSetupRequired: false,
+        preferredLang: base.preferredLang,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  if (isClubOwner) {
+    const clubRef = doc(db, "clubs", clubId);
+    registrationBatch.set(
+      clubRef,
+      {
+        name: clubName || `${firstName || "Club"} ${lastName || ""}`.trim(),
+        ownerUid: fbUser.uid,
+        ownerEmail: email,
+        planTier: trialPart.packageTier || "network",
+        trialDays: trialPart.trialDays || 30,
+        status: "pending_verification",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    registrationBatch.set(
+      doc(db, "clubs", clubId, "members", fbUser.uid),
+      {
+        uid: fbUser.uid,
+        email,
+        firstName: firstName || "Responsable",
+        lastName: lastName || "",
+        role: "owner",
+        status: "active",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+  await registrationBatch.commit();
+  return { ...base, ...trialPart };
+}
+
+/* ----------------- Provider ----------------- */
+export const AuthProvider = ({ children }) => {
+  // Affiche immédiatement le dernier profil validé, puis on le resynchronise
+  // en arrière-plan avec Firebase Auth et Firestore.
+  const [user, setUser] = useState(null); // <-- doc Firestore normalisé
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const epoch = useSyncExternalStore(onPrivateSessionChange, privateSessionVersion, privateSessionVersion);
+  const profileScopeRef = useRef(null);
+  const unsubUserRef = useRef(null); // pour nettoyer l’ancienne souscription
+  const registrationInProgressRef = useRef(false);
+
+  /** viewAs = "admin" | "coach" | null (null = auto) */
+  const [viewAs, _setViewAs] = useState(() => {
+    try {
+      return localSessionStorage.getItem(VIEW_AS_KEY) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  /* -- Sélecteur sécurisé pour changer de vue (sans changer les droits réels) -- */
+  const setViewAs = (next) => {
+    if (!user?.role) return;
+
+    if (user.role === "admin") {
+      // admin peut choisir "admin" ou "coach"
+      if (next === "admin" || next === "coach") {
+        _setViewAs(next);
+        try {
+          localSessionStorage.setItem(VIEW_AS_KEY, next);
+        } catch {}
+      }
+    } else if (user.role === "coach") {
+      // coach reste coach
+      _setViewAs("coach");
+      try {
+        localSessionStorage.setItem(VIEW_AS_KEY, "coach");
+      } catch {}
+    } else {
+      // particulier/other : pas de viewAs
+      _setViewAs(null);
+      try {
+        localSessionStorage.removeItem(VIEW_AS_KEY);
+      } catch {}
+    }
+  };
+
+  /* -- Rôle effectif utilisé par l’UI -- */
+  const effectiveRole = useMemo(() => {
+    if (!user?.role) return null;
+    if (user.role === "admin") return viewAs || "admin";
+    return user.role;
+  }, [user?.role, viewAs]);
+
+  const isAuthenticated = Boolean(user);
+  const isAdmin = user?.role === "admin";
+  const isCoach = effectiveRole === "coach";
+  const requiresEmailVerification = user?.emailVerificationRequired === true;
+  const isEmailVerified = !requiresEmailVerification || user?.emailVerified === true;
+
+  const [accessNow,setAccessNow]=useState(Date.now);
+  useEffect(()=>{
+    const refresh=()=>setAccessNow(Date.now());
+    refresh();
+    const end=safeTime(user?.trialEndsAt);
+    const expiry=user?.subscriptionStatus==='trialing'&&end>Date.now()?setTimeout(refresh,Math.min(end-Date.now()+20,2147483647)):null;
+    const timer=setInterval(refresh,30000);
+    window.addEventListener('focus',refresh);
+    return()=>{clearInterval(timer);if(expiry)clearTimeout(expiry);window.removeEventListener('focus',refresh);};
+  },[user?.uid,user?.subscriptionStatus,user?.trialEndsAt]);
+
+  /* ----------------- ✅ TRIAL + ACCÈS PRO (FIX) ----------------- */
+  const isTrialActive = useMemo(() => {
+    if (!user) return false;
+    if (user.role !== "coach") return false;
+    if (
+      user.subscriptionStatus === "club_active" &&
+      user.accountType === "club_member" &&
+      user.clubId
+    ) {
+      return true;
+    }
+
+    // accepte trialing + endsAt futur
+    const endsAtMs = safeTime(user.trialEndsAt);
+    const now = accessNow;
+
+    return isActiveCoachTrial(user, now) && !!endsAtMs;
+  }, [user,accessNow]);
+
+  // accès coach = abonnement payant OU trial actif
+  const hasCoachAccess = useMemo(() => hasProfessionalWorkspaceAccess(user,accessNow), [user,accessNow]);
+
+  /* -- Compat : ancien flag showAdminView/toggleAdminView (mappés sur viewAs) -- */
+  const showAdminView = isAdmin && effectiveRole === "admin";
+  const toggleAdminView = () => {
+    if (isAdmin) setViewAs(effectiveRole === "admin" ? "coach" : "admin");
+  };
+
+  /* -- Listen user auth + abonnement temps réel au doc Firestore -- */
+  useEffect(() => {
+    const unAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        setUser(null);
+        profileScopeRef.current = null;
+        // stoppe l’ancien onSnapshot si existant
+        if (unsubUserRef.current) {
+          unsubUserRef.current();
+          unsubUserRef.current = null;
+        }
+
+        if (firebaseUser) {
+          const userRef = doc(db, "users", firebaseUser.uid);
+
+          // on s'abonne au doc pour réagir aux mises à jour externes (webhooks/cron/etc.)
+          unsubUserRef.current = onSnapshot(
+            userRef,
+            async (snap) => {
+              if (auth.currentUser?.uid !== firebaseUser.uid) return;
+              if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+              if (snap.exists()) {
+                const normalized = normalizeUserDoc(
+                  firebaseUser.uid,
+                  snap.data(),
+                  firebaseUser
+                );
+                const scope = JSON.stringify([normalized.role, normalized.clubId, snap.data().clubIds, normalized.linkedClientId,
+                  normalized.messagingDisabled, snap.data().status, normalized.accountType, normalized.clubRole,
+                  normalized.subscriptionStatus, normalized.hasActiveSubscription, normalized.modules, normalized.proAccess, normalized.trialEndsAt]);
+                if (snap.data().disabled === true || ['disabled','deleted','removed','inactive'].includes(snap.data().status)) {
+                  lockPrivateSession(); setUser(null); await signOut(auth); return;
+                }
+                if (profileScopeRef.current && profileScopeRef.current !== scope) {
+                  lockPrivateSession(); setUser(null); window.location.reload(); return;
+                }
+                profileScopeRef.current = scope;
+                admitPrivateSession(firebaseUser.uid, scope);
+                setUser(normalized);
+                try {
+                  localSessionStorage.setItem("user", JSON.stringify(normalized));
+                } catch {}
+
+                // Ajuster viewAs en fonction du rôle réel
+                if (normalized.role === "admin") {
+                  // admin : conserver la dernière vue ou défaut "admin"
+                  if (viewAs === null) {
+                    const saved = (() => {
+                      try {
+                        return localSessionStorage.getItem(VIEW_AS_KEY);
+                      } catch {
+                        return null;
+                      }
+                    })();
+                    _setViewAs(saved === "coach" ? "coach" : "admin");
+                  }
+                } else if (normalized.role === "coach") {
+                  // coach : forcer coach
+                  if (viewAs !== "coach") {
+                    _setViewAs("coach");
+                    try {
+                      localSessionStorage.setItem(VIEW_AS_KEY, "coach");
+                    } catch {}
+                  }
+                } else {
+                  // particulier/other
+                  if (viewAs !== null) {
+                    _setViewAs(null);
+                    try {
+                      localSessionStorage.removeItem(VIEW_AS_KEY);
+                    } catch {}
+                  }
+                }
+              } else {
+                // création minimale si le doc manque
+                if (registrationInProgressRef.current) return;
+                const seed = await seedUserDocFromClient(firebaseUser);
+                await setDoc(userRef, seed, { merge: true });
+              }
+              setLoading(false);
+            },
+            (err) => {
+              lockPrivateSession(); setUser(null);
+              console.error("onSnapshot user error:", err);
+              setLoading(false);
+            }
+          );
+        } else {
+          setUser(null);
+          try {
+            localSessionStorage.removeItem("user");
+          } catch {}
+          setLoading(false);
+          // si déconnecté, on nettoie la vue
+          _setViewAs(null);
+          try {
+            localSessionStorage.removeItem(VIEW_AS_KEY);
+          } catch {}
+        }
+      } catch (err) {
+        console.error(err);
+        setError("Problème récupération utilisateur.");
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      unAuth();
+      if (unsubUserRef.current) unsubUserRef.current();
+    };
+     
+  }, []);
+
+  /* -- (Optionnel) gérer la fin d'un redirect Apple -- */
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getRedirectResult(auth);
+        if (res?.user) {
+          const u = res.user;
+          const userRef = doc(db, "users", u.uid);
+          const userDoc = await getDoc(userRef);
+          if (!userDoc.exists()) {
+            await setDoc(userRef, await seedUserDocFromClient(u, "apple"), { merge: true });
+          }
+          const latestUserDoc = await getDoc(userRef);
+          queueWelcomeEmail(u, latestUserDoc.data() || {});
+        }
+      } catch {
+        // silencieux
+      }
+    })();
+  }, []);
+
+  /* ----------------- Actions Auth ----------------- */
+
+  // Connexion Email
+  const loginWithEmail = async (email, password, callback) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const { user: fbUser } = await rejectAfterTimeout(
+        signInWithEmailAndPassword(auth, email, password),
+        AUTH_REQUEST_TIMEOUT_MS,
+        "auth/request-timeout"
+      );
+      if (callback) {
+        const ref = doc(db, "users", fbUser.uid);
+        let snap;
+        try {
+          snap = await rejectAfterTimeout(
+            getDoc(ref),
+            PROFILE_REQUEST_TIMEOUT_MS,
+            "auth/profile-timeout"
+          );
+        } catch (profileError) {
+          if (profileError?.code !== "auth/profile-timeout") throw profileError;
+          try {
+            snap = await getDocFromCache(ref);
+          } catch {
+            throw profileError;
+          }
+        }
+        let data = snap.data() || {};
+        if (fbUser.emailVerified === true && data.emailVerificationRequired === true) {
+          await fbUser.getIdToken(true);
+          data = await syncVerifiedEmailAccount(fbUser, data);
+        }
+        await rejectAfterTimeout(
+          syncAccountLanguage(data),
+          5000,
+          "auth/language-timeout"
+        ).catch((languageError) => {
+          console.warn("[auth] account language sync skipped:", languageError?.message || languageError);
+        });
+        const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
+        setUser(normalized);
+        try {
+          localSessionStorage.setItem("user", JSON.stringify(normalized));
+        } catch {}
+        setDoc(
+          ref,
+          {
+            passwordSetupRequired: false,
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch((writeError) => {
+          console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
+        });
+        queueWelcomeEmail(fbUser, data);
+
+        callback(normalized.role, hasProfessionalWorkspaceAccess(normalized), normalized);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(getLoginErrorMessage(err));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Connexion Google
+  const loginWithGoogle = async (callback, registration = null) => {
+    if (registrationInProgressRef.current) throw new Error("registration-in-progress");
+    registrationInProgressRef.current = true;
+    setError(null);
+    setLoading(true);
+    let newGoogleUser = null;
+    let profileCommitted = false;
+    try {
+      const provider = new GoogleAuthProvider();
+      const credential = await signInWithPopup(auth, provider);
+      const fbUser = credential.user;
+      if (getAdditionalUserInfo(credential)?.isNewUser) newGoogleUser = fbUser;
+      const userRef = doc(db, "users", fbUser.uid);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) {
+        if (registration) {
+          await createRegistrationProfile(fbUser, registration);
+        } else if (newGoogleUser) {
+          // The login button must not bypass registration identity/consent.
+          throw new Error("registration-details-required");
+        } else {
+          await setDoc(userRef, await seedUserDocFromClient(fbUser, "google"), { merge: true });
+        }
+      }
+      profileCommitted = true;
+      if (callback) {
+        const snap = await getDoc(userRef);
+        let data = snap.data() || {};
+        if (fbUser.emailVerified === true && data.emailVerificationRequired === true) {
+          await fbUser.getIdToken(true);
+          data = await syncVerifiedEmailAccount(fbUser, data);
+        }
+        await syncAccountLanguage(data);
+        const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
+        setUser(normalized);
+        try {
+          localSessionStorage.setItem("user", JSON.stringify(normalized));
+        } catch {}
+        setDoc(
+          userRef,
+          {
+            passwordSetupRequired: false,
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch((writeError) => {
+          console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
+        });
+        queueWelcomeEmail(fbUser, data);
+
+        callback(normalized.role, hasProfessionalWorkspaceAccess(normalized), normalized);
+      }
+    } catch (err) {
+      console.error(err);
+      if (newGoogleUser && !profileCommitted) {
+        try {
+          await prepareSignupRollback(newGoogleUser);
+          await deleteUser(newGoogleUser);
+        } catch {
+          console.warn("[register] orphan cleanup pending");
+        }
+      }
+      setError(err?.message === "registration-details-required"
+        ? i18n.t("auth.register.googleRegistrationRequired", "Pour créer un nouveau compte Google, utilise « Inscription » afin de choisir ton espace et d’accepter les conditions.")
+        : "Connexion Google échouée.");
+      if (registration) throw err;
+    } finally {
+      registrationInProgressRef.current = false;
+      setLoading(false);
+    }
+  };
+
+  // Connexion / Inscription Apple
+  const loginWithApple = async (callback) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const provider = new OAuthProvider("apple.com");
+      provider.addScope("name");
+      provider.addScope("email");
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        await signInWithRedirect(auth, provider);
+        return; // le flux reprend via getRedirectResult
+      }
+
+      const { user: fbUser } = await signInWithPopup(auth, provider);
+      const userRef = doc(db, "users", fbUser.uid);
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) {
+        await setDoc(
+          userRef,
+          await seedUserDocFromClient(fbUser, "apple"),
+          { merge: true }
+        );
+      }
+      if (callback) {
+        const snap = await getDoc(userRef);
+        const data = snap.data() || {};
+        await syncAccountLanguage(data);
+        setDoc(
+          userRef,
+          {
+            passwordSetupRequired: false,
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch((writeError) => {
+          console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
+        });
+        queueWelcomeEmail(fbUser, data);
+
+        const normalized=normalizeUserDoc(fbUser.uid,data,fbUser);
+        callback(normalized.role,hasProfessionalWorkspaceAccess(normalized),normalized);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Connexion Apple échouée.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Register email (avec essai coach direct possible)
+  const registerWithEmail = async (
+    email,
+    password,
+    firstName,
+    lastName,
+    role = "particulier",
+    birthDate,
+    consent
+  ) => {
+    if (registrationInProgressRef.current) throw new Error("registration-in-progress");
+    registrationInProgressRef.current = true;
+    setError(null);
+    setLoading(true);
+    let createdUser = null;
+    try {
+      const { user: fbUser } = await createUserWithEmailAndPassword(auth, normalizeEmail(email), password);
+      createdUser = fbUser;
+      try {
+        await updateProfile(fbUser, { displayName: `${firstName || ""} ${lastName || ""}`.trim() });
+      } catch {}
+      const profile = await createRegistrationProfile(fbUser, { firstName, lastName, role, birthDate, consent });
+      // Never delete a committed account because email delivery failed.
+      createdUser = null;
+      try {
+        auth.languageCode = profile.preferredLang;
+        await sendEmailVerification(fbUser, {
+          url: verificationReturnUrl(profile.preferredLang),
+          handleCodeInApp: false,
+        });
+        await setDoc(doc(db, "users", fbUser.uid),
+          { emailVerificationSentAt: serverTimestamp(), updatedAt: serverTimestamp() },
+          { merge: true });
+      } catch (verificationError) {
+        console.warn("[register] verification email will need to be resent:", verificationError?.message || verificationError);
+      }
+      return { emailVerificationRequired: true };
+    } catch (err) {
+      console.error(err);
+      if (createdUser) {
+        try {
+          await prepareSignupRollback(createdUser);
+          await deleteUser(createdUser);
+        } catch {
+          console.warn("[register] orphan cleanup pending");
+        }
+      }
+      setError(getRegistrationErrorMessage(err, i18n.t.bind(i18n)));
+      throw err;
+    } finally {
+      registrationInProgressRef.current = false;
+      setLoading(false);
+    }
+  };
+
+  const resendEmailVerification = async (lang) => {
+    const fbUser = auth.currentUser;
+    if (!fbUser) throw new Error("auth-required");
+    if (fbUser.emailVerified) return true;
+    const langCode = langCodeFromAny(lang || user?.preferredLang || i18n.language || "fr");
+    auth.languageCode = langCode;
+    await sendEmailVerification(fbUser, {
+      url: verificationReturnUrl(langCode),
+      handleCodeInApp: false,
+    });
+    await setDoc(
+      doc(db, "users", fbUser.uid),
+      { emailVerificationSentAt: serverTimestamp(), updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+    return true;
+  };
+
+  const refreshEmailVerification = async () => {
+    const fbUser = auth.currentUser;
+    if (!fbUser) return { verified: false, reason: "auth-required" };
+
+    await reload(fbUser);
+    if (fbUser.emailVerified !== true) {
+      return { verified: false, reason: "not-verified" };
+    }
+
+    await fbUser.getIdToken(true);
+    const userRef = doc(db, "users", fbUser.uid);
+    const snap = await getDoc(userRef);
+    const previousData = snap.data() || {};
+    const activatedTrial =
+      previousData.role === "coach" &&
+      previousData.subscriptionStatus === "pending_verification";
+    const data = await syncVerifiedEmailAccount(fbUser, previousData);
+
+    if (activatedTrial && !data.stripeCustomerId) {
+      await createStripeCustomerForRegisteredUser(fbUser, {
+        email: fbUser.email || data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+      });
+    }
+
+    const latestSnap = await getDoc(userRef);
+    const latestData = latestSnap.data() || data;
+    const normalized = normalizeUserDoc(fbUser.uid, latestData, fbUser);
+    setUser(normalized);
+    try {
+      localSessionStorage.setItem("user", JSON.stringify(normalized));
+    } catch {}
+    queueWelcomeEmail(fbUser, latestData);
+    return { verified: true, user: normalized };
+  };
+
+  // Démarrer un essai coach pour un utilisateur existant
+  const startCoachTrialIfNeeded = async (uid) => {
+    if (!uid) return;
+    const userRef = doc(db, "users", uid);
+    const now = Date.now();
+    const selectedAccess = FULL_PRO_TRIAL_ACCESS;
+    await setDoc(
+      userRef,
+      {
+        role: "coach",
+        subscriptionStatus: "trialing",
+        trialStartedAt: Timestamp.fromDate(new Date(now)),
+        trialEndsAt: Timestamp.fromDate(
+          new Date(now + TRIAL_DAYS * 24 * 60 * 60 * 1000)
+        ),
+        trialStatus: "running",
+
+        // Persister les droits de l'essai dans Firestore. L'interface sait les
+        // déduire, mais les anciennes versions et les autres services lisent
+        // directement ces champs.
+        onboardingPackage: selectedAccess.packageKey,
+        onboardingPackageTier: selectedAccess.packageTier,
+        packageKey: selectedAccess.packageKey,
+        packageTier: selectedAccess.packageTier,
+        clientLimit: selectedAccess.clientLimit,
+        proLimit: selectedAccess.proLimit,
+        modules: selectedAccess.modules,
+        proAccess: selectedAccess,
+
+        // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
+        hasActiveSubscription: false,
+
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  };
+
+  // Reset password
+  const resetPassword = async (email, lang) => {
+    setError(null);
+    const selected = String(i18n.resolvedLanguage || i18n.language || "")
+      .split("-")[0]
+      .toLowerCase();
+    const browser = (navigator?.language || "en").slice(0, 2).toLowerCase();
+    const supported = ["fr", "en", "de", "it", "es", "ru", "ar"];
+    const requested = String(lang || "").split("-")[0].toLowerCase();
+    const langCode = supported.includes(requested)
+      ? requested
+      : supported.includes(selected)
+      ? selected
+      : supported.includes(browser)
+      ? browser
+      : "en";
+    try {
+      const response = await fetch(`${getApiBase()}/client-profile/password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: normalizeEmail(email), lang: langCode }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "password-reset-unavailable");
+      }
+      return true;
+    } catch (err) {
+      console.error("resetPassword error:", err);
+      throw err;
+    }
+  };
+
+  // Logout
+  const logout = async (navigate) => {
+    await signOut(auth);
+    setUser(null);
+    try {
+      localSessionStorage.removeItem("user");
+    } catch {}
+    _setViewAs(null);
+    try {
+      localSessionStorage.removeItem(VIEW_AS_KEY);
+    } catch {}
+    if (navigate) navigate("/login");
+  };
+
+  /* ----------------- Context value ----------------- */
+  const value = useMemo(
+    () => ({
+      // données
+      user,
+      isAuthenticated,
+      loading,
+      error,
+
+      // rôles / vues
+      viewAs, // "admin" | "coach" | null
+      setViewAs, // switch sécurisé
+      effectiveRole, // rôle utilisé par l’UI (admin peut “voir comme” coach)
+      isAdmin, // rôle réel === admin
+      isCoach, // rôle effectif === coach
+
+      // ✅ accès pro
+      isTrialActive,
+      hasCoachAccess, // <= C'EST CE FLAG QU'IL FAUT UTILISER DANS LES GUARDS
+      isEmailVerified,
+      requiresEmailVerification,
+
+      // compat (si du code existant l’utilise)
+      showAdminView, // true quand l’admin est en vue Admin
+      toggleAdminView, // bascule admin ↔ coach
+
+      // actions auth
+      loginWithEmail,
+      loginWithGoogle,
+      loginWithApple,
+      registerWithEmail,
+      resendEmailVerification,
+      refreshEmailVerification,
+      logout,
+      resetPassword,
+      startCoachTrialIfNeeded,
+    }),
+    [
+      user,
+      isAuthenticated,
+      loading,
+      error,
+      viewAs,
+      effectiveRole,
+      isAdmin,
+      isCoach,
+      showAdminView,
+      isTrialActive,
+      hasCoachAccess,
+      isEmailVerified,
+      requiresEmailVerification,
+    ]
+  );
+
+  return <AuthContext.Provider value={value}>{loading || (auth.currentUser && (!user || !privateSessionIdentity())) ? <div role="status">Vérification de la session… <button onClick={() => signOut(auth)}>Retour à la connexion</button></div> : <React.Fragment key={epoch}>{children}</React.Fragment>}</AuthContext.Provider>;
+};

@@ -164,6 +164,8 @@ app.use('/api/clubs', clubRoutes);
 
 // Programmes
 const programRoutes = require('./routes/programs');
+app.use('/api/program-drafts', require('./routes/programDrafts'));
+app.use('/api/cache-migration', require('./routes/cacheMigration'));
 app.use('/api/programs', require('./routes/coachProgramRead'));
 app.use('/api/programs', programRoutes);
 

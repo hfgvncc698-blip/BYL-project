@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Opt-in, local-only timing. No client identity or health data is recorded.
+// Readiness drives the UI even without diagnostics. Timing remains opt-in and
+// local-only; no client identity or health data is recorded.
 export function useDashboardTiming(enabled) {
   const mountedAt = useRef(performance.now());
   const [timing, setTiming] = useState({});
   const mark = useCallback((section, status = "ready", details = {}) => {
-    if (!enabled && !["core", "nutrition", "copilot"].includes(section)) return;
+    if (!enabled && !["core", "clientProgress", "activity", "templates", "nutrition", "copilot"].includes(section)) return;
     if (!enabled) {
       setTiming(previous => ({ ...previous, [section]: { status } }));
       return;

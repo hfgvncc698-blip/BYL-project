@@ -1,3 +1,5 @@
+import { onPrivateSessionChange, privateSessionIdentity } from "./privateSession.js";
+import { localSessionStorage } from "./privateStorage.js";
 import { writePageCacheValue } from "./persistedPageCache.js";
 import { readDashboardSnapshot, writeDashboardSnapshot } from "./dashboardSnapshotCache.js";
 
@@ -5,6 +7,7 @@ const memoryCache = new Map();
 const pendingWrites = new Map();
 const pendingRestores = new Map();
 let writeScheduled = false;
+onPrivateSessionChange(() => { memoryCache.clear(); pendingWrites.clear(); pendingRestores.clear(); });
 
 export const DEFAULT_PAGE_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
 export const DEFAULT_PAGE_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -36,7 +39,7 @@ function scheduleCacheWrites() {
     const [key, payload] = first;
     pendingWrites.delete(key);
     try {
-      writePageCacheValue(window.localStorage, key, payload);
+      writePageCacheValue(localSessionStorage, key, payload);
     } catch (_) {}
     // Persist complete server results asynchronously, outside Firebase's quota.
     if (payload.data?.partial !== true) void writeDashboardSnapshot(key, payload);
@@ -51,13 +54,13 @@ export function readPageDataCacheEntry(
     staleTtlMs = DEFAULT_PAGE_DATA_STALE_TTL_MS,
   } = {}
 ) {
-  if (!key) return null;
+  if (!key || !privateSessionIdentity()) return null;
 
   let payload = memoryCache.get(key) || null;
 
   if (!payload && !sessionOnly(key) && typeof window !== "undefined") {
     try {
-      payload = JSON.parse(window.localStorage.getItem(key) || "null");
+      payload = JSON.parse(localSessionStorage.getItem(key) || "null");
       if (payload) memoryCache.set(key, payload);
     } catch (_) {
       return null;
@@ -91,7 +94,7 @@ export function readPageDataCache(
 }
 
 export async function restorePageDataCacheEntry(key, options = {}) {
-  if (!key) return null;
+  if (!key || !privateSessionIdentity()) return null;
   const present = readPageDataCacheEntry(key, options);
   if (present && !present.data?.partial) return present;
   let pending = pendingRestores.get(key);
@@ -107,7 +110,7 @@ export async function restorePageDataCacheEntry(key, options = {}) {
 }
 
 export function writePageDataCache(key, data) {
-  if (!key) return;
+  if (!key || !privateSessionIdentity()) return;
   // A progressive refresh must not replace a complete, still-usable snapshot
   // with placeholder counters while someone navigates between pages.
   const current = readPageDataCacheEntry(key);

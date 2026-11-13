@@ -1,3 +1,4 @@
+import { localSessionStorage } from "./privateStorage.js";
 export const GEO_PAGE_LOAD_ID =
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -12,8 +13,8 @@ export function claimGeolocationHelp(sessionKey) {
   const key = "BYL_GEO_HELP_SESSION_V1";
   if (shownHelpSessions.has(sessionKey)) return false;
   try {
-    if (localStorage.getItem(key) === sessionKey) return false;
-    localStorage.setItem(key, sessionKey);
+    if (localSessionStorage.getItem(key) === sessionKey) return false;
+    localSessionStorage.setItem(key, sessionKey);
   } catch { /* In-memory protection when browser storage is unavailable. */ }
   shownHelpSessions.add(sessionKey);
   return true;

@@ -1,0 +1,148 @@
+CLIENTS RÉCENTS — DASHBOARD COACH
+13 novembre 2026 — codex/firebase-performance-audit
+Aucun déploiement ; tests exclusivement sur émulateurs et données synthétiques.
+
+RÉSULTAT EN BREF
+Informations programmes des cinq cartes : 36 clients 2,76 -> 1,20 s ;
+100 clients 3,23 -> 1,36 s ; 500 clients 3,44 -> 2,80 s.
+12 clients : 1,85 -> 2,47 s dans la passe finale, aucun gain structurel
+(une seule requête inchangée) ; variabilité explicitée ci-dessous.
+Lectures serveur totales identiques : 408 / 1683 / 5081 / 26317.
+La cible sous 2 secondes n'est pas universellement atteinte.
+Les autres blocs et le classement définitif peuvent encore charger.
+
+CAUSE
+Les cartes visibles utilisent les programmes et historiques canoniques.
+L'ordre des dossiers donnait déjà la priorité aux clients récents, mais le
+premier appel attendait jusqu'à 32 dossiers, y compris des dossiers invisibles.
+Les publications progressives existaient ; c'est le groupe HTTP qui les retardait.
+Les cache hits pouvaient laisser des groupes partiellement vides.
+
+CORRECTION
+Seul code applicatif modifié pour cette intervention :
+src/utils/coachProgramBatch.js.
+1. Réutilisation des promesses du cache mémoire de la session et de la révision
+   courante, sans les accepter après fermeture de session.
+2. Regroupement des seuls dossiers non disponibles.
+3. Premier groupe aussi petit que possible pour les cinq cartes visibles,
+   sans dépasser le nombre minimal d'appels initial ni 32 dossiers par appel.
+   12 : 12 -> 12.
+   36 : 32 + 4 -> 5 + 31.
+   100 : 32 + 32 + 32 + 4 -> 5 + 32 + 32 + 31.
+   500 : 16 appels dans les deux cas ; le premier groupe contient 20 dossiers.
+4. Ordre des résultats conservé, trois requêtes simultanées au maximum.
+   Décodage, progression, cache versionné, fallback 404/413 et contrôles serveur
+   inchangés. Aucun nouvel index, résumé persistant, listener ou service Google.
+
+NATURE DES MESURES
+Application réelle compilée, Chrome froid jetable 1440x1000, Firebase Auth et
+Firestore émulés en local, CPU et réseau non ralentis.
+Chronomètre jusqu'à cinq cartes réelles dont les programmes ne sont plus des
+placeholders. Il ne représente ni le skeleton ni le Dashboard globalement prêt.
+Les compteurs et le classement final du Dashboard gardent leur propre échéance.
+Les validations canoniques restent intégralement présentes ; aucune économie
+obtenue en les omettant ou en remplaçant leurs résultats par une approximation.
+
+Fixture principale :
+12, 36, 100, 500 clients ; deux programmes par client ;
+les cinq premiers ont une validation par programme, les autres 25.
+Soit 360 / 1560 / 4760 / 24760 validations, 40 événements calendrier.
+Cette distribution teste un blocage par les dossiers hors écran.
+Une première fixture légère (deux validations par client) reste dans
+before-light-compiled.json ; ne pas la comparer à la fixture principale.
+Les propriétaires utilisent les trois formats historiques.
+Données personnelles réelles : aucune.
+
+PRÉCAUTION DE COMPTAGE
+L'ancien critère "réseau stable" pouvait terminer une observation pendant qu'une
+transaction continuait. Le scénario initial de 500 n'avait compté que 9 des
+16 réponses. Il est conservé dans before-incomplete-observation.json et EXCLU
+de la comparaison finale des coûts.
+Le banc final attend core + nutrition confirmés et exige toutes les réponses
+dashboard-client-programs : ceil(nombre de clients / 32).
+Les tests interactifs ont lieu après capture des compteurs initiaux.
+
+TESTS
+PASS npm run build final : compilation et budgets respectés.
+PASS testCoachProgramBatchLot8B.mjs :
+- chargeur réel, contenu identique, aucune perte ou duplication ;
+- 0, 1, 5, 12, 32, 33, 36, 64, 100, 500, 1000 dossiers ;
+- nombre minimal de groupes, maximum 32, ordre original ;
+- cache partiel : seuls les dossiers invalidés sont demandés ;
+- cache chaud : zéro nouvel appel ;
+- refus 400/401/403 sans fallback ;
+- compatibilité 404/413 et lecture unique de chaque programme/historique ;
+- session fermée : cache rejeté, aucun appel lancé.
+PASS testCoachProgressPaint.mjs : publication groupée, progression canonique,
+visibilité coach, prescriptions, réponses tardives et fermeture.
+PASS testCoachDashboardLoading.mjs : budget partagé, scope et cache hérité intact.
+PASS testPrivateSessionLot7B1Octies.mjs : identité, réponse tardive, quarantaine.
+Tests intégrés : cinq cartes avec programme et progression, trois cartes mobile
+sans nouvelle lecture au redimensionnement, mise à jour distante du programme
+après incrément de sa révision.
+Aucune règle de production ou vérification d'autorisation modifiée.
+
+LIMITES
+- Les dossiers dont les propres programmes/historiques sont très volumineux
+  restent lents. La correction retire l'attente des voisins lorsque le budget
+  de groupes le permet, elle ne supprime pas le coût du dossier visible.
+- 12 dossiers restent un seul groupe ; pas de gain structurel attendu.
+- 500 dossiers imposent au moins 20 dossiers dans le premier groupe pour ne pas
+  ajouter un 17e appel. La cible des deux secondes n'est pas garantie.
+- Le Dashboard global et le classement définitif peuvent continuer à charger.
+- Les essais ne garantissent pas les temps production ou réseau lent.
+- Aucun montant réel de facture Firebase mesuré.
+- Les erreurs, retries et plafonds de taille peuvent modifier les coûts effectifs ;
+  le repli 413 préexistant reste disponible et est testé, sans garantie universelle
+  de coût sous toutes les distributions de très gros documents.
+- Les tests de cache chaud sont exécutés sur le chargeur réel avec réseau simulé ;
+  pas de temps de navigation chaude navigateur revendiqué.
+- P0-3/P0-4 toujours ouverts. Pas de déploiement.
+
+REPRODUCTION
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runRecentClientsLoading.cjs before --compiled
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runRecentClientsLoading.cjs after --compiled
+node scripts/testCoachProgramBatchLot8B.mjs
+node scripts/testCoachProgressPaint.mjs
+
+Artefacts :
+audits/recent-clients-loading/before/* : sources exactes avant cette intervention
+audits/recent-clients-loading/before-compiled.json
+audits/recent-clients-loading/after-compiled.json
+audits/recent-clients-loading/comparison.json
+scripts/runRecentClientsLoading.cjs
+scripts/testCoachProgramBatchLot8B.mjs
+Les modifications préexistantes des autres tâches sont préservées.
+
+MESURES FINALES (observation complète)
+Clients | cartes avant -> après (s) | lectures backend estimées avant -> après
+12 | 1.849 -> 2.473 | 408 -> 408
+36 | 2.758 -> 1.195 | 1683 -> 1683
+100 | 3.231 -> 1.362 | 5081 -> 5081
+500 | 3.438 -> 2.797 | 26317 -> 26317
+
+Les estimations backend incluent les domaines communs du Dashboard, et les
+lectures dans les transactions. Ne pas utiliser le compteur global Admin qui
+ne couvre pas tous les tx.get. Aucune facture réelle mesurée.
+
+Autres compteurs avant -> après :
+12 clients : HTTP 8 -> 8, groupes programmes 1 -> 1, SDK backend 49 -> 49, docs backend 402 -> 402, SDK navigateur 21 -> 21, écritures backend 0 -> 0, écritures navigateur 2 -> 2.
+Réseau CDP 2808686 -> 2808979 octets ; heap ponctuel 34.7 -> 49.0 MB ; JS 0.798 -> 0.809 s ; observation complète 3.94 -> 4.16 s.
+36 clients : HTTP 9 -> 9, groupes programmes 2 -> 2, SDK backend 125 -> 125, docs backend 1675 -> 1675, SDK navigateur 45 -> 45, écritures backend 0 -> 0, écritures navigateur 2 -> 2.
+Réseau CDP 2811928 -> 2811986 octets ; heap ponctuel 55.3 -> 55.4 MB ; JS 0.887 -> 0.913 s ; observation complète 4.43 -> 4.70 s.
+100 clients : HTTP 11 -> 11, groupes programmes 4 -> 4, SDK backend 325 -> 325, docs backend 5069 -> 5069, SDK navigateur 109 -> 109, écritures backend 0 -> 0, écritures navigateur 2 -> 2.
+Réseau CDP 2820300 -> 2820562 octets ; heap ponctuel 39.9 -> 41.8 MB ; JS 0.943 -> 1.102 s ; observation complète 5.06 -> 5.27 s.
+500 clients : HTTP 23 -> 23, groupes programmes 16 -> 16, SDK backend 1573 -> 1573, docs backend 26281 -> 26281, SDK navigateur 509 -> 509, écritures backend 0 -> 0, écritures navigateur 2 -> 2.
+Réseau CDP 2874292 -> 2875048 octets ; heap ponctuel 35.0 -> 62.1 MB ; JS 2.690 -> 2.665 s ; observation complète 17.81 -> 15.97 s.
+
+Le heap dépend du GC ; le compteur CDP ne mesure pas tout le trafic gRPC du
+backend. La stabilisation inclut une fenêtre du banc et tous les autres blocs.
+Les métadonnées/cache des listeners rendent les compteurs navigateur globaux
+variables ; le code ne crée aucune requête Firestore supplémentaire. Les
+écritures communes Auth/préférences ne sont pas attribuées à cette correction.
+
+Le cas 12 est plus lent dans la dernière passe ; le regroupement reste [12]
+avant/après. Des passes après précédentes donnaient 1,85 et 2,01 s. Pas de gain
+fiable revendiqué et pas de garantie sous 2 s pour ce cas avec ces historiques.
+Les gains 36/100 se retrouvent dans les passes précédentes. Le cas 500 reste
+au-dessus de 2 s. Ne pas étendre ces mesures à toutes les distributions réelles.

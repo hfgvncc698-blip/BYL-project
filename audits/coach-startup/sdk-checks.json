@@ -1,0 +1,77 @@
+[
+  {
+    "name": "install",
+    "exitCode": 0,
+    "ms": 9585
+  },
+  {
+    "name": "admission",
+    "exitCode": 0,
+    "ms": 12513
+  },
+  {
+    "name": "after-1-build",
+    "exitCode": 0,
+    "ms": 41121
+  },
+  {
+    "name": "after-2-build",
+    "exitCode": 0,
+    "ms": 41541
+  },
+  {
+    "name": "after-3-build",
+    "exitCode": 0,
+    "ms": 47124
+  },
+  {
+    "name": "security-coach",
+    "exitCode": 0,
+    "ms": 13642
+  },
+  {
+    "name": "security-progress",
+    "exitCode": 0,
+    "ms": 9885
+  },
+  {
+    "name": "security-calendar",
+    "exitCode": 0,
+    "ms": 17340
+  },
+  {
+    "name": "security-p01",
+    "exitCode": 0,
+    "ms": 9628
+  },
+  {
+    "name": "security-p02",
+    "exitCode": 0,
+    "ms": 14754
+  },
+  {
+    "name": "security-messaging",
+    "exitCode": 0,
+    "ms": 22038
+  },
+  {
+    "name": "integrated-drafts",
+    "exitCode": 0,
+    "ms": 23433
+  },
+  {
+    "name": "draft-api",
+    "exitCode": 0,
+    "ms": 9599
+  },
+  {
+    "name": "smoke",
+    "exitCode": 0,
+    "ms": 975
+  },
+  {
+    "name": "build",
+    "exitCode": 0,
+    "ms": 3531
+  }
+]

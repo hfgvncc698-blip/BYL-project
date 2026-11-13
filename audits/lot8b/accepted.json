@@ -1,0 +1,17 @@
+[
+  {
+    "group": "main",
+    "exitCode": 0,
+    "ms": 86040
+  },
+  {
+    "group": "slow",
+    "exitCode": 0,
+    "ms": 145880
+  },
+  {
+    "group": "cpu",
+    "exitCode": 0,
+    "ms": 106898
+  }
+]

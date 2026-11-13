@@ -1,0 +1,106 @@
+{
+  "branch": "codex/firebase-performance-audit",
+  "firebase": "12.13.0",
+  "productionDeployed": false,
+  "targetUnder2SecondsAchieved": false,
+  "checks": [
+    {
+      "name": "install",
+      "exitCode": 0,
+      "ms": 9585
+    },
+    {
+      "name": "admission",
+      "exitCode": 0,
+      "ms": 12513
+    },
+    {
+      "name": "after-1-build",
+      "exitCode": 0,
+      "ms": 41121
+    },
+    {
+      "name": "after-2-build",
+      "exitCode": 0,
+      "ms": 41541
+    },
+    {
+      "name": "after-3-build",
+      "exitCode": 0,
+      "ms": 47124
+    },
+    {
+      "name": "security-coach",
+      "exitCode": 0,
+      "ms": 13642
+    },
+    {
+      "name": "security-progress",
+      "exitCode": 0,
+      "ms": 9885
+    },
+    {
+      "name": "security-calendar",
+      "exitCode": 0,
+      "ms": 17340
+    },
+    {
+      "name": "security-p01",
+      "exitCode": 0,
+      "ms": 9628
+    },
+    {
+      "name": "security-p02",
+      "exitCode": 0,
+      "ms": 14754
+    },
+    {
+      "name": "security-messaging",
+      "exitCode": 0,
+      "ms": 22038
+    },
+    {
+      "name": "integrated-drafts",
+      "exitCode": 0,
+      "ms": 23433
+    },
+    {
+      "name": "draft-api",
+      "exitCode": 0,
+      "ms": 9599
+    },
+    {
+      "name": "smoke",
+      "exitCode": 0,
+      "ms": 975
+    },
+    {
+      "name": "build",
+      "exitCode": 0,
+      "ms": 3531
+    }
+  ],
+  "knownFailure": "OCTIES migration notice absent, reproduced with baseline AuthContext",
+  "runtimeFiles": {
+    "src/AuthContext.jsx": "af642a0e6430f5a9b3110ca93dadb51cfe82fd3e836266d8941e0946d6985038",
+    "src/components/CoachDashboard.jsx": "3e4cf87870b5ce709cb4cda4a6ca7399479e524718647c0c0b455c315434478d",
+    "backend/routes/coachProgramRead.js": "8dd4f881f003f5f766b68c3d619d5bbc0f63be39789fbc68f789f21f6e19bc01",
+    "backend/utils/coachDashboardBundles.js": "2925909c6ae7637aa021d2b1f92d97e6619e9f5f3a559bf844459b32e82cd42b",
+    "package.json": "5b032338d6ea6cc9e84bbbac340e67942df58d23addec67484c42bb37472adef",
+    "package-lock.json": "9604821e77460387d056051eca7910c87bbf857965758d1d54680df16526c6a1"
+  },
+  "measurements": {
+    "audits/coach-startup/after-1-build.json": "5529a9f7f0d352c0a4d53df3b36abc3528d81a18d79424148204f458484ab679",
+    "audits/coach-startup/after-2-build.json": "5cd8e36bbee95176d6e1d8b9571ee81d444930032801378ae4ce9b27a9bb1901",
+    "audits/coach-startup/after-3-build.json": "2a0b0329c727a8aa5ba7c6c82051401d87653349ccabf23e1fc76f80ee8a97ee",
+    "audits/coach-startup/before-1-build.json": "07ed9adea012f71ca46c78f8835f5d95fa57ae7c4285a717542262548dd75440",
+    "audits/coach-startup/before-2-build.json": "5608cc76b19f8ace0e841c5fcc15f4565ce500751de18e11cf7f8e627e347985",
+    "audits/coach-startup/before-3-build.json": "7aac25d911ba833ddc228d4cbe34bafdbb3863ea97c4ec92a639d37cb245d1ce"
+  },
+  "limits": [
+    "Synthetic emulator measurements only",
+    "No actual billing measurement",
+    "Real-account 20s delay not reproduced",
+    "P0-3 and P0-4 remain open"
+  ]
+}

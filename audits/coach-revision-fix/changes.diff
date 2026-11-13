@@ -1,0 +1,54 @@
+--- before/src/components/CoachDashboard.jsx
++++ after/src/components/CoachDashboard.jsx
+@@ -2033,6 +2033,7 @@
+   const assignmentSavingRef = useRef(false);
+   const assignmentOperationRef = useRef(null);
+   const [dashboardFromCache, setDashboardFromCache] = useState(false);
++  const [templateSyncUnavailable, setTemplateSyncUnavailable] = useState(false);
+   const [selectedClient, setSelectedClient] = useState("");
+   const [assignmentPlacement, setAssignmentPlacement] = useState('auto');
+   const [clientToDelete, setClientToDelete] = useState(null);
+@@ -4284,8 +4285,16 @@
+       setViewStale(true);setLoadingData(false);
+     };
+     const detachTemplates=coachConfirmedSnapshot(doc(db,'coachPageTemplateRevisions',effectiveCoachUid),snap=>{
+-      if(!snap.metadata.fromCache && source.templatesChanged(JSON.stringify(snap.data()?.revision || null))){dashboardLoadSeqRef.current++;refresh();}
+-    },error=>{if(error.code==='permission-denied')denied();else stale();});
++      if(snap.metadata.fromCache || snap.metadata.hasPendingWrites)return;
++      setTemplateSyncUnavailable(false);
++      if(source.templatesChanged(JSON.stringify(snap.data()?.revision || null))){dashboardLoadSeqRef.current++;refresh();}
++    },()=>{
++      // This document is an invalidation hint, not an admission authority.
++      // Profile/directory/calendar denials still clear private data below; the
++      // template API checks current access on every existing read. No polling
++      // or fallback read is added when this optional channel is unavailable.
++      setTemplateSyncUnavailable(true);
++    });
+     const detachRoots=source.roots.watch('coach-dashboard',{stale,error:denied,partial:(docs,reslicing)=>{
+       if(reslicing){dashboardLoadSeqRef.current++;setSelectedEvent(null);setAssignedClientsMap({});setAssignedCounts({});}
+       const rows=buildQuickDashboardClients(docs.map(d=>({...d.data(),id:d.id})));
+@@ -7910,6 +7919,11 @@
+           {dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error"
+             ? t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")
+             : t("dashboard.refresh_pending", "Synchronisation en cours. Les données affichées restent à confirmer.")}
++        </Text>
++      )}
++      {templateSyncUnavailable && (
++        <Text role="status" data-testid="coach-template-sync-unavailable" fontSize="xs" color="gray.500">
++          {t("dashboard.template_sync_unavailable", "Les mises à jour automatiques des modèles de programmes sont indisponibles. Rechargez la page pour obtenir leur dernière version.")}
+         </Text>
+       )}
+       <Box
+--- before/backend/routes/coachProgramRead.js
++++ after/backend/routes/coachProgramRead.js
+@@ -17,7 +17,9 @@
+     const uid = req.auth.uid;
+     const requesterSnap = await admin.firestore().collection("users").doc(uid).get();
+     const requester = requesterSnap.exists ? requesterSnap.data() : {};
+-    if (!hasActiveProfessionalAccess(requester, req.auth.token)) {
++    if (requester.disabled || requester.disabledByClub || requester.deletedFromClub ||
++        ['inactive','disabled','deleted','removed','club_deleted'].includes(requester.status) ||
++        !hasActiveProfessionalAccess(requester, req.auth.token)) {
+       return res.status(403).json({ error: "professional-access-required" });
+     }
+     const coachId = String(req.body?.coachId || uid).trim();

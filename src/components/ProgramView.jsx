@@ -1,3 +1,4 @@
+import { tabSessionStorage } from "../utils/privateStorage.js";
 import { EXERCISE_PARAMETER_KEYS } from "../utils/exerciseParameterOrder";
 import { loadProgramPdfLogos } from "../utils/programPdfLogos.js";
 import { downloadPdfFile } from "../utils/downloadPdfFile";
@@ -1034,8 +1035,8 @@ const normalizeDistanceUnit = (u) => {
 const getSessionStorageUnitPrefs = () => {
   try {
     const candidates = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
+    for (let i = 0; i < tabSessionStorage.length; i++) {
+      const key = tabSessionStorage.key(i);
       if (!key) continue;
       if (
         key.includes("BYL_AUTO_PREFS") ||
@@ -1049,7 +1050,7 @@ const getSessionStorageUnitPrefs = () => {
 
     for (const key of candidates) {
       try {
-        const raw = sessionStorage.getItem(key);
+        const raw = tabSessionStorage.getItem(key);
         if (!raw) continue;
         const obj = JSON.parse(raw);
 
@@ -1978,7 +1979,7 @@ const LAST_PREFS_MAX_AGE_MS = 1000 * 60 * 30;
 
 function readCachedPrefs(clientId, programId) {
   try {
-    const raw = sessionStorage.getItem(cacheKeyForProgram(clientId, programId));
+    const raw = tabSessionStorage.getItem(cacheKeyForProgram(clientId, programId));
     if (!raw) return null;
     const obj = JSON.parse(raw);
     return obj && typeof obj === "object" ? obj : null;
@@ -1989,7 +1990,7 @@ function readCachedPrefs(clientId, programId) {
 
 function writeCachedPrefs(clientId, programId, prefs) {
   try {
-    sessionStorage.setItem(cacheKeyForProgram(clientId, programId), JSON.stringify(prefs));
+    tabSessionStorage.setItem(cacheKeyForProgram(clientId, programId), JSON.stringify(prefs));
   } catch {
     // ignore
   }
@@ -1997,7 +1998,7 @@ function writeCachedPrefs(clientId, programId, prefs) {
 
 function readLastPrefs() {
   try {
-    const raw = sessionStorage.getItem(LAST_PREFS_KEY);
+    const raw = tabSessionStorage.getItem(LAST_PREFS_KEY);
     if (!raw) return null;
     const obj = JSON.parse(raw);
     if (!obj || typeof obj === "object") {
@@ -2014,7 +2015,7 @@ function readLastPrefs() {
 
 function writeLastPrefs(prefs) {
   try {
-    sessionStorage.setItem(LAST_PREFS_KEY, JSON.stringify(prefs));
+    tabSessionStorage.setItem(LAST_PREFS_KEY, JSON.stringify(prefs));
   } catch {
     // ignore
   }

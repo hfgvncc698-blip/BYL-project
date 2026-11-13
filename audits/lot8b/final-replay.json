@@ -1,0 +1,17 @@
+[
+  {
+    "phase": "before",
+    "group": "transitions-tail",
+    "exitCode": 0
+  },
+  {
+    "phase": "after",
+    "group": "transitions-tail",
+    "exitCode": 0
+  },
+  {
+    "phase": "before",
+    "group": "slow",
+    "exitCode": 0
+  }
+]

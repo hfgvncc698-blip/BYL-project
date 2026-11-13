@@ -1,8 +1,10 @@
 // src/pages/ProgramBuilderPage.jsx
-import React, { useLayoutEffect, useState } from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
 import { Box, Flex, useColorModeValue } from "@chakra-ui/react";
 import ExerciseBank from "./ExerciseBank";
 import ProgramBuilder from "./ProgramBuilder";
+
+const MemoExerciseBank = React.memo(ExerciseBank);
 
 const SIDEBAR_W = 360;   // largeur fixe de la banque
 const SIDEBAR_MIN = 320;
@@ -36,6 +38,10 @@ export default function ProgramBuilderPage() {
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [replaceIndex, setReplaceIndex] = useState(null);
 
+  const addExercise = useCallback(ex => setSelectedExercises(prev => [...prev, ex]), []);
+  const replaceExercise = useCallback(ex => setSelectedExercises([ex]), []);
+  const cancelReplace = useCallback(() => setReplaceIndex(null), []);
+
   return (
     <Flex
       data-tour-page="program-builder"
@@ -55,11 +61,11 @@ export default function ProgramBuilderPage() {
         borderColor={divider}
       >
         <Box h="100%" minH={0} overflow="hidden">
-          <ExerciseBank
-            onAdd={(ex) => setSelectedExercises((prev) => [...prev, ex])}
-            onReplace={(ex) => setSelectedExercises([ex])}
+          <MemoExerciseBank
+            onAdd={addExercise}
+            onReplace={replaceExercise}
             replaceMode={replaceIndex !== null}
-            onCancelReplace={() => setReplaceIndex(null)}
+            onCancelReplace={cancelReplace}
           />
         </Box>
       </Box>

@@ -1,0 +1,34 @@
+ const samples=[];
+ // No canonical publication: all edits target the emulated draft only.
+ for(const rate of [1,4]){
+  await cdp.send('Emulation.setCPUThrottlingRate',{rate});
+  if(rate===1){
+   await ev(`builderSelect(Array.from({length:24},(_,i)=>({id:'seed-'+i,nom:'Synthetic exercise '+i,'Séries':3,'Répétitions':12,image:'',details:'x'.repeat(16000)})))`);
+   await waitFor(cdp,"document.body.textContent.includes('Synthetic exercise 23')");
+   await waitFor(cdp,"q.status().includes('Synchronisé avec BYL')");
+  }
+  for(const action of ['add','replace']){
+   const marker='Synthetic '+action+' '+rate;
+   const beforeHttp=counters.http;
+   const result=await ev(`(async()=>{window.__rowRenders=0;const begin=performance.now();
+    builderSelect([{id:${JSON.stringify(marker)},nom:${JSON.stringify(marker)},'Séries':3,'Répétitions':12,details:'z'.repeat(16000)}],${action==='replace'?'0':'null'});
+    await new Promise((resolve,reject)=>{const until=()=>{if(document.body.textContent.includes(${JSON.stringify(marker)}))requestAnimationFrame(()=>requestAnimationFrame(resolve));else if(performance.now()-begin>15000)reject(Error('paint timeout'));else requestAnimationFrame(until);};until();});
+    return {paintMs:performance.now()-begin,rowRenders:window.__rowRenders};})()`);
+   await waitFor(cdp,"q.status().includes('Synchronisé avec BYL')");
+   const saved=await request('read',token,{target});
+   const rows=saved.draft.value.sessions[0].corps;
+   assert(rows.some(r=>r.nom===marker));
+   if(action==='replace'){assert.equal(rows[0].nom,marker);assert.equal(rows[0]['Répétitions'],12);}
+   samples.push({rate,action,...result,http:counters.http-beforeHttp-1,exercises:rows.length});
+  }
+ }
+ await cdp.send('Emulation.setCPUThrottlingRate',{rate:1});
+ await check('offline edit and reconnect preserve draft',async()=>{
+  await cdp.send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
+  await ev("q.edit('offline-fixture')");await waitFor(cdp,"q.status().includes('En attente de synchronisation')");assert.equal(await ev('q.warning()'),true);
+  await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
+  await waitFor(cdp,"q.status().includes('Synchronisé avec BYL')");assert.equal((await request('read',token,{target})).draft.value.programName,'offline-fixture');
+ });
+ assert.equal((await db.doc('programmes/private').get()).data().nomProgramme,'Fixture Current');
+ const output={samples,results,measured,counters,heap:await cdp.send('Runtime.getHeapUsage'),limits:['Actual Builder isolated from exercise bank; no production data','Single samples per CPU/action, not p95','Emulator estimates, no billed-cost claim']};
+ fs.writeFileSync(process.env.BUILDER_RESULT,JSON.stringify(output,null,2));console.log('RESULT',JSON.stringify({samples,results}));

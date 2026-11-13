@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 import {formatLocalDateKey,sameCalendarDay} from '../utils/calendarWindow.mjs';
 import PlanInclusionBadge from "./PlanInclusionBadge";
 import { conversationIdForClient } from "../utils/messaging";
@@ -20,7 +21,7 @@ import {currentCoachProgram} from '../utils/currentCoachProgram';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from
 "react";
 import { useDashboardTiming } from "../hooks/useDashboardTiming.js";
-import { mergeDashboardClientProgress } from "../utils/coachDashboardLoading.js";
+import { createDashboardProgressPublisher, DashboardCard, dashboardStatConfirmed } from "../utils/coachDashboardLoading.js";
 import {
   Box,
   Checkbox,
@@ -229,7 +230,12 @@ modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subt
   );
 
 const CoachCalendarLinkModal = React.lazy(() => import("./dashboard/CoachCalendarLinkModal.jsx"));
-const CoachDashboardCalendar = React.lazy(() => import("./dashboard/CoachDashboardCalendar.jsx"));
+let coachCalendarModule;
+const loadCoachCalendar = () => (coachCalendarModule ||= import("./dashboard/CoachDashboardCalendar.jsx").catch(error => {
+  coachCalendarModule = null;
+  throw error;
+}));
+const CoachDashboardCalendar = React.lazy(loadCoachCalendar);
 const CyclePreparationModal = React.lazy(() => import('./dashboard/CyclePreparationModal'));
 const CoachClubAppointment = React.lazy(() => import("./dashboard/CoachClubAppointment.jsx"));
 const ClientCreation = React.lazy(() => import("./ClientCreation"));
@@ -465,8 +471,8 @@ const readDashboardDataCache = (coachUid,clubId,options,source) => {
 const writeDashboardDataCache = (coachUid, clubId, payload) => {
   const key = getDashboardDataCacheKey(coachUid, clubId);
   const savedAt = Date.now();
-  // Keep complete programs in this session: actions must never reuse a
-  // display-only program with its exercises or older sessions stripped out.
+  // Keep the confirmed view in session memory. Prescription mutations read
+  // the canonical document transactionally; outlines are never written back.
   if (!payload.partial || !dashboardDataMemoryCache.has(key)) {
     rememberDashboardData(key, { savedAt, data: payload });
   }
@@ -1872,7 +1878,7 @@ function CoachDashboardView({scope,user}) {
   const dashboardPerfEnabled = import.meta.env.DEV && new URLSearchParams(location.search).has("dashboardPerf");
   const dashboardPerfFresh = dashboardPerfEnabled && new URLSearchParams(location.search).has("fresh");
   const { timing: dashboardTiming, mark: markDashboardTiming } = useDashboardTiming(dashboardPerfEnabled);
-  const markCalendarReady = useCallback(() => markDashboardTiming("calendar"), [markDashboardTiming]);
+  const markCalendarReady = useCallback(() => markDashboardTiming("calendarShell"), [markDashboardTiming]);
   const params = new URLSearchParams(location.search);
   const adminCoachId = params.get("adminCoachId") || "";
   const adminClubId = isAdmin ? params.get("adminClubId") || params.get("clubId") || "" : "";
@@ -2032,6 +2038,7 @@ end && now < end;
   const assignmentSavingRef = useRef(false);
   const assignmentOperationRef = useRef(null);
   const [dashboardFromCache, setDashboardFromCache] = useState(false);
+  const [templateSyncUnavailable, setTemplateSyncUnavailable] = useState(false);
   const [selectedClient, setSelectedClient] = useState("");
   const [assignmentPlacement, setAssignmentPlacement] = useState('auto');
   const [clientToDelete, setClientToDelete] = useState(null);
@@ -2205,6 +2212,8 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
     () => initialNutritionDashboardCache?.feedbackRows || []
   );
   const dashboardLoadSeqRef = useRef(0);
+  const visibleRecentClientIdsRef = useRef([]);
+  const recentClientPriorityEnabledRef = useRef(true);
   const [dismissedRadarIds, setDismissedRadarIds] = useState([]);
   const [radarCollapsed, setRadarCollapsed] = useState(false);
   const [dashboardWidgetPrefs, setDashboardWidgetPrefs] = useState(DEFAULT_DASHBOARD_WIDGET_PREFS);
@@ -2252,7 +2261,7 @@ useState(false);
       return;
     }
     try {
-      const raw = localStorage.getItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`);
+      const raw = localSessionStorage.getItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`);
       const parsed = raw ? JSON.parse(raw) : [];
       setDismissedRadarIds(Array.isArray(parsed) ? parsed.filter(Boolean) : []);
     } catch {
@@ -2266,7 +2275,7 @@ useState(false);
       return;
     }
     try {
-      setRadarCollapsed(localStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1");
+      setRadarCollapsed(localSessionStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1");
     } catch {
       setRadarCollapsed(false);
     }
@@ -2284,19 +2293,19 @@ useState(false);
 
     const readLocalPrefs = () => {
       try {
-        const raw = localStorage.getItem(`byl:coach-dashboard-widgets:${effectiveCoachUid}`);
+        const raw = localSessionStorage.getItem(`byl:coach-dashboard-widgets:${effectiveCoachUid}`);
         const parsed = raw ? JSON.parse(raw) : null;
         const normalized = normalizeDashboardWidgetPrefs(parsed || {});
         if (!parsed) {
           normalized.radar.collapsed =
-            localStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1";
+            localSessionStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1";
         }
         return normalized;
       } catch {
         const fallback = normalizeDashboardWidgetPrefs();
         try {
           fallback.radar.collapsed =
-            localStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1";
+            localSessionStorage.getItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`) === "1";
         } catch {}
         return fallback;
       }
@@ -2319,8 +2328,8 @@ useState(false);
         setDashboardWidgetPrefs(normalized);
         setRadarCollapsed(normalized.radar.collapsed);
         try {
-          localStorage.setItem(`byl:coach-dashboard-widgets:${effectiveCoachUid}`, JSON.stringify(normalized));
-          localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, normalized.radar.collapsed ? "1" : "0");
+          localSessionStorage.setItem(`byl:coach-dashboard-widgets:${effectiveCoachUid}`, JSON.stringify(normalized));
+          localSessionStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, normalized.radar.collapsed ? "1" : "0");
         } catch {}
       } catch (error) {
         console.warn("[coach dashboard] widget preferences read failed", error);
@@ -2344,11 +2353,11 @@ useState(false);
     if (!effectiveCoachUid || !dashboardWidgetPrefsReady || dashboardPrefsOwnerRef.current !== effectiveCoachUid) return;
     const normalized = normalizeDashboardWidgetPrefs(dashboardWidgetPrefs);
     try {
-      localStorage.setItem(
+      localSessionStorage.setItem(
         `byl:coach-dashboard-widgets:${effectiveCoachUid}`,
         JSON.stringify(normalized)
       );
-      localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, normalized.radar.collapsed ? "1" : "0");
+      localSessionStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, normalized.radar.collapsed ? "1" : "0");
     } catch {}
     setDoc(
       doc(db, "users", effectiveCoachUid),
@@ -2645,7 +2654,7 @@ useState(false);
       setRadarCollapsed(collapsed);
       if (effectiveCoachUid) {
         try {
-          localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, collapsed ? "1" : "0");
+          localSessionStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, collapsed ? "1" : "0");
         } catch {}
       }
     }
@@ -2660,7 +2669,7 @@ useState(false);
     setRadarCollapsed(false);
     if (effectiveCoachUid) {
       try {
-        localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, "0");
+        localSessionStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, "0");
       } catch {}
     }
   }, [effectiveCoachUid]);
@@ -2675,7 +2684,7 @@ useState(false);
       });
       if (effectiveCoachUid) {
         try {
-          localStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, next ? "1" : "0");
+          localSessionStorage.setItem(`byl:coach-radar-collapsed:${effectiveCoachUid}`, next ? "1" : "0");
         } catch {}
       }
       return next;
@@ -2690,7 +2699,7 @@ useState(false);
     }
     let cancelled = false;
     const key = `byl:calendar-connected:coach:${effectiveCoachUid}`;
-    const localConnected = localStorage.getItem(key) === "1";
+    const localConnected = localSessionStorage.getItem(key) === "1";
     setCalendarConnectedOnce(localConnected);
     setCalendarConnectionChecked(false);
 
@@ -2702,7 +2711,7 @@ useState(false);
         if (cancelled) return;
         setCalendarConnectedOnce(serverConnected || localConnected);
         if (serverConnected) {
-          localStorage.setItem(key, "1");
+          localSessionStorage.setItem(key, "1");
         }
       } catch (error) {
         console.warn("[calendar] subscription status read failed", error);
@@ -2725,7 +2734,7 @@ useState(false);
   const markCalendarConnectedOnce = useCallback(() => {
     if (!effectiveCoachUid) return;
     const key = `byl:calendar-connected:coach:${effectiveCoachUid}`;
-    localStorage.setItem(key, "1");
+    localSessionStorage.setItem(key, "1");
     setCalendarConnectedOnce(true);
     setCalendarConnectionChecked(true);
   }, [effectiveCoachUid]);
@@ -3346,6 +3355,9 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
      force = force || dashboardPerfFresh;
      if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("coach-dashboard", "refresh");
      markDashboardTiming("core", "loading");
+     markDashboardTiming("clientProgress", "loading");
+     markDashboardTiming("activity", "loading");
+     markDashboardTiming("templates", "loading");
      const loadSeq = dashboardLoadSeqRef.current + 1;
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
@@ -3389,6 +3401,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
           where("createdBy", "==", effectiveCoachUid),
           limit(200)
        );
+       let progs = cachedDashboardDataForRefresh?.programmesBase || [];
        const programmesSnapPromise = source.read("templates",cacheScope,()=>readDashboardTemplates(effectiveCoachUid, {
          request: apiFetch,
           summaries: true,
@@ -3400,12 +3413,14 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
          if (isLatestLoad()) {
            const templates = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
            templates.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+           progs = templates;
            setProgrammesBase(templates);
+           markDashboardTiming("templates", "ready", { documents: templates.length });
          }
          return snapshot;
        });
        // It runs in parallel; observe early failures until the awaited join.
-       void programmesSnapPromise.catch(() => {});
+       void programmesSnapPromise.catch(() => { if(isLatestLoad())markDashboardTiming("templates", "error"); });
        if (dashboardPerfEnabled) {
          void programmesSnapPromise.then(snap => markDashboardTiming("templates", "ready", { documents: snap.size, jsonCharacters: JSON.stringify(snap.docs.map(d => d.data())).length, transport: snap.transport || 'firestore', changed: snap.changed })).catch(() => {});
          void primaryClientSnapPromise.then(snap => markDashboardTiming("clientQuery", "ready", { documents: snap.size, jsonCharacters: JSON.stringify(snap.docs.map(d => d.data())).length })).catch(() => {});
@@ -3545,13 +3560,27 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
         console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
       }
       })();
-      // Start every client read before waiting for the large program templates.
+      // Publish authorized dossiers, then prioritize details of the visible cards.
       if (!backgroundRefresh && isLatestLoad()) setClients(quickDashboardClients);
-      let lastProgressPaint=0;
+      const progressPublisher = createDashboardProgressPublisher({ setClients, isCurrent: isLatestLoad });
       if(!isLatestLoad())return;
-      const {loadProgramBatches}=await batchModule;
+      const {loadProgramBatches,selectRecentClientPriority}=await batchModule;
+      const priorityIds = selectRecentClientPriority(quickDashboardClients, visibleRecentClientIdsRef.current, MAX_DISPLAY);
+      const pendingVisible = new Set(priorityIds);
       if(!isLatestLoad())return;
-      const bundles=loadProgramBatches(source,effectiveCoachUid,quickDashboardClients);
+      const transfers={requests:0,succeeded:0,oversized:0,unavailable:0,fallbackClients:0,totalRequestMs:0};
+      const bundles=loadProgramBatches(source,effectiveCoachUid,quickDashboardClients,{
+        priorityIds,
+        exclusiveFirst: recentClientPriorityEnabledRef.current,
+        onTransfer:dashboardPerfEnabled ? ({status,clients,durationMs,priority,transport})=>{
+          transfers.requests++;transfers.totalRequestMs+=durationMs;
+          if(status===200)transfers.succeeded++;
+          if(status===413)transfers.oversized++;
+          if(status===404)transfers.unavailable++;
+          if(status===413 || status===404)transfers.fallbackClients+=clients;
+          if(isLatestLoad())markDashboardTiming("programTransport", "observed", {...transfers,lastStatus:status,priority,transport});
+        } : undefined,
+      });
       const detailedClientsPromise = Promise.all(quickDashboardClients.map(async (client) => {
           if (!isLatestLoad()) return client;
           const bundle=await bundles.get(client.id);
@@ -3659,10 +3688,7 @@ assignMs;
           let latestSessionMs = 0;
           let latestCompletedSessionMs = 0;
           progsWithSessions.forEach((p) => {
-             (p.sessionsEffectuees || []).forEach((s) => {
-                const ms = getSessionActivityMs(s);
-                if (ms > latestSessionMs) latestSessionMs = ms;
-             });
+             latestSessionMs = Math.max(latestSessionMs, Number(p._lastSessionMs || 0));
              latestCompletedSessionMs = Math.max(latestCompletedSessionMs, Number(p._lastCompletedSessionMs || 0));
           });
           const lastClientUpdate = Math.max(
@@ -3675,16 +3701,25 @@ assignMs;
             const _lastInteractionMs = Math.max(latestSessionMs, latestAssignMs, lastClientUpdate);
             const completedClient = { ...client, programmesAssignes:
 progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
-            if (isLatestLoad() && performance.now()-lastProgressPaint>100) {
-              lastProgressPaint=performance.now();setClients(previous=>mergeDashboardClientProgress(previous,completedClient));
+            progressPublisher.add(completedClient);
+            if(isLatestLoad() && pendingVisible.delete(completedClient.id) && !pendingVisible.size) {
+              progressPublisher.flush();
+              markDashboardTiming("recentClientPrograms","ready",{clients:priorityIds.length});
             }
             return completedClient;
-         })).then(value => ({ value }), error => ({ error }));
-       const pSnap = await programmesSnapPromise;
-       const progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data()
-}));
-       progs.sort((a, b) => toMillis(b.createdAt) -
-toMillis(a.createdAt));
+         })).then(value => {
+           progressPublisher.finish();
+           // This maximum covers all validated canonical sessions. Calendar
+           // reconciliation only adds a subset of the same sessions, so it
+           // cannot change the activity count. Never confirm partial totals.
+           if (isLatestLoad()) markDashboardTiming("activity", "ready");
+           return { value };
+         }, error => {
+           progressPublisher.finish();
+           if (isLatestLoad()) markDashboardTiming("activity", "error");
+           return { error };
+         });
+       // Template downloads do not gate client progress or calendar enrichment.
        const quickCounts = {};
        const quickAssignedMap = {};
        quickDashboardClients.forEach((client) => {
@@ -3721,7 +3756,7 @@ toMillis(a.createdAt));
        // Dès que les collections racines sont disponibles, les destinations
        // les plus fréquentes peuvent s'afficher sans attendre l'enrichissement
        // client -> programmes -> séances effectué plus bas.
-       primeCoachDestinationCaches({clients:quickDashboardClients,programmesBase:progs,assignedCounts:quickCounts,assignedClientsMap:quickAssignedMap},{partial:true});
+       if (source.present("templates",cacheScope)) primeCoachDestinationCaches({clients:quickDashboardClients,programmesBase:progs,assignedCounts:quickCounts,assignedClientsMap:quickAssignedMap},{partial:true});
       await quickCalendarPromise;
       const detailResult = await detailedClientsPromise;
       if (!isLatestLoad()) return;
@@ -4060,8 +4095,16 @@ t("dashboard.session_completed", "Séance effectuée"),
           .map((completedEvt) => completedEvt._sessionKey)
           .filter(Boolean)
       );
+      // A match must belong to the same client. Preserve the original order
+      // within each bucket, without scanning every other client's history.
+      const completionsByClient = new Map();
+      for (const event of completedEvents) {
+        const bucket = completionsByClient.get(event.clientId) || [];
+        bucket.push(event);
+        completionsByClient.set(event.clientId, bucket);
+      }
       plannedEvents.forEach((plannedEvt, idx) => {
-        const match = completedEvents.find((completedEvt) => {
+        const match = (completionsByClient.get(plannedEvt.clientId) || []).find((completedEvt) => {
           if (usedCompletedIds.has(completedEvt.id)) return false;
           if (!completedEvt._explicitCoachVisible && !plannedEvt._rootCoachValidated) {
             return false;
@@ -4226,7 +4269,13 @@ plannedEvt._sessionTitle,
         setProgrammesBase(progs);
         setClients(clientsForCoachDashboard);
         setSessions(merged);
+        markDashboardTiming("calendarData", "ready", { sessions: merged.length });
       }
+      if (!isLatestLoad()) return;
+      markDashboardTiming("clientProgress", "ready", { clients: clientsForCoachDashboard.length });
+      // Keep the full-page readiness/cache contract: all domains must finish.
+      // The already-confirmed client/calendar UI remains usable while this waits.
+      await programmesSnapPromise;
       if (!isLatestLoad()) return;
       const dashboardPayload = {
         clients: clientsForCoachDashboard,
@@ -4237,6 +4286,7 @@ plannedEvt._sessionTitle,
       };
       if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1" && isLatestLoad()) recordMetric("coach-dashboard", "ready");
       if (isLatestLoad()) markDashboardTiming("core", "ready", { ...(dashboardPerfEnabled ? {
+        assignedPrograms:clientsForCoachDashboard.reduce((sum,c)=>sum+c.programmesAssignes.length,0),
         completed:clientsForCoachDashboard.reduce((sum,c)=>sum+c.programmesAssignes.reduce((n,p)=>n+p._done,0),0),
         planned:clientsForCoachDashboard.reduce((sum,c)=>sum+c.programmesAssignes.reduce((n,p)=>n+p._total,0),0)
       } : {}), clients: clientsForCoachDashboard.length, detailedClients: detailedClients.length, programs: progs.length, sessions: merged.length, snapshotChars: dashboardPerfEnabled ? JSON.stringify(dashboardPayload).length : undefined });
@@ -4247,6 +4297,8 @@ plannedEvt._sessionTitle,
       primeCoachDestinationCaches(dashboardPayload);
     } catch (error) {
       if(isLatestLoad() && (error.status===401 || error.status===403 || error.code==='permission-denied')){
+        markDashboardTiming("clientProgress", "error");
+        markDashboardTiming("activity", "error");
         source.purge();dashboardDataMemoryCache.clear();setClients([]);setSessions([]);setProgrammesBase([]);
         setAssignedCounts({});setAssignedClientsMap({});setNutritionRows([]);setNutritionFeedbackRows([]);setSelectedEvent(null);
       }
@@ -4279,8 +4331,16 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
       setViewStale(true);setLoadingData(false);
     };
     const detachTemplates=coachConfirmedSnapshot(doc(db,'coachPageTemplateRevisions',effectiveCoachUid),snap=>{
-      if(!snap.metadata.fromCache && source.templatesChanged(JSON.stringify(snap.data()?.revision || null))){dashboardLoadSeqRef.current++;refresh();}
-    },error=>{if(error.code==='permission-denied')denied();else stale();});
+      if(snap.metadata.fromCache || snap.metadata.hasPendingWrites)return;
+      setTemplateSyncUnavailable(false);
+      if(source.templatesChanged(JSON.stringify(snap.data()?.revision || null))){dashboardLoadSeqRef.current++;refresh();}
+    },()=>{
+      // This document is an invalidation hint, not an admission authority.
+      // Profile/directory/calendar denials still clear private data below; the
+      // template API checks current access on every existing read. No polling
+      // or fallback read is added when this optional channel is unavailable.
+      setTemplateSyncUnavailable(true);
+    });
     const detachRoots=source.roots.watch('coach-dashboard',{stale,error:denied,partial:(docs,reslicing)=>{
       if(reslicing){dashboardLoadSeqRef.current++;setSelectedEvent(null);setAssignedClientsMap({});setAssignedCounts({});}
       const rows=buildQuickDashboardClients(docs.map(d=>({...d.data(),id:d.id})));
@@ -5418,7 +5478,7 @@ modeValue("rgba(255,255,255,0.95)",
         })
       );
   }, [clients, selectedAssignedClients]);
-  const calendarSessions = useMemo(() => hasNutritionCalendarAccess
+  const calendarSessions = useMemo(() => hasNutritionCalendarAccess && nutritionRows.length > 0
     ? nutritionCalendarHistory(sessions, nutritionRows, clients, effectiveCoachUid,
         name => t("nutritionCalendar.assessmentFor", { name }))
     : sessions, [sessions, nutritionRows, clients, effectiveCoachUid, hasNutritionCalendarAccess, t]);
@@ -5660,6 +5720,11 @@ to);
       .filter((client) => client._recentCoachActivityMs > 0)
       .sort((a, b) => (b._recentCoachActivityMs || 0) - (a._recentCoachActivityMs || 0));
   }, [clients, nutritionActivityByClient, nutritionOnlyDashboard]);
+  // The next refresh prioritizes the actual displayed rows, not an old cache order.
+  recentClientPriorityEnabledRef.current = !nutritionOnlyDashboard &&
+    isDashboardWidgetVisible("recentClients") && !isDashboardWidgetCollapsed("recentClients");
+  visibleRecentClientIdsRef.current = recentCoachClients
+    .slice(0,isMobileDashboard ? 3 : MAX_DISPLAY).map(client=>client.id);
   const getDashboardFollowKind = useCallback(
     (client) => {
       const hasSportProgram = (client.programmesAssignes || []).length > 0;
@@ -6532,15 +6597,6 @@ month;
        })
        .slice(0, 3);
   }, [clients]);
-  const _openBirthdayMessage = useCallback(
-    (client) => {
-      if (!client) return;
-      setBirthdayMessageClient(client);
-      setBirthdayMessageDraft(buildBirthdayMessage(client, greetingName));
-      birthdayMessageModal.onOpen();
-    },
-    [birthdayMessageModal, greetingName]
-  );
   const recentActions = useMemo(() => {
     const items = [];
     clients.forEach((c) => {
@@ -6643,7 +6699,7 @@ month;
         const next = Array.from(new Set([...prev, item.id]));
         if (effectiveCoachUid) {
           try {
-            localStorage.setItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`, JSON.stringify(next));
+            localSessionStorage.setItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`, JSON.stringify(next));
           } catch {}
         }
         return next;
@@ -6665,7 +6721,7 @@ month;
     setDismissedRadarIds([]);
     if (effectiveCoachUid) {
       try {
-        localStorage.removeItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`);
+        localSessionStorage.removeItem(`byl:coach-radar-dismissed:${effectiveCoachUid}`);
       } catch {}
     }
     toast({
@@ -6677,114 +6733,12 @@ month;
     });
   }, [effectiveCoachUid, t, toast]);
 
-  const applyRadarSessionAdjustment = useCallback(
-    async (item) => {
-      if (!item?.clientId || !item?.programId) {
-        toast({
-          status: "warning",
-          title: t("dashboard.radar.toasts.action_unavailable_title", "Action impossible"),
-          description: t("dashboard.radar.toasts.program_missing_description", "Le programme lié à cette alerte est introuvable."),
-          duration: 4200,
-          isClosable: true,
-        });
-        return false;
-      }
-
-      const client = clients.find((entry) => entry.id === item.clientId);
-      const programme = (client?.programmesAssignes || []).find((entry) => entry.id === item.programId);
-      const sessionKey = Array.isArray(programme?.sessions) ? "sessions" : Array.isArray(programme?.seances) ? "seances" : "";
-      const sessionIndex = Number(item.sessionIndex);
-      const sessionsList = sessionKey ? programme?.[sessionKey] || [] : [];
-      const session = Number.isFinite(sessionIndex) ? sessionsList[sessionIndex] : null;
-
-      if (!client || !programme || !sessionKey || !session) {
-        toast({
-          status: "warning",
-          title: t("dashboard.radar.toasts.session_missing_title", "Séance non trouvée"),
-          description: t("dashboard.radar.toasts.session_missing_description", "Ouvre le programme pour l'ajuster manuellement."),
-          duration: 4200,
-          isClosable: true,
-        });
-        return;
-      }
-
-      const targetExerciseIndexes = Array.isArray(item.adjustmentPlan?.targetExerciseIndexes)
-        ? item.adjustmentPlan.targetExerciseIndexes
-        : [];
-      const decision = targetExerciseIndexes.length
-        ? { ...RADAR_SESSION_ADJUSTMENT_DECISION, targetExerciseIndexes }
-        : { ...RADAR_SESSION_ADJUSTMENT_DECISION };
-      if (Array.isArray(item.adjustmentPlan?.fieldPriority) && item.adjustmentPlan.fieldPriority.length) {
-        decision.fieldPriority = item.adjustmentPlan.fieldPriority;
-        decision.strictFieldPriority = item.adjustmentPlan.strictFieldPriority === true;
-      }
-      const { session: nextSession, changedCount, changedFields, changedDetails } = applySportProgressionToSession(
-        session,
-        decision
-      );
-      if (!changedCount) {
-        toast({
-          status: "info",
-          title: t("dashboard.radar.toasts.no_adjustable_title", "Aucun paramètre ajustable"),
-          description: t("dashboard.radar.toasts.no_adjustable_description", "Cette séance ne contient pas de charge, répétition, durée, distance ou repos modifiable automatiquement."),
-          duration: 5200,
-          isClosable: true,
-        });
-        return;
-      }
-
-      const nextSessions = [...sessionsList];
-      nextSessions[sessionIndex] = nextSession;
-      const adjustmentAudit = {
-        alertId: item.id,
-        sessionIndex,
-        sessionTitle: item.sessionTitle || getProgrammeSessionTitle(programme, sessionIndex, t),
-        changedCount,
-        changedFields: Array.from(new Set(changedFields)).filter(Boolean),
-        changedDetails: changedDetails || [],
-        targetExerciseIndexes,
-        createdAt: new Date().toISOString(),
-      };
-      await updateDoc(doc(db, "clients", item.clientId, "programmes", item.programId), {
-        [sessionKey]: nextSessions,
-        lastRadarAdjustment: adjustmentAudit,
-        lastCopilotAdjustment: adjustmentAudit,
-        updatedAt: serverTimestamp(),
-      });
-
-      setClients((prev) =>
-        prev.map((entry) => {
-          if (entry.id !== item.clientId) return entry;
-          return {
-            ...entry,
-            programmesAssignes: (entry.programmesAssignes || []).map((program) =>
-              program.id === item.programId
-                ? {
-                    ...program,
-                    [sessionKey]: nextSessions,
-                    lastRadarAdjustment: adjustmentAudit,
-                    lastCopilotAdjustment: adjustmentAudit,
-                  }
-                : program
-            ),
-          };
-        })
-      );
-
-      dismissRadarItem(item, {
-        title: t("dashboard.radar.toasts.adjusted_title", "Séance ajustée"),
-        description: t("dashboard.radar.toasts.adjusted_description", "{{count}} paramètre(s) modifié(s). L'alerte est retirée du radar.", { count: changedCount }),
-      });
-      recordCopilotEvent({
-        type: "adjustment_applied",
-        title: item.title || t("dashboard.copilot.history.adjustment_title", "Ajustement appliqué"),
-        detail: item.adjustmentPlan?.summary || t("dashboard.copilot.history.adjustment_detail", "{{count}} paramètre(s) modifié(s).", { count: changedCount }),
-        clientId: item.clientId,
-      });
-      return true;
-    },
-    [clients, dismissRadarItem, recordCopilotEvent, t, toast]
-  );
+  const applyRadarSessionAdjustment = useCallback(async item => {
+    const {applyDashboardAdjustment}=await import('../utils/applyDashboardAdjustment');
+    if(source.signal.aborted)return false;
+    return applyDashboardAdjustment(item,{clients,toast,t,source,db,setClients,dismissRadarItem,
+      recordCopilotEvent,getProgrammeSessionTitle,RADAR_SESSION_ADJUSTMENT_DECISION});
+  },[clients,dismissRadarItem,recordCopilotEvent,source,t,toast]);
 
   const handleRadarQuickAction = useCallback(
     async (item, action) => {
@@ -6993,9 +6947,69 @@ month;
     event: CalendarEvent, eventWrapper: CalendarEventWrapper,
   }), [CalendarEvent, CalendarEventWrapper]);
 
-  const StatTile = ({ label, value, hint, icon, accent, featured =
+  // Keep the calendar subtree unchanged while unrelated dashboard blocks load.
+  // Every value captured by its handlers participates in invalidation.
+  const calendarTouchDevice = isTouchDevice();
+  const coachCalendarView = useMemo(() => (
+    <CoachDashboardCalendar
+                        onReady={markCalendarReady}
+                        selectable="ignoreEvents"
+                        onSelectSlot={({ start }) => openEmptySessionModal(start)}
+                        calendarCulture={calendarCulture}
+                        formats={calendarFormats}
+	                      events={calendarSessions}
+
+                  startAccessor="start"
+                  endAccessor="end"
+                  tooltipAccessor={event => `${event.title} · ${t(({ cancelled: 'common.cancelled', missed: 'status.missed', pending: 'status.cancellation_pending', review: 'status.to_validate', validated: 'status.validated', upcoming: 'status.upcoming' })[coachEventDisplayState(event)])}`}
+                  components={calendarComponents}
+	                  eventPropGetter={(evt) => {
+	                    const bg = getCalendarEventColor(evt);
+
+                    return {
+                       style: {
+                          backgroundColor: bg,
+                          color: "white",
+                          borderRadius: 12,
+                          border: "none",
+                       },
+                    };
+                    }}
+	                    onSelectEvent={openCalendarEvent}
+	                      onEventDrop={calendarTouchDevice ? undefined : move => { setMoveEmailRequested(true); setPendingCalendarMove(move); }}
+	                      onEventResize={calendarTouchDevice ? undefined : move => { setMoveEmailRequested(true); setPendingCalendarMove(move); }}
+	                      resizable={!calendarTouchDevice}
+	                      resizableAccessor={event => !calendarTouchDevice && canMoveCoachCalendarEvent(event, effectiveCoachUid)}
+                      draggableAccessor={(event) =>
+	                        !calendarTouchDevice && canMoveCoachCalendarEvent(event, effectiveCoachUid)
+	                      }
+	                    views={["month", "week", "day", "agenda"]}
+                    style={{ height: 620, borderRadius: 12 }}
+                    messages={{
+                       today: t("calendar.today", "Aujourd’hui"),
+                       previous: t("calendar.previous", "Précédent"),
+                       next: t("calendar.next", "Suivant"),
+                       month: t("calendar.month", "Mois"),
+                       week: t("calendar.week", "Semaine"),
+                       day: t("calendar.day", "Jour"),
+                       agenda: t("calendar.agenda", "Agenda"),
+                       showMore: (total) => t("calendar.show_more", {
+count: total, defaultValue: `+${total}` }),
+                    }}
+                 />
+  ), [calendarSessions, markCalendarReady, openEmptySessionModal, calendarCulture,
+    calendarFormats, calendarComponents, openCalendarEvent, effectiveCoachUid, t,
+    calendarTouchDevice]);
+
+  // Confirm each domain independently; partial roots are not global totals.
+  const rootsConfirmed = source.roots.fresh();
+  const nutritionConfirmed = rootsConfirmed && dashboardTiming.nutrition?.status === 'ready';
+  const coreConfirmed = rootsConfirmed && source.calendar.fresh() && dashboardTiming.clientProgress?.status === 'ready';
+  const isStatConfirmed = (stat) => dashboardStatConfirmed(stat, rootsConfirmed, nutritionConfirmed, coreConfirmed, nutritionOnlyDashboard, dashboardTiming.activity?.status === "ready");
+  const renderStatTile = ({ label, value, hint, icon, accent, featured =
 false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false, navigationArrow = false }) => (
     <Box
+      aria-busy={value === '…'}
 
       position="relative"
       bg={surfaceBgStrong}
@@ -7245,9 +7259,9 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
        </Box>
   );
 
-  const PriorityCard = renderPriorityCard;
 
-  const QuickMetricCard = ({
+
+  const renderQuickMetricCard = ({
     title,
     value,
     hint,
@@ -7259,6 +7273,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
     ...props
   }) => (
     <Box
+      aria-busy={value === '…'}
       {...props}
       minW={{ base: "68vw", md: "240px", lg: "auto" }}
       minH="168px"
@@ -7376,7 +7391,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
   );
 
   const renderClientsQuickCard = (props = {}) => (
-    <QuickMetricCard
+    <DashboardCard render={renderQuickMetricCard}
       data-tour="coach-clients-quick-card"
       title={
         nutritionOnlyDashboard
@@ -7385,7 +7400,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
             ? t("dashboard.cards.supported_people", "Accompagnées")
             : t("auto.CoachMobileNav.clients", "Clients")
       }
-      value={clients.length}
+      value={rootsConfirmed ? clients.length : '…'}
       hint={nutritionOnlyDashboard ? t("auto.CoachMobileNav.new_patient", "Nouveau patient") : t("nav.new_client", "Nouveau client")}
       icon={MdOutlinePeopleAlt}
       accent={activeBlue}
@@ -7397,10 +7412,10 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
   );
 
   const renderNutritionQuickCard = (props = {}) => hasNutritionCalendarAccess && (
-    <QuickMetricCard
+    <DashboardCard render={renderQuickMetricCard}
       data-tour="coach-nutrition-quick-card"
       title={t("nav.nutrition", "Nutrition")}
-      value={nutritionDashboardStats.assessments}
+      value={nutritionConfirmed ? nutritionDashboardStats.assessments : '…'}
       hint={t("auto.CoachDashboard.faire_une_ration", "Faire une ration")}
       icon={MdOutlineRestaurantMenu}
       accent="#14B8A6"
@@ -7412,10 +7427,10 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
   );
 
   const renderProgramsQuickCard = (props = {}) => hasSportAccess && (
-    <QuickMetricCard
+    <DashboardCard render={renderQuickMetricCard}
       data-tour="coach-programs-quick-card"
       title={t("dashboard.stats_total_programs", "Programmes")}
-      value={programmesBase.length}
+      value={source.present('templates',cacheScope) ? programmesBase.length : '…'}
       hint={t("programs.create", "Créer un programme")}
       icon={MdOutlineFitnessCenter}
       accent="#8B5CF6"
@@ -7573,7 +7588,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
   };
 
   const renderUpcomingSummaryCard = ({ minH = "168px" } = {}) => (
-    <PriorityCard
+    <DashboardCard render={renderPriorityCard}
       data-tour="coach-upcoming-summary"
       minH={minH}
       title={
@@ -7812,13 +7827,13 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
           </HStack>
         )}
       </VStack>
-    </PriorityCard>
+    </DashboardCard>
   );
 
   const _renderClubGoalsCard = (props = {}) => {
     if (!coachGoalProgress.hasTarget) return null;
     return (
-      <PriorityCard
+      <DashboardCard render={renderPriorityCard}
         data-tour="coach-club-goals"
         title={t("dashboard.club_goals.title", "Objectifs club")}
         eyebrow={t(`dashboard.club_goals.periods.${clubGoalPeriod}`, clubGoalPeriod)}
@@ -7879,7 +7894,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
               </HStack>
             ))}
         </VStack>
-      </PriorityCard>
+      </DashboardCard>
     );
   };
 
@@ -7888,6 +7903,12 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
   const showRecentClientsWidget = isDashboardWidgetVisible("recentClients");
   const showLatestProgramsWidget = !nutritionOnlyDashboard && isDashboardWidgetVisible("latestPrograms");
   const showCalendarWidget = isDashboardWidgetVisible("calendar");
+  const calendarCollapsed = isDashboardWidgetCollapsed("calendar");
+  useEffect(() => {
+    if (!dashboardWidgetPrefsReady || !effectiveCoachUid || isMobileDashboard || !showCalendarWidget || calendarCollapsed) return;
+    // Download only the public UI module; mounting and all data reads stay unchanged.
+    void loadCoachCalendar().catch(() => {});
+  }, [dashboardWidgetPrefsReady, effectiveCoachUid, isMobileDashboard, showCalendarWidget, calendarCollapsed]);
   useEffect(() => {
     if (!showCalendarWidget) markDashboardTiming("calendar", "ready", { skipped: true });
   }, [showCalendarWidget, markDashboardTiming]);
@@ -7902,9 +7923,16 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
     <Box data-tour-page="coach-dashboard" minH="100vh" bg={pageBg} color={textColor}
 position="relative" overflow="clip">
       {dashboardPerfEnabled && <Box as="output" data-testid="coach-dashboard-timing" display="block" position="relative" zIndex={1} p={2} fontSize="xs" whiteSpace="pre-wrap">{JSON.stringify(dashboardTiming)}</Box>}
-      {(viewStale || (dashboardFromCache && (dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error"))) && (
+      {dashboardPerfEnabled && (viewStale || (dashboardFromCache && (dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error"))) && (
         <Text role="status" fontSize="xs" color="gray.500">
-          {t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")}
+          {dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error"
+            ? t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")
+            : t("dashboard.refresh_pending", "Synchronisation en cours. Les données affichées restent à confirmer.")}
+        </Text>
+      )}
+      {dashboardPerfEnabled && templateSyncUnavailable && (
+        <Text role="status" data-testid="coach-template-sync-unavailable" fontSize="xs" color="gray.500">
+          {t("dashboard.template_sync_unavailable", "Les mises à jour automatiques des modèles de programmes sont indisponibles. Rechargez la page pour obtenir leur dernière version.")}
         </Text>
       )}
       <Box
@@ -8161,7 +8189,7 @@ noOfLines={2}>
           </Flex>
         </Box>
 
-        <Box display={{ base: "block", md: "none" }} mb={2.5}>
+        {isMobileDashboard && <Box mb={2.5}>
           <Box
             bg={surfaceBgStrong}
             border="1px solid"
@@ -8415,7 +8443,7 @@ noOfLines={2}>
               </VStack>
             )}
           </Box>
-        </Box>
+        </Box>}
 
         {!isMobileDashboard && (
         <>
@@ -8438,11 +8466,11 @@ noOfLines={2}>
             <Box
                key={s.label}
             >
-               <StatTile
+               <DashboardCard render={renderStatTile}
                   label={s.label}
                   navigationArrow={s.navigationArrow}
-                  value={s.value}
-                  hint={s.hint}
+                  value={isStatConfirmed(s) ? s.value : '…'}
+                  hint={isStatConfirmed(s) ? s.hint : undefined}
                   icon={s.icon}
                   accent={s.accent}
                   glow={s.glow}
@@ -8528,11 +8556,11 @@ noOfLines={2}>
                   gridRow={2 + Math.floor(index / 2)}
                   minH="100%"
                 >
-                  <StatTile
+                  <DashboardCard render={renderStatTile}
                     label={stat.label}
                     navigationArrow={stat.navigationArrow}
-                    value={stat.value}
-                    hint={stat.hint}
+                    value={isStatConfirmed(stat) ? stat.value : '…'}
+                    hint={isStatConfirmed(stat) ? stat.hint : undefined}
                     icon={stat.icon}
                     accent={stat.accent}
                     glow={stat.glow}
@@ -10491,55 +10519,7 @@ modeValue("rgba(59,130,246,0.06)",
                          <Text fontSize="sm">{clubText(({individual:'Coaching individuel',group:'Cours collectifs',nutrition:'Nutrition',internal:'Interne'})[kind])}</Text>
                        </HStack>)}
                      </Flex>
-	                   <CoachDashboardCalendar
-                        onReady={markCalendarReady}
-                        selectable="ignoreEvents"
-                        onSelectSlot={({ start }) => openEmptySessionModal(start)}
-                        calendarCulture={calendarCulture}
-                        formats={calendarFormats}
-	                      events={calendarSessions}
-
-                  startAccessor="start"
-                  endAccessor="end"
-                  tooltipAccessor={event => `${event.title} · ${t(({ cancelled: 'common.cancelled', missed: 'status.missed', pending: 'status.cancellation_pending', review: 'status.to_validate', validated: 'status.validated', upcoming: 'status.upcoming' })[coachEventDisplayState(event)])}`}
-                  components={calendarComponents}
-	                  eventPropGetter={(evt) => {
-	                    const bg = getCalendarEventColor(evt);
-
-                    return {
-                       style: {
-                          backgroundColor: bg,
-                          color: "white",
-                          borderRadius: 12,
-                          border: "none",
-                       },
-                    };
-                    }}
-	                    onSelectEvent={(evt) => {
-	                       setSelectedEvent(evt);
-	                       eventModal.onOpen();
-	                    }}
-	                      onEventDrop={isTouchDevice() ? undefined : move => { setMoveEmailRequested(true); setPendingCalendarMove(move); }}
-	                      onEventResize={isTouchDevice() ? undefined : move => { setMoveEmailRequested(true); setPendingCalendarMove(move); }}
-	                      resizable={!isTouchDevice()}
-	                      resizableAccessor={event => !isTouchDevice() && canMoveCoachCalendarEvent(event, effectiveCoachUid)}
-                      draggableAccessor={(event) =>
-	                        !isTouchDevice() && canMoveCoachCalendarEvent(event, effectiveCoachUid)
-	                      }
-	                    views={["month", "week", "day", "agenda"]}
-                    style={{ height: 620, borderRadius: 12 }}
-                    messages={{
-                       today: t("calendar.today", "Aujourd’hui"),
-                       previous: t("calendar.previous", "Précédent"),
-                       next: t("calendar.next", "Suivant"),
-                       month: t("calendar.month", "Mois"),
-                       week: t("calendar.week", "Semaine"),
-                       day: t("calendar.day", "Jour"),
-                       agenda: t("calendar.agenda", "Agenda"),
-                       showMore: (total) => t("calendar.show_more", {
-count: total, defaultValue: `+${total}` }),
-                    }}
-                 />
+	                   {coachCalendarView}
                    </>
                    </React.Suspense>
                  </DeferredWidgetBoundary>

@@ -1,3 +1,4 @@
+import { localSessionStorage } from "../utils/privateStorage.js";
 import {formatLocalDateKey} from '../utils/calendarWindow.mjs';
 import { buildSharedNutritionSummary, sortSharedNutrition } from "../utils/sharedNutritionSummary";
 import CalendarCancellationDetails from './calendar/CalendarCancellationDetails';
@@ -934,7 +935,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
     if (!key) return false;
     void dashboardSeenRevision;
     try {
-      return window.localStorage.getItem(`byl:dashboard-seen:${key}`) === "1";
+      return localSessionStorage.getItem(`byl:dashboard-seen:${key}`) === "1";
     } catch {
       return false;
     }
@@ -943,7 +944,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
   const markDashboardItemSeen = useCallback((key) => {
     if (!key) return;
     try {
-      window.localStorage.setItem(`byl:dashboard-seen:${key}`, "1");
+      localSessionStorage.setItem(`byl:dashboard-seen:${key}`, "1");
     } catch {}
     setDashboardSeenRevision((revision) => revision + 1);
   }, []);
@@ -1013,7 +1014,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
   useEffect(() => {
     if (!user?.uid && !clientId) return;
     const key = `byl:calendar-connected:client:${clientId || user.uid}`;
-    setCalendarConnectedOnce(localStorage.getItem(key) === "1");
+    setCalendarConnectedOnce(localSessionStorage.getItem(key) === "1");
   }, [clientId, user?.uid]);
 
   useEffect(() => {
@@ -1025,7 +1026,7 @@ function ClientDashboardBody({adminPreview, accessScope}) {
   const markCalendarConnectedOnce = useCallback(() => {
     if (!user?.uid && !clientId) return;
     const key = `byl:calendar-connected:client:${clientId || user.uid}`;
-    localStorage.setItem(key, "1");
+    localSessionStorage.setItem(key, "1");
     setCalendarConnectedOnce(true);
   }, [clientId, user?.uid]);
 

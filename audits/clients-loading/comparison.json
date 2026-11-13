@@ -1,0 +1,95 @@
+[
+  {
+    "clients": 36,
+    "before": {
+      "listMs": 738,
+      "indicatorsMs": 2075,
+      "summaryHttp": 2,
+      "summarySdk": 152,
+      "summaryReturned": 913,
+      "summaryEstimatedReads": 979,
+      "browserEstimatedReads": 40,
+      "browserWrites": 1,
+      "backendWrites": 31,
+      "networkBytes": 2106970,
+      "heapBytes": 24397428,
+      "apiMs": 1561
+    },
+    "after": {
+      "listMs": 655,
+      "indicatorsMs": 1893,
+      "summaryHttp": 1,
+      "summarySdk": 123,
+      "summaryReturned": 774,
+      "summaryEstimatedReads": 826,
+      "browserEstimatedReads": 40,
+      "browserWrites": 1,
+      "backendWrites": 25,
+      "networkBytes": 2106783,
+      "heapBytes": 24449640,
+      "apiMs": 1151
+    }
+  },
+  {
+    "clients": 100,
+    "before": {
+      "listMs": 470,
+      "indicatorsMs": 1488,
+      "summaryHttp": 2,
+      "summarySdk": 152,
+      "summaryReturned": 913,
+      "summaryEstimatedReads": 979,
+      "browserEstimatedReads": 104,
+      "browserWrites": 1,
+      "backendWrites": 31,
+      "networkBytes": 2106986,
+      "heapBytes": 25434556,
+      "apiMs": 1211
+    },
+    "after": {
+      "listMs": 462,
+      "indicatorsMs": 1393,
+      "summaryHttp": 1,
+      "summarySdk": 123,
+      "summaryReturned": 774,
+      "summaryEstimatedReads": 826,
+      "browserEstimatedReads": 104,
+      "browserWrites": 1,
+      "backendWrites": 25,
+      "networkBytes": 2106801,
+      "heapBytes": 25410568,
+      "apiMs": 909
+    }
+  },
+  {
+    "clients": 500,
+    "before": {
+      "listMs": 434,
+      "indicatorsMs": 1568,
+      "summaryHttp": 2,
+      "summarySdk": 148,
+      "summaryReturned": 890,
+      "summaryEstimatedReads": 954,
+      "browserEstimatedReads": 504,
+      "browserWrites": 1,
+      "backendWrites": 30,
+      "networkBytes": 2108389,
+      "heapBytes": 40412480,
+      "apiMs": 1005
+    },
+    "after": {
+      "listMs": 457,
+      "indicatorsMs": 1603,
+      "summaryHttp": 1,
+      "summarySdk": 123,
+      "summaryReturned": 774,
+      "summaryEstimatedReads": 826,
+      "browserEstimatedReads": 504,
+      "browserWrites": 1,
+      "backendWrites": 25,
+      "networkBytes": 2108209,
+      "heapBytes": 40683348,
+      "apiMs": 919
+    }
+  }
+]

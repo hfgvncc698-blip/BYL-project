@@ -81,6 +81,7 @@
     "noContactsBody": "Mit deinem Bereich verknüpfte Personen erscheinen hier.",
     "new": "Neu",
     "newMessage": "Neue Nachricht",
+    "newConversationsSummary": "Neue Nachrichten in {{count}} Unterhaltungen",
     "sent": "Gesendet",
     "read": "Gelesen",
     "startConversation": "Neue Unterhaltung",
@@ -316,6 +317,7 @@
     "delete": "Löschen"
   },
   "common": {
+    "showMore": "Mehr anzeigen",
     "loading": "Laden…",
     "loading_details": "Details werden geladen…",
     "view": "Siehe",
@@ -5210,6 +5212,11 @@
       "back": "zurück"
     },
     "RationAutoGenerator": {
+      "recalculate": "Ernährungsplan neu berechnen",
+      "resetTitle": "Ernährungsplan neu berechnen?",
+      "resetDescription": "Die von dir geänderten Lebensmittel und Mengen werden durch einen neuen Ernährungsplan ersetzt, der anhand des aktuell im Profil hinterlegten Bedarfs berechnet wird. Die ausgewählten Mahlzeiten und Ernährungseinschränkungen bleiben erhalten.",
+      "resetCancel": "Abbrechen",
+      "resetConfirm": "Neu berechnen",
       "donnees_alimentaires": "Lebensmitteldaten",
       "totaux_jour": "Tagessummen",
       "kcal": "kcal",
@@ -8785,5 +8792,32 @@
     "unlimited": "Unbegrenzt",
     "saveCapacity": "Zugriff und Limits speichern",
     "emptyUnlimited": "Ein leeres Feld bedeutet unbegrenzt. Manuelle Einstellungen haben Vorrang vor Tariflimits."
+  },
+  "cacheMigration": {
+    "detected": "Es wurde ein altes Backup erkannt.",
+    "checking": "Überprüfung Ihres Kontos und Ihrer Rechte.",
+    "recoverable": "Ein Entwurf kann abgerufen werden.",
+    "ambiguous": "Dieses Backup kann nicht automatisch wiederhergestellt werden.",
+    "recovered": "Der Entwurf wurde abgerufen, ohne das Programm zu veröffentlichen.",
+    "blocked": "Eine weitere BYL-Registerkarte ist noch geöffnet.",
+    "interrupted": "Die Reinigung wurde unterbrochen. Die Kontrollen müssen wiederholt werden.",
+    "recontaminated": "Ein alter Speicherstand ist wieder aufgetaucht. Die Reinigung bleibt unvollständig.",
+    "local-verified-incomplete": "Die zugelassenen Bereiche wurden überprüft. Die Gesamtreinigung dieses Geräts bleibt unvollständig.",
+    "started": "Überprüfung und Reinigung im Gange.",
+    "error": "Die Verifizierung ist nicht verfügbar. Keine automatische Wiederherstellung.",
+    "later": "Später",
+    "explanation": "Dieses Gerät enthält Daten aus einer älteren Version von BYL. Sie können prüfen, ob ein Programmentwurf wiederherstellbar ist, oder wie gewohnt fortfahren.",
+    "options": "Wiederherstellungsoptionen",
+    "check": "Prüfen Sie die Wiederherstellungsmöglichkeiten",
+    "confirmRecovery": "Diesen Entwurf von BYL abrufen, ohne das Programm zu veröffentlichen?",
+    "recover": "Stellen Sie den Entwurf wieder her",
+    "cleanup": "Kontrollierte Reinigung",
+    "cleanupHelp": "Die Reinigung dieses Geräts erfordert Ihre Bestätigung und einen zuvor qualifizierten Plan.",
+    "plan": "Autorisierte Planreferenz",
+    "confirmCleanup": "Bestätigen Sie, dass nur die durch diesen Plan qualifizierten Bereiche gereinigt werden?",
+    "clean": "Bestätigen Sie die Reinigung",
+    "verify": "Planflächen prüfen",
+    "title": "Alte Saves",
+    "operationError": "Dieser Vorgang kann nicht ausgeführt werden. Die restlichen Daten bleiben erhalten."
   }
 }

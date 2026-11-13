@@ -1,0 +1,91 @@
+PROGRAMBUILDER — QUALIFICATION MULTI-SÉANCES
+13 novembre 2026 — codex/firebase-performance-audit
+
+Périmètre
+Vrai composant ProgramBuilder, AuthProvider, UI de changement de séance/section,
+restauration explicite du brouillon et enregistrement final. Firebase Auth et
+Firestore émulés, projet demo-byl-performance, profils Chrome jetables.
+Aucun accès à un compte réel, aucun coût Firebase de production, aucun déploiement.
+Seuls le runner et une fixture de tests ont été ajoutés/modifiés pendant ce tour.
+
+Fixture
+6 séances de 32 exercices chacune : 24 dans le corps de séance, 3 dans
+l'échauffement, 2 dans le bonus, 3 dans le retour au calme. Total initial : 192.
+Identités et noms distincts, types musculation/cardio/gainage/stretching/ergomètre/
+mobilisation articulaire ; répétitions, charges, durées, distances, watts variables.
+Notes individuelles, séries détaillées, mode avancé alterné et exercices liés.
+La fixture de départ est préparée via la vraie API de brouillons, puis restaurée
+explicitement dans le Builder. Elle n'est pas créée manuellement exercice par
+exercice : cette préparation n'est pas un test de saisie de toute la banque.
+
+Parcours
+- Deux dimensions : desktop 1440 px CPU normal ; mobile 390 px CPU ralenti x4.
+- Dans chaque dimension, sélection de chacune des 6 séances et de sections variées.
+- 12 ajouts groupés de 3 exercices : 36 exercices ajoutés.
+- 12 remplacements dans les sections existantes.
+- Après CHAQUE action : contrôle du véritable brouillon sauvegardé, absence de
+  duplication d'identité, taille exacte de la liste, noms attendus.
+- Contrôle intégral que les autres séances/sections et exercices non concernés
+  sont identiques à leur version précédente.
+- Remplacement : notes, activation des notes, séries détaillées, mode avancé,
+  chaînage et ordre des options conservés ; nouvelle identité pour le remplaçant.
+- Rechargement de page et restauration des 6 séances ; contrôle du contenu affiché
+  du corps de chaque séance et de l'égalité du contenu du brouillon serveur.
+- Ajout d'un exercice dans la sixième séance hors ligne, avertissement de travail
+  non synchronisé, reconnexion et vérification de l'intégrité des 5 autres séances.
+- Enregistrement final explicite sur un programme canonique synthétique : 6 séances,
+  229 exercices, ordre/identités/noms/notes/liaisons préservés ; brouillon terminé.
+
+Résultat de la version corrigée
+24 actions principales réussies, puis restauration, reconnexion et publication
+synthétique réussies. Aucun défaut fonctionnel détecté dans ce scénario.
+Desktop : ajout 77,9–95,7 ms ; remplacement 70,3–90,3 ms.
+Mobile CPU x4 : ajout 259,2–295,8 ms ; remplacement 189,6–234,9 ms.
+4 rendus de cartes pour un ajout de 3 exercices, 2 pour un remplacement.
+Une sauvegarde serveur par action mesurée. Aucun ajout de requête dans l'application.
+
+Limites de mesure
+Temps de réception de la sélection jusqu'à sa présence dans le DOM suivie de deux
+requestAnimationFrame. La sélection est injectée par les mêmes props que la banque ;
+la recherche dans la banque, son premier chargement et le clic de sélection ne sont
+pas mesurés. Six échantillons par action/dimension ; pas de p95 de production.
+Le CPU x4 et le viewport mobile simulent des contraintes : ce n'est pas une mesure
+sur tous les ordinateurs ou sur un téléphone physique. Pas de nouvelle campagne
+de glisser-déposer tactile, de changement de droits ou de paiements dans ce lot.
+La limite actuelle de taille des brouillons n'a pas été changée ; cette fixture
+ne prétend pas valider des programmes de taille illimitée.
+
+Incidents du banc
+Premier essai arrêté sur un sélecteur technique de zone de dépôt incorrect, alors
+que le Builder affichait bien la séance. Le test utilise désormais le contenu
+visible attendu pour attendre le changement de séance/section. Aucun changement
+du code de l'application n'a été nécessaire pour faire passer ces tests.
+
+Artefacts et reproduction
+scripts/runBuilderInteractions.cjs (option --multi)
+scripts/fixtures/builderMultiSessionChecks.txt
+audits/builder-interactions/after-multi.json
+Commandes :
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runBuilderInteractions.cjs after --multi
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH node scripts/runBuilderInteractions.cjs before --multi
+Le runner vérifie l'environnement démo via measureFirebaseLot1 et n'accepte que
+les émulateurs sur loopback. Les modifications du programme canonique sont limitées
+au programme synthétique de ce projet émulé.
+
+Comparaison finale avant/après (même fixture)
+before : appels routes {'program-draft-read': 34, 'program-draft-save': 27, 'program-draft-complete': 1} ; lectures SDK HTTP 306, lectures documentaires estimées HTTP 306.
+  1440px add : médiane 175.4 ms ; plage 142.4–665.3 ms ; sauvegardes 6 pour 6 actions.
+  1440px replace : médiane 196.4 ms ; plage 167.4–685.6 ms ; sauvegardes 6 pour 6 actions.
+  390px add : médiane 629.7 ms ; plage 547.6–2810.1 ms ; sauvegardes 6 pour 6 actions.
+  390px replace : médiane 779.2 ms ; plage 709.5–3225.3 ms ; sauvegardes 6 pour 6 actions.
+after : appels routes {'program-draft-read': 34, 'program-draft-save': 27, 'program-draft-complete': 1} ; lectures SDK HTTP 306, lectures documentaires estimées HTTP 306.
+  1440px add : médiane 87.9 ms ; plage 77.9–95.7 ms ; sauvegardes 6 pour 6 actions.
+  1440px replace : médiane 74.9 ms ; plage 70.3–90.3 ms ; sauvegardes 6 pour 6 actions.
+  390px add : médiane 295.0 ms ; plage 259.2–295.8 ms ; sauvegardes 6 pour 6 actions.
+  390px replace : médiane 211.8 ms ; plage 189.6–234.9 ms ; sauvegardes 6 pour 6 actions.
+Les métriques incluent les appels de préparation/vérification du banc. Chaque
+action comparée déclenche exactement une sauvegarde dans les deux versions.
+Les routes et écritures applicatives sont inchangées ; aucun coût supplémentaire
+n'a été introduit par cette qualification. Les lectures ci-dessus sont des
+estimations sur émulateurs, pas une facture. Les artefacts before-multi.json et
+after-multi.json conservent les résultats détaillés.
