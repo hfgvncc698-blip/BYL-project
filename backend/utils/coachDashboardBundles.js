@@ -54,7 +54,7 @@ async function readDashboardBundles(tx, refs, {dashboard=false,outline=false}={}
         if(!data){
           if(saved.size)changed=true;
           const full=metadataOnly ? await read(program.ref) : program;
-          const {dashboardPrescriptionSummary}=await import('../../src/utils/dashboardPrescriptionSummary.js');
+          const {dashboardPrescriptionSummary}=await import('./dashboardPrescriptionSummary.mjs');
           data=encode(dashboardPrescriptionSummary(full.data()));
           cache.put(full,data);
           // Persist only materially smaller outlines; no writes for tiny programs.

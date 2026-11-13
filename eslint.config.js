@@ -78,5 +78,13 @@ export default [
       sourceType: 'module',
     },
   },
+  {
+    files: ['backend/**/*.mjs'],
+    languageOptions: { sourceType: 'module', ecmaVersion: 'latest', globals: globals.node },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^_' }],
+    },
+  },
 
 ]

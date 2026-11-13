@@ -232,6 +232,7 @@ preflight() {
   run_step npm run test:release-regressions
   run_step npm run test:club
   run_step npm run test:deploy
+  run_step npm run test:backend-package
   run_step npm run test:footer-i18n
   run_step npm run test:sport-engine
   run_step npm run build

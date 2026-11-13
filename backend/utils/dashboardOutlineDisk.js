@@ -1,6 +1,6 @@
 // Optional server-only optimization. Never an authorization or canonical store.
 const fs=require('node:fs/promises'),sync=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const schema=crypto.createHash('sha256').update(sync.readFileSync(path.join(__dirname,'../../src/utils/dashboardPrescriptionSummary.js'))).update(sync.readFileSync(path.join(__dirname,'coachPageWire.js'))).digest('hex');
+const schema=crypto.createHash('sha256').update(sync.readFileSync(path.join(__dirname,'dashboardPrescriptionSummary.mjs'))).update(sync.readFileSync(path.join(__dirname,'coachPageWire.js'))).digest('hex');
 const ttl=24*60*60*1000,maxFile=8*1024*1024,budget=64*1024*1024;
 const metrics={hits:0,misses:0,writes:0,bytesWritten:0,failures:0};
 let serial=Promise.resolve();

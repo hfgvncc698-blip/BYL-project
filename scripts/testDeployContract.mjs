@@ -8,6 +8,10 @@ const deployScript = fs.readFileSync(path.join(projectRoot, "deploy.sh"), "utf8"
 
 const checks = [
   {
+    description: "le paquet backend autonome est teste avant publication",
+    valid: deployScript.includes('run_step npm run test:backend-package'),
+  },
+  {
     description: "Firebase demande confirmation des retries en terminal sans forcer les deploiements automatiques",
     valid: deployScript.includes('if [ -t 0 ] && [ "$ASSUME_YES" != true ]; then') &&
       /run_step firebase deploy --only functions\s+else\s+run_step firebase deploy --non-interactive --only functions/.test(deployScript) &&

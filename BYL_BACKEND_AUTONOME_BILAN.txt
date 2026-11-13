@@ -1,0 +1,68 @@
+BACKEND AUTONOME — CORRECTION DU PAQUET DASHBOARD
+13 novembre 2026 — aucun déploiement
+
+Défaut : deux accès du backend à ../../src/utils/dashboardPrescriptionSummary.js.
+Le fichier existait dans le dépôt de développement mais pas dans l'archive backend.
+Le cache disque importait ce fichier dès son chargement, même désactivé ; la
+construction d'un résumé l'importait aussi à la demande. Ces erreurs remontaient
+comme client-list-summary-unavailable sur l'API du Dashboard.
+
+Correction : source pure unique dans backend/utils/dashboardPrescriptionSummary.mjs.
+Le frontend réexporte ce contrat depuis son utilitaire existant ; le backend
+l'importe localement et calcule son empreinte locale. Aucune copie divergente du
+calcul. Les règles d'autorisation, historiques, projections et écritures métier
+restent inchangés. La persistance disque n'est pas activée sur des données réelles.
+
+Test ajouté : npm run test:backend-package, appelé par deploy.sh dans preflight.
+Il extrait et exécute uniquement le bloc exact de construction d'archive présent
+dans deploy.sh. Pas d'exécution de deploy.sh, de SSH ou de commandes distantes.
+L'archive est extraite dans un répertoire jetable sans src ni node_modules.
+Les secrets exclus par le script sont vérifiés absents. Deux contre-tests
+réintroduisent les anciens chemins uniquement dans cette copie et doivent échouer.
+Le paquet corrigé doit produire les résumés exacts, préserver les historiques et
+fonctionner avec cache désactivé, cache vide et cache repris dans un autre processus.
+
+Qualification supplémentaire de l'API :
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH firebase emulators:exec --config firebase.performance-test.json --project demo-byl-performance --only auth,firestore 'node scripts/testBackendPackage.cjs --emulators --installed-dependencies'
+
+Les dépendances locales sont vérifiées contre les versions de l'archive lockfile,
+puis copiées physiquement (sans lien vers le dépôt) dans le paquet isolé. Le mode
+par défaut --emulators propose aussi un npm ci hors ligne. Celui-ci n'a pas pu
+aboutir ici, car proxy-addr manquait au cache npm. Le téléchargement npm a été
+refusé par la revue automatique ; aucune tentative de contournement réseau.
+La qualification a donc utilisé les copies locales conformes, pas une nouvelle
+installation depuis le registre. Cette limite est distincte de l'autonomie du code.
+
+La vraie route /api/programs/dashboard-client-programs, ses contrôles Firebase Auth
+et ses transactions Firestore ont été testés depuis le paquet avec 12 dossiers,
+24 programmes et leurs historiques synthétiques. Chaque mesure lance un nouveau
+processus. Aucun module CommonJS du dépôt source n'est chargé par le backend testé
+(assertion sur require.cache ; le harnais seul reste extérieur). Le module ESM de
+projection provient du paquet, sans fichier src accessible à son chemin relatif.
+
+Résultats :
+- Chargement cache désactivé : HTTP 200, 63 lectures documentaires estimées.
+- Création et reprise du cache : HTTP 200, mêmes réponses, 63 lectures estimées.
+- Modification : réponse mise à jour, 64 lectures avec vérification de version.
+- Compte désactivé : HTTP 403 avant accès au cache.
+- Cache repris : aucune nouvelle écriture disque, aucune écriture de résumé Firestore.
+- Test d'archive et ses deux contre-tests : succès.
+- test:release-regressions : succès.
+- test:smoke : 53 contrôles réussis.
+- test:deploy : 19 protections réussies, dont présence du nouveau contrôle.
+- Projection exacte (0/10/100/1 000 historiques), cache mémoire et persistance : succès.
+- npm run build : succès et budgets gzip respectés.
+- npm run lint : 0 erreur, 56 avertissements non bloquants.
+
+Le test d'API vérifie le parcours serveur du Dashboard, pas un nouveau scénario
+complet de navigation navigateur en production. Aucun compte réel ni données
+réelles modifiés. Le site déjà publié demeure inchangé jusqu'à un déploiement
+ultérieur autorisé. Les limites économiques du cache persistant et P0-3/P0-4 ne
+sont pas levées par cette correction de packaging.
+
+Fichiers : backend/utils/dashboardPrescriptionSummary.mjs,
+backend/utils/{coachDashboardBundles,dashboardOutlineDisk}.js,
+src/utils/dashboardPrescriptionSummary.js, scripts/testBackendPackage.cjs,
+scripts/testDashboardPersistentEmulator.cjs, scripts/testDeployContract.mjs,
+package.json, deploy.sh, eslint.config.js.
+Artefact : audits/dashboard-persistent/packaged-process-restarts.json.
