@@ -1,4 +1,14 @@
 {
+  "adminExerciseNotice": {
+    "pending_one": "تمرين جديد يحتاج إلى استكمال",
+    "pending_other": "تمارين جديدة تحتاج إلى استكمال: {{count}}",
+    "open": "عرض التمارين",
+    "unavailable": "تنبيهات التمارين غير متاحة. حدّث الصفحة للمحاولة مرة أخرى.",
+    "pending_zero": "تمارين جديدة تحتاج إلى استكمال: {{count}}",
+    "pending_two": "تمارين جديدة تحتاج إلى استكمال: {{count}}",
+    "pending_few": "تمارين جديدة تحتاج إلى استكمال: {{count}}",
+    "pending_many": "تمارين جديدة تحتاج إلى استكمال: {{count}}"
+  },
   "nutritionCalendar": {
     "openAssessment": "عرض تقييم التغذية",
     "assessmentFor": "تقييم التغذية لـ {{name}}"
@@ -178,6 +188,7 @@
     "upToDate": "محدّث",
     "toComplete": "بحاجة إلى إكمال",
     "fullJournal": "المذكرات الكاملة",
+    "myJournal": "يومياتي",
     "viewMealNamed": "عرض {{meal}}",
     "viewMeal": "عرض الوجبة",
     "allEaten": "تناولت كل شيء",
@@ -203,6 +214,7 @@
     "todayJournal": "مذكّرات اليوم",
     "journalInstructions": "حدّد ما تناولته وعدّل فقط عند الحاجة.",
     "previousDay": "اليوم السابق",
+    "selectDate": "اختر تاريخ اليوميات",
     "nextDay": "اليوم التالي",
     "dailyTarget": "هدف اليوم",
     "journalLoading": "جارٍ تحميل المذكرات…",
@@ -317,6 +329,7 @@
     "delete": "حذف"
   },
   "common": {
+    "previous": "السابق",
     "showMore": "عرض المزيد",
     "loading": "جارٍ التحميل…",
     "loading_details": "جارٍ تحميل التفاصيل…",

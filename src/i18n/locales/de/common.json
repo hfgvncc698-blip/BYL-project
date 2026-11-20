@@ -1,4 +1,10 @@
 {
+  "adminExerciseNotice": {
+    "pending_one": "Eine neue Übung zu vervollständigen",
+    "pending_other": "{{count}} neue Übungen zu vervollständigen",
+    "open": "Übungen ansehen",
+    "unavailable": "Übungsbenachrichtigungen sind nicht verfügbar. Lade die Seite neu, um es erneut zu versuchen."
+  },
   "nutritionCalendar": {
     "openAssessment": "Ernährungsanalyse ansehen",
     "assessmentFor": "Ernährungsanalyse für {{name}}"
@@ -178,6 +184,7 @@
     "upToDate": "Aktuell",
     "toComplete": "Zu vervollständigen",
     "fullJournal": "Vollständiges Tagebuch",
+    "myJournal": "Mein Tagebuch",
     "viewMealNamed": "{{meal}} ansehen",
     "viewMeal": "Mahlzeit ansehen",
     "allEaten": "Ich habe alles gegessen",
@@ -203,6 +210,7 @@
     "todayJournal": "Heutiges Tagebuch",
     "journalInstructions": "Markiere, was du gegessen hast, und passe es nur bei Bedarf an.",
     "previousDay": "Vorheriger Tag",
+    "selectDate": "Datum des Ernährungstagebuchs wählen",
     "nextDay": "Nächster Tag",
     "dailyTarget": "Tagesziel",
     "journalLoading": "Tagebuch wird geladen…",
@@ -317,6 +325,7 @@
     "delete": "Löschen"
   },
   "common": {
+    "previous": "Zurück",
     "showMore": "Mehr anzeigen",
     "loading": "Laden…",
     "loading_details": "Details werden geladen…",

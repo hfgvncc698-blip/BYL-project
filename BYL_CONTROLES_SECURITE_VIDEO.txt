@@ -1,0 +1,46 @@
+BYL — Contrôles des scénarios de la vidéo — 13 novembre 2026
+Branche codex/firebase-performance-audit. Aucun déploiement, aucune donnée réelle utilisée.
+
+PORTÉE
+Audit local des sept familles de risques illustrées. Ce travail ne certifie pas l'absence de toute faille et ne valide pas la configuration ni la version actuellement en production. Aucun test offensif sur le site public. Les P0-3/P0-4 antérieurs ne sont pas déclarés corrigés.
+
+1. Secrets dans le navigateur
+Scan de 439 fichiers src, 10 public et 302 dist (JS/TS/JSON/HTML/maps) : aucun motif de clé privée PEM, secret OpenAI sk-proj, Stripe sk_live/sk_test ou whsec long trouvé. Recherche des variables VITE secrètes : aucun résultat dans le périmètre inspecté. OPENAI_API_KEY utilise defineSecret côté Functions. Scan par motifs, non preuve exhaustive; dist est l'artefact local existant, pas une attestation de production. Les paramètres publics Firebase ne sont pas des identifiants serveur.
+
+2. API payantes sans limites
+Fonction nutrition IA : Auth, profil professionnel actif puis quota Firestore transactionnel 20/heure/UID avant appel OpenAI. Test synthétique de 25 tentatives concurrentes : 20 acceptées, 5 refusées, 20 écritures du compteur. Transactions sérialisées simulées; pas test de charge Functions déployées.
+Défaut reproduit sur HEAD : un ancien hasActiveSubscription=true autorisait un statut canceled ou trialing expiré. Correction functions/index.js : les statuts invalides et la date d'expiration priment sur cet indicateur. Pas de nouvelle lecture/écriture; les refus évitent les appels payants. Les accès actifs et essais valides sont conservés.
+Limites : le quota est par compte, pas un plafond financier global. Les anciens comptes sans exigence explicite de vérification email restent compatibles. Les protections multi-comptes et les quotas effectifs fournisseur n'ont pas été qualifiés.
+
+3. Base de données ouverte
+83 tests réussis sur Firestore Emulator, projet demo-byl-security, règles locales réelles. Incluent refus d'accès étranger, protection des champs privilégiés, documents serveur, nutrition privée et écritures atomiques. Aucune règle de production modifiée. Couverture non exhaustive de toutes les collections et Storage.
+
+4. Changement d'identifiant / accès à un autre compte
+Tests des règles de propriété et tests des routes de paiement sur doubles synthétiques réussis. Les opérations d'attribution étrangère sont refusées. Pas d'attestation universelle de toutes les routes de l'application.
+
+5. Administration ouverte
+Garde de paiement réelle exécutée en VM avec Auth/Firestore simulés : absence de jeton, fausse clé admin, faux jeton, rôle coach et admin email non vérifié refusés; admin vérifié accepté. Le rôle est relu côté serveur. Routes adminSearch/adminUsers/adminEmails également protégées dans le code inspecté. Masquer l'interface n'est pas la protection.
+Limite : toutes les routes n'utilisent pas verifyIdToken avec checkRevoked=true. La révocation d'un jeton/Auth externe reste à qualifier; ne pas confondre rejet d'un jeton forgé et rejet immédiat d'un jeton auparavant valide.
+
+6. Création massive de comptes
+Les règles empêchent l'auto-attribution des privilèges testés, et l'IA exige un accès professionnel. Le backend possède une limite globale en mémoire (600 requêtes/15 min). Cette limite ne couvre pas les inscriptions directes Firebase et n'est pas distribuée entre instances. Un essai vérifié peut être créé par compte; la résistance aux multiples comptes n'est PAS démontrée. Aucune activation arbitraire de CAPTCHA/App Check ou changement du parcours d'inscription dans ce lot.
+
+7. Faux paiement
+69 tests de paiement réussis : fausse signature et modification du corps refusées, vrais octets signés avec secret synthétique acceptés; absence d'écriture en cas de signature invalide, propriété et statut du paiement, idempotence/concurrence testés. Montage express.raw avant express.json vérifié dans app.js. Aucune requête Stripe réelle.
+
+MODIFICATIONS
+- functions/index.js : priorité des statuts invalides/essais expirés.
+- scripts/testVideoSecurityBoundaries.cjs : contrôles synthétiques accès, administration et quota.
+- scripts/auditPaymentsMock.cjs : dépendance de suppression simulée avec refus strict; ancien test textuel du cron remplacé par exécution de deliverMonthly actuel, sans toucher au worker. Initialement 69 échecs de chargement du banc, puis 1 assertion périmée; après correction 69/69.
+
+TESTS
+node scripts/testVideoSecurityBoundaries.cjs : réussi.
+node scripts/auditPaymentsMock.cjs : 69/69.
+PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH firebase emulators:exec --config firebase.rules-test.json --project demo-byl-security --only firestore 'node scripts/testFirestoreRules.cjs' : 83/83.
+node scripts/testAdminAccountDeletion.cjs : réussi (confirmation, portée, protection et erreurs).
+node scripts/smokeCriticalFlows.mjs : 53/53.
+node --check functions/index.js et git diff --check : réussis.
+Première tentative émulateur bloquée par sandbox; relance autorisée locale réussie. Aucun téléchargement de dépendance ajouté.
+
+CONCLUSION
+Les scénarios testés de lecture étrangère, faux paiement et administration sans privilèges sont refusés localement. Une incohérence d'accès professionnel est corrigée, sans coût Firebase supplémentaire. Pas de garantie générale « impossible de rentrer ». Avant publication : qualifier version/règles/configuration effectivement déployées, révocation externe, anciens caches privés et abus multi-comptes. Aucun déploiement effectué.

@@ -1,5 +1,5 @@
 import { apiFetch } from "../utils/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Box, Button, Flex, Heading, Text, useColorModeValue } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
@@ -14,6 +14,11 @@ import { useNutritionTheme } from "../styles/nutritionTheme";
 export default function ClientNutritionJournalPage() {
   const { t } = useTranslation("common");
   const { user } = useAuth();
+  // Profile refreshes must not unmount a journal being edited. Resolve again
+  // only when the account/dossier identity actually changes.
+  const journalUser = useMemo(() => user?.uid ? {
+    uid: user.uid, email: user.email, linkedClientId: user.linkedClientId, role: user.role,
+  } : null, [user?.uid, user?.email, user?.linkedClientId, user?.role]);
   const location = useLocation();
   const theme = useNutritionTheme();
   const pageBg = useColorModeValue("#F5F8FF", "#070B14");
@@ -31,12 +36,12 @@ export default function ClientNutritionJournalPage() {
     setLoading(true);
     setLoadError(false);
     (async () => {
-      if (!user) {
+      if (!journalUser) {
         if (active) setLoading(false);
         return;
       }
       try {
-        const snapshot = await resolveClientSnapshotForUser(user, { logPrefix: "ClientNutritionJournalPage" });
+        const snapshot = await resolveClientSnapshotForUser(journalUser, { logPrefix: "ClientNutritionJournalPage" });
         const { followups = [] } = await apiFetch("/clubs/my-followups");
         const hidden = new Set(followups.filter((row) => row.hidden).map((row) => row.id));
         if (active) setClientIds([...new Set([snapshot?.id, ...followups.map((row) => row.id)])].filter((id) => id && !hidden.has(id)));
@@ -51,7 +56,7 @@ export default function ClientNutritionJournalPage() {
     return () => {
       active = false;
     };
-  }, [user, loadAttempt]);
+  }, [journalUser, loadAttempt]);
 
   if (loading) return <AppLoading label={t("clientNutritionJournal.pageLoading")} />;
 

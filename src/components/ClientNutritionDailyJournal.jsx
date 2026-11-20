@@ -37,7 +37,7 @@ import {
   useToast,
   VStack,
 } from "@chakra-ui/react";
-import { AddIcon, CheckIcon, CloseIcon } from "@chakra-ui/icons";
+import { AddIcon, CalendarIcon, CheckIcon, CloseIcon } from "@chakra-ui/icons";
 import { MdOutlineInsights, MdOutlineRestaurantMenu } from "react-icons/md";
 import { useTranslation } from "react-i18next";
 import {
@@ -66,6 +66,7 @@ import { localizedFoodName } from "../utils/nutritionFoodI18n";
 import { loadCiqual, searchCiqual } from "../utils/ciqualLoader";
 import i18n from "../i18n/index";
 import { manualRationDefaultQuantity } from "../utils/manualRationNutrition";
+import { createNutritionReflectionDrafts } from "../utils/nutritionReflectionDrafts";
 import { canonicalNutritionMealKey, inferNutritionMealHabits, selectTimeRelevantMeal } from "../utils/nutritionMealTiming";
 
 const shiftDate = (dateKey, offset) => {
@@ -205,6 +206,8 @@ export default function ClientNutritionDailyJournal({
   const [dateKey, setDateKey] = useState(() => initialDateKey || nutritionDateKey());
   const [entries, setEntries] = useState([]);
   const [reflection, setReflection] = useState({ hunger: "", energy: "", digestion: "", note: "" });
+  const reflectionDraftsRef = useRef(createNutritionReflectionDrafts());
+  const loadedDayRef = useRef(null);
   const [extra, setExtra] = useState(emptyExtra);
   const [foodQuery, setFoodQuery] = useState("");
   const [ciqualRows, setCiqualRows] = useState([]);
@@ -221,6 +224,21 @@ export default function ClientNutritionDailyJournal({
   const handledUnreadFeedbackRef = useRef(Boolean(initialDateKey));
   const handledCoachFeedbackFocusRef = useRef(false);
   const coachFeedbackSectionRef = useRef(null);
+  const journalDayKey = `${clientId}/${dateKey}`;
+  const updateReflection = (patch) => {
+    if (loading) return;
+    handledUnreadFeedbackRef.current = true;
+    setReflection(reflectionDraftsRef.current.edit(journalDayKey, reflection, patch));
+    setSavedAt(null);
+  };
+  const selectJournalDate = (nextDate) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || nextDate > nutritionDateKey()) return;
+    handledUnreadFeedbackRef.current = true;
+    if (nextDate === dateKey) return;
+    loadedDayRef.current = null;
+    setLoading(true);
+    setDateKey(nextDate);
+  };
   const locale = translationI18n.resolvedLanguage || translationI18n.language || "fr";
   const foodLabel = (food) => localizedFoodName(food, locale);
   const translatedMealLabel = (mealKey, fallback = "") => {
@@ -269,27 +287,35 @@ export default function ClientNutritionDailyJournal({
 
   useEffect(() => {
     if (!clientId || !dateKey) return undefined;
+    let active = true;
+    const dayKey = `${clientId}/${dateKey}`;
+    loadedDayRef.current = null;
     setLoading(true);
     const ref = doc(logCollection(clientId), dateKey);
-    return onSnapshot(
+    const unsubscribe = onSnapshot(
       ref,
       (snap) => {
+        if (!active) return;
         const data = snap.exists() ? snap.data() : null;
         setEntries(data?.entries?.length ? data.entries.map(normalizeNutritionLogEntry) : draftEntries);
-        setReflection({
+        setReflection(reflectionDraftsRef.current.read(dayKey, {
           hunger: data?.reflection?.hunger || "",
           energy: data?.reflection?.energy || "",
           digestion: data?.reflection?.digestion || "",
           note: data?.reflection?.note || "",
-        });
-        setSavedAt(data?.updatedAt || null);
+        }));
+        loadedDayRef.current = dayKey;
+        setSavedAt(reflectionDraftsRef.current.has(dayKey) ? null : data?.updatedAt || null);
         setLoading(false);
       },
       () => {
+        if (!active) return;
+        loadedDayRef.current = null;
         setEntries(draftEntries);
         setLoading(false);
       }
     );
+    return () => { active = false; unsubscribe(); };
   }, [clientId, dateKey, draftEntries]);
 
   useEffect(() => {
@@ -394,6 +420,10 @@ export default function ClientNutritionDailyJournal({
 
   const persist = async (nextEntries = entries, nextReflection = reflection) => {
     if (!clientId || !dateKey) return;
+    if (loadedDayRef.current !== journalDayKey) {
+      toast({ title: t("clientNutritionJournal.saveError"), description: t("clientNutritionJournal.tryAgain"), status: "error" });
+      return;
+    }
     setSaving(true);
     const summary = roundNutritionTotals(calculateNutritionLogTotals(nextEntries));
     const plannedTargets = calculatePlannedNutritionTargets(nextEntries);
@@ -421,6 +451,10 @@ export default function ClientNutritionDailyJournal({
         },
         { merge: true }
       );
+      reflectionDraftsRef.current.acknowledge(journalDayKey, nextReflection);
+      if (loadedDayRef.current === journalDayKey && !reflectionDraftsRef.current.has(journalDayKey)) {
+        setSavedAt(new Date());
+      }
     } catch (error) {
       toast({ title: t("clientNutritionJournal.saveError"), description: error?.message || t("clientNutritionJournal.tryAgain"), status: "error" });
     } finally {
@@ -862,18 +896,41 @@ export default function ClientNutritionDailyJournal({
           <Box minW={0}>
             <HStack spacing={2}>
               <Icon as={MdOutlineRestaurantMenu} boxSize="18px" color="#257CFF" />
-              <Heading size="sm">{t("clientNutritionJournal.todayJournal")}</Heading>
+              <Heading size="sm">{t("clientNutritionJournal.pageTitle")}</Heading>
               <Text fontSize="xs" color={theme.mutedText}>{saving ? t("clientNutritionJournal.saving") : savedAt ? t("clientNutritionJournal.saved") : t("clientNutritionJournal.toComplete")}</Text>
             </HStack>
             <Text fontSize="sm" color={theme.mutedText} mt={0.5}>{t("clientNutritionJournal.journalInstructions")}</Text>
           </Box>
           <HStack spacing={1} w={{ base: "full", sm: "auto" }} justify="center">
-            <IconButton size="sm" aria-label={t("clientNutritionJournal.previousDay")} icon={<Text fontSize="lg">‹</Text>} variant="ghost" borderRadius="full" onClick={() => setDateKey(shiftDate(dateKey, -1))} />
+            <IconButton size="sm" aria-label={t("clientNutritionJournal.previousDay")} icon={<Text fontSize="lg">‹</Text>} variant="ghost" borderRadius="full" onClick={() => selectJournalDate(shiftDate(dateKey, -1))} />
             <Box textAlign="center" px={1}>
-              <Text fontSize="sm" fontWeight="900" textTransform="capitalize">{formatDate(dateKey, locale)}</Text>
+              <Box
+                position="relative"
+                borderRadius="full"
+                px={3}
+                py={2}
+                minH="44px"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                gap={2}
+                _hover={{ bg: "rgba(37,124,255,0.08)" }}
+                _focusWithin={{ outline: "2px solid", outlineColor: "blue.500", outlineOffset: "2px" }}
+              >
+                <Text fontSize="sm" fontWeight="900" textTransform="capitalize">{formatDate(dateKey, locale)}</Text>
+                <CalendarIcon boxSize="14px" aria-hidden="true" />
+                <Input type="date" value={dateKey} max={nutritionDateKey()} aria-label={t("clientNutritionJournal.selectDate")} onChange={(event) => selectJournalDate(event.target.value)}
+                  position="absolute" inset={0} w="full" h="full" opacity={0} cursor="pointer"
+                  onClick={(event) => {
+                    // Keep the native input as the hit target for mobile
+                    // browsers that open their picker through the default tap.
+                    try { event.currentTarget.showPicker?.(); } catch { /* Native tap remains available. */ }
+                  }}
+                />
+              </Box>
               {plannedDay?.label ? <Text fontSize="xs" color={theme.mutedText}>{plannedDay.label}</Text> : null}
             </Box>
-            <IconButton size="sm" aria-label={t("clientNutritionJournal.nextDay")} icon={<Text fontSize="lg">›</Text>} variant="ghost" borderRadius="full" onClick={() => setDateKey(shiftDate(dateKey, 1))} isDisabled={dateKey >= nutritionDateKey()} />
+            <IconButton size="sm" aria-label={t("clientNutritionJournal.nextDay")} icon={<Text fontSize="lg">›</Text>} variant="ghost" borderRadius="full" onClick={() => selectJournalDate(shiftDate(dateKey, 1))} isDisabled={dateKey >= nutritionDateKey()} />
           </HStack>
         </HStack>
 
@@ -1057,12 +1114,12 @@ export default function ClientNutritionDailyJournal({
           ) : null}
           <Heading size="sm">{t("clientNutritionJournal.myFeedback")}</Heading>
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={2.5} mt={3}>
-            <FormControl><FormLabel fontSize="xs">{t("coachNutritionJournal.hunger")}</FormLabel><Select value={reflection.hunger} onChange={(event) => setReflection((value) => ({ ...value, hunger: event.target.value }))}><option value="">{t("coachNutritionJournal.notProvided")}</option><option value="low">{t("coachNutritionJournal.reflection.hungerLow")}</option><option value="comfortable">{t("coachNutritionJournal.reflection.hungerComfortable")}</option><option value="high">{t("coachNutritionJournal.reflection.hungerHigh")}</option></Select></FormControl>
-            <FormControl><FormLabel fontSize="xs">{t("coachNutritionJournal.energy")}</FormLabel><Select value={reflection.energy} onChange={(event) => setReflection((value) => ({ ...value, energy: event.target.value }))}><option value="">{t("coachNutritionJournal.notProvided")}</option><option value="low">{t("coachNutritionJournal.reflection.energyLow")}</option><option value="ok">{t("coachNutritionJournal.reflection.energyOk")}</option><option value="high">{t("coachNutritionJournal.reflection.energyHigh")}</option></Select></FormControl>
-            <FormControl><FormLabel fontSize="xs">{t("coachNutritionJournal.digestion")}</FormLabel><Select value={reflection.digestion} onChange={(event) => setReflection((value) => ({ ...value, digestion: event.target.value }))}><option value="">{t("coachNutritionJournal.notProvided")}</option><option value="good">{t("coachNutritionJournal.reflection.digestionGood")}</option><option value="heavy">{t("coachNutritionJournal.reflection.digestionHeavy")}</option><option value="discomfort">{t("coachNutritionJournal.reflection.digestionDiscomfort")}</option></Select></FormControl>
+            <FormControl><FormLabel fontSize="xs">{t("coachNutritionJournal.hunger")}</FormLabel><Select value={reflection.hunger} onChange={(event) => updateReflection({ hunger: event.target.value })}><option value="">{t("coachNutritionJournal.notProvided")}</option><option value="low">{t("coachNutritionJournal.reflection.hungerLow")}</option><option value="comfortable">{t("coachNutritionJournal.reflection.hungerComfortable")}</option><option value="high">{t("coachNutritionJournal.reflection.hungerHigh")}</option></Select></FormControl>
+            <FormControl><FormLabel fontSize="xs">{t("coachNutritionJournal.energy")}</FormLabel><Select value={reflection.energy} onChange={(event) => updateReflection({ energy: event.target.value })}><option value="">{t("coachNutritionJournal.notProvided")}</option><option value="low">{t("coachNutritionJournal.reflection.energyLow")}</option><option value="ok">{t("coachNutritionJournal.reflection.energyOk")}</option><option value="high">{t("coachNutritionJournal.reflection.energyHigh")}</option></Select></FormControl>
+            <FormControl><FormLabel fontSize="xs">{t("coachNutritionJournal.digestion")}</FormLabel><Select value={reflection.digestion} onChange={(event) => updateReflection({ digestion: event.target.value })}><option value="">{t("coachNutritionJournal.notProvided")}</option><option value="good">{t("coachNutritionJournal.reflection.digestionGood")}</option><option value="heavy">{t("coachNutritionJournal.reflection.digestionHeavy")}</option><option value="discomfort">{t("coachNutritionJournal.reflection.digestionDiscomfort")}</option></Select></FormControl>
           </SimpleGrid>
-          <Textarea mt={3} value={reflection.note} onChange={(event) => setReflection((value) => ({ ...value, note: event.target.value }))} placeholder={t("clientNutritionJournal.notePlaceholder")} />
-          <HStack justify="flex-end" mt={3}><Button colorScheme="blue" borderRadius="full" onClick={() => persist(entries, reflection)} isLoading={saving}>{t("clientNutritionJournal.saveFeedback")}</Button></HStack>
+          <Textarea mt={3} isDisabled={loading} value={reflection.note} onChange={(event) => updateReflection({ note: event.target.value })} placeholder={t("clientNutritionJournal.notePlaceholder")} />
+          <HStack justify="flex-end" mt={3}><Button colorScheme="blue" borderRadius="full" onClick={() => persist(entries, reflection)} isDisabled={loading} isLoading={saving}>{t("clientNutritionJournal.saveFeedback")}</Button></HStack>
         </Box>
       </Stack>
     </Box>

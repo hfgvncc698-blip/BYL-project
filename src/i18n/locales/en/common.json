@@ -1,4 +1,10 @@
 {
+  "adminExerciseNotice": {
+    "pending_one": "One new exercise to complete",
+    "pending_other": "{{count}} new exercises to complete",
+    "open": "View exercises",
+    "unavailable": "Exercise alerts are unavailable. Refresh the page to try again."
+  },
   "nutritionCalendar": {
     "openAssessment": "View nutrition assessment",
     "assessmentFor": "Nutrition assessment for {{name}}"
@@ -178,6 +184,7 @@
     "upToDate": "Up to date",
     "toComplete": "To complete",
     "fullJournal": "Full journal",
+    "myJournal": "My journal",
     "viewMealNamed": "View {{meal}}",
     "viewMeal": "View meal",
     "allEaten": "I ate everything",
@@ -203,6 +210,7 @@
     "todayJournal": "Today’s journal",
     "journalInstructions": "Check what you ate, then adjust only if needed.",
     "previousDay": "Previous day",
+    "selectDate": "Choose journal date",
     "nextDay": "Next day",
     "dailyTarget": "Daily target",
     "journalLoading": "Loading journal…",
@@ -317,6 +325,7 @@
     "delete": "Delete"
   },
   "common": {
+    "previous": "Previous",
     "showMore": "Show more",
     "loading": "Loading…",
     "loading_details": "Loading details…",

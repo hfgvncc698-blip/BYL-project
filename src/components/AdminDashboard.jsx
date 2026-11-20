@@ -64,6 +64,7 @@ import {
   collection,
   collectionGroup,
   getDocs,
+  onSnapshot,
   getCountFromServer,
   query,
   where,
@@ -76,6 +77,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { mergeAdminExerciseQueue } from "../utils/adminExerciseQueue";
 import { useAuth } from "../AuthContext";
 import {
   ResponsiveContainer,
@@ -940,7 +942,14 @@ export default function AdminDashboard() {
 
   const [topPagesWindow, setTopPagesWindow] = useState("30d");
 
-  const [pendingExercises, setPendingExercises] = useState([]);
+  const [pendingExerciseCatalog, setPendingExerciseCatalog] = useState([]);
+  const [liveExerciseProposals, setLiveExerciseProposals] = useState({});
+  const [exerciseNotificationError, setExerciseNotificationError] = useState(false);
+  const pendingExercises = useMemo(
+    () => mergeAdminExerciseQueue(pendingExerciseCatalog, liveExerciseProposals),
+    [pendingExerciseCatalog, liveExerciseProposals]
+  );
+  const newExerciseCount = Object.values(liveExerciseProposals).reduce((total, rows) => total + rows.length, 0);
   const [pendingExercisesLoading, setPendingExercisesLoading] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [exerciseForm, setExerciseForm] = useState(null);
@@ -1099,7 +1108,7 @@ export default function AdminDashboard() {
         return bMs - aMs;
       });
 
-      setPendingExercises(all);
+      setPendingExerciseCatalog(all);
     } catch (error) {
       console.error("loadPendingExercises error:", error);
       toast({
@@ -1111,6 +1120,30 @@ export default function AdminDashboard() {
       setPendingExercisesLoading(false);
     }
   }, [toast]);
+
+  useEffect(() => {
+    setLiveExerciseProposals({});
+    setExerciseNotificationError(false);
+    if (!isAdmin) return undefined;
+    let active = true;
+    const stop = EXERCISE_COLLECTIONS.map((section) => onSnapshot(
+      query(collection(db, section), where("status", "==", "pending")),
+      (snapshot) => {
+        if (!active || snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
+        const rows = snapshot.docs.map((item) => {
+          const exercise = { ...item.data(), docId: item.id, __collection: section };
+          return { ...exercise, missingFields: getMissingExerciseFields(exercise) };
+        });
+        setLiveExerciseProposals(previous => ({ ...previous, [section]: rows }));
+      },
+      () => {
+        if (!active) return;
+        setExerciseNotificationError(true);
+        setLiveExerciseProposals(previous => ({ ...previous, [section]: [] }));
+      }
+    ));
+    return () => { active = false; stop.forEach(unsubscribe => unsubscribe()); };
+  }, [isAdmin, adminUser?.uid]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -1963,7 +1996,7 @@ export default function AdminDashboard() {
         })),
       },
     ];
-  }, [coaches, clientsRows, programRows, pendingExercises.length]);
+  }, [coaches, clientsRows, programRows, pendingExercises]);
 
   const attentionTotal = useMemo(
     () => attentionItems.reduce((sum, item) => sum + Number(item.count || 0), 0),
@@ -2742,6 +2775,25 @@ export default function AdminDashboard() {
         </HStack>
       </Box>
 
+      {newExerciseCount > 0 && (
+        <Box {...theme.cardProps} p={4}>
+          <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
+            <HStack>
+              <Icon as={MdPendingActions} color={theme.accentBlue} boxSize={6} />
+              <Text fontWeight="700" role="status" aria-live="polite">
+                {i18n.t("adminExerciseNotice.pending", { count: newExerciseCount })}
+              </Text>
+            </HStack>
+            <Button {...theme.primaryButtonProps} onClick={() => openAdminSection("admin-exercises")}>
+              {i18n.t("adminExerciseNotice.open")}
+            </Button>
+          </HStack>
+        </Box>
+      )}
+      {exerciseNotificationError && (
+        <Text role="status" fontSize="sm" color={mutedText}>{i18n.t("adminExerciseNotice.unavailable")}</Text>
+      )}
+
       <Card mb={0}>
         <CardBody>
           <VStack align="stretch" spacing={3}>
@@ -3129,9 +3181,18 @@ export default function AdminDashboard() {
                   {pendingExercises.map((ex) => (
                     <Tr key={`${ex.__collection}-${ex.docId}`} _hover={{ bg: rowHoverBg }}>
                       <Td maxW="220px">
-                        <Text fontWeight="semibold" noOfLines={1}>
+                        <Button
+                          variant="link"
+                          colorScheme="blue"
+                          fontWeight="semibold"
+                          whiteSpace="normal"
+                          textAlign="start"
+                          justifyContent="flex-start"
+                          minH="44px"
+                          onClick={() => openExerciseEditor(ex)}
+                        >
                           {ex.nom || ex.docId}
-                        </Text>
+                        </Button>
                         <Text fontSize="xs" color="gray.500" noOfLines={1}>
                           {ex.docId}
                         </Text>

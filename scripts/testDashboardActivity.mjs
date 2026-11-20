@@ -41,4 +41,19 @@ stale.add({id:'0',_clientListActivityMs:now,programmesAssignes:[]});stale.finish
 assert.equal(deferred(state),state,'late update cannot cross identity/scope boundary');
 assert.equal(ms({date: new Date(now).toISOString()}),now);
 assert.equal(ms({dateEffectuee:{seconds:Math.floor(now/1000),nanoseconds:(now%1000)*1e6}}),now);
+// A slow background refresh must never publish a mixture of old/new totals.
+let refreshRows=[{id:'a',_clientListActivityMs:now},{id:'b',_clientListActivityMs:0}];
+let publications=0;
+const refresh=createDashboardProgressPublisher({
+ setClients:fn=>{publications++;refreshRows=fn(refreshRows);},
+ isCurrent:()=>true,delay:1,deferUntilComplete:true,
+});
+refresh.add({id:'a',_clientListActivityMs:0});
+await new Promise(resolve=>setTimeout(resolve,10));
+assert.equal(publications,0);
+assert.equal(refreshRows[0]._clientListActivityMs,now);
+refresh.add({id:'b',_clientListActivityMs:now});
+refresh.finish();
+assert.equal(publications,1);
+assert.deepEqual(refreshRows.map(row=>row._clientListActivityMs),[0,now]);
 console.log('PASS exact activity before calendar, cutoff boundary, legacy dates/statuses, partial sessions, deletion, nutrition readiness and stale identity. Zero network operations.');

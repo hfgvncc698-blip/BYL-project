@@ -1,0 +1,78 @@
+{
+  "fr": {
+    "names": ["Rowing haltères sur banc incliné (prise neutre)", "Rowing haltères sur banc incliné (pronation)", "Rowing haltères sur banc incliné (supination)"],
+    "group": "Dos",
+    "muscles": ["Biceps", "Deltoïdes postérieurs", "Rhomboïdes", "Trapèzes moyens"],
+    "joints": ["Épaules", "Coudes"], "tendons": ["Tendons du biceps", "Tendons du grand dorsal", "Tendons de la coiffe des rotateurs"],
+    "objectives": ["Prise de masse", "Endurance", "Force", "Postural", "Remise au sport", "Maintien en forme"],
+    "type": "Exercice polyarticulaire", "level": "Tous niveaux", "equipment": ["Haltères", "Banc inclinable"], "position": ["Allongé sur le ventre, poitrine appuyée"],
+    "setup": "Régler le banc à environ 30–45°. Poser la poitrine sur le dossier, pieds stables au sol, tête dégagée. Tenir un haltère dans chaque main, bras suspendus.",
+    "grips": ["Prise neutre : paumes face à face.", "Pronation : paumes orientées vers les pieds au départ.", "Supination : paumes orientées vers la tête au départ, sans forcer la rotation des poignets."],
+    "moves": ["Fléchir les coudes et tirer les haltères vers les côtes basses, coudes près du buste, en rapprochant les omoplates.", "Fléchir les coudes et tirer les haltères vers les côtes, coudes légèrement écartés du buste, sans les monter à hauteur des épaules.", "Fléchir les coudes et tirer les haltères vers les côtes basses, coudes près du buste, en conservant la supination confortable."],
+    "return": "Redescendre lentement en dépliant les coudes, laisser les omoplates s'écarter naturellement et garder la poitrine en appui.",
+    "breathing": "Expirer pendant le tirage, inspirer pendant la descente.",
+    "posture": "Garder la nuque dans le prolongement du dos, les épaules loin des oreilles et les poignets alignés. Ne pas décoller la poitrine ni donner d'élan.",
+    "constraints": ["Banc stable et haltères libres de toucher le sol", "Charge et amplitude adaptées, sans douleur", "Poitrine en appui pendant tout le mouvement", "Adapter la charge et les appuis lors du remplacement par un autre rowing"]
+  },
+  "en": {
+    "names": ["Chest-supported incline dumbbell row (neutral grip)", "Chest-supported incline dumbbell row (overhand grip)", "Chest-supported incline dumbbell row (underhand grip)"],
+    "group": "Back", "muscles": ["Biceps", "Rear deltoids", "Rhomboids", "Middle trapezius"], "joints": ["Shoulders", "Elbows"], "tendons": ["Biceps tendons", "Latissimus dorsi tendons", "Rotator cuff tendons"],
+    "objectives": ["Muscle growth", "Endurance", "Strength", "Posture", "Return to training", "General fitness"], "type": "Compound exercise", "level": "All levels", "equipment": ["Dumbbells", "Adjustable bench"], "position": ["Prone, chest supported"],
+    "setup": "Set the bench to about 30–45°. Rest your chest on the pad, feet firmly planted and head clear of the bench. Hold a dumbbell in each hand with arms hanging down.",
+    "grips": ["Neutral grip: palms face each other.", "Overhand grip: palms face towards your feet at the start.", "Underhand grip: palms face towards your head at the start, without forcing wrist rotation."],
+    "moves": ["Bend your elbows and row the dumbbells towards your lower ribs, keeping elbows near your torso and drawing your shoulder blades together.", "Bend your elbows and row the dumbbells towards your ribs, with elbows slightly away from your torso but below shoulder height.", "Bend your elbows and row the dumbbells towards your lower ribs, elbows near your torso, maintaining a comfortable underhand grip."],
+    "return": "Lower slowly as you straighten your elbows, allowing your shoulder blades to separate naturally while keeping your chest supported.",
+    "breathing": "Exhale as you pull; inhale as you lower.", "posture": "Keep your neck in line with your back, shoulders away from your ears and wrists aligned. Do not lift your chest or use momentum.",
+    "constraints": ["Stable bench and enough clearance for the dumbbells", "Use a pain-free load and range of motion", "Keep your chest supported throughout", "Adjust load and support when substituting another row"]
+  },
+  "es": {
+    "names": ["Remo con mancuernas en banco inclinado (agarre neutro)", "Remo con mancuernas en banco inclinado (agarre prono)", "Remo con mancuernas en banco inclinado (agarre supino)"],
+    "group": "Espalda", "muscles": ["Bíceps", "Deltoides posteriores", "Romboides", "Trapecio medio"], "joints": ["Hombros", "Codos"], "tendons": ["Tendones del bíceps", "Tendones del dorsal ancho", "Tendones del manguito rotador"],
+    "objectives": ["Hipertrofia", "Resistencia", "Fuerza", "Postura", "Vuelta al entrenamiento", "Mantenimiento físico"], "type": "Ejercicio multiarticular", "level": "Todos los niveles", "equipment": ["Mancuernas", "Banco ajustable"], "position": ["Boca abajo, pecho apoyado"],
+    "setup": "Inclina el banco unos 30–45°. Apoya el pecho, con los pies firmes en el suelo y la cabeza libre. Sujeta una mancuerna en cada mano con los brazos colgando.",
+    "grips": ["Agarre neutro: palmas enfrentadas.", "Agarre prono: palmas hacia los pies al inicio.", "Agarre supino: palmas hacia la cabeza al inicio, sin forzar la rotación de las muñecas."],
+    "moves": ["Flexiona los codos y lleva las mancuernas hacia las costillas bajas, con los codos cerca del tronco y acercando las escápulas.", "Flexiona los codos y lleva las mancuernas hacia las costillas, con los codos algo separados del tronco pero por debajo de los hombros.", "Flexiona los codos y lleva las mancuernas hacia las costillas bajas, con los codos cerca del tronco y manteniendo una supinación cómoda."],
+    "return": "Baja lentamente extendiendo los codos y dejando que las escápulas se separen de forma natural, sin despegar el pecho.", "breathing": "Espira al tirar e inspira al bajar.", "posture": "Mantén el cuello alineado con la espalda, los hombros lejos de las orejas y las muñecas rectas. No levantes el pecho ni uses impulso.",
+    "constraints": ["Banco estable y espacio suficiente para las mancuernas", "Carga y recorrido sin dolor", "Pecho apoyado durante todo el movimiento", "Adapta la carga y los apoyos al sustituirlo por otro remo"]
+  },
+  "it": {
+    "names": ["Rematore con manubri su panca inclinata (presa neutra)", "Rematore con manubri su panca inclinata (presa prona)", "Rematore con manubri su panca inclinata (presa supina)"],
+    "group": "Dorso", "muscles": ["Bicipiti", "Deltoidi posteriori", "Romboidi", "Trapezio medio"], "joints": ["Spalle", "Gomiti"], "tendons": ["Tendini del bicipite", "Tendini del gran dorsale", "Tendini della cuffia dei rotatori"],
+    "objectives": ["Ipertrofia", "Resistenza", "Forza", "Postura", "Ripresa dell'allenamento", "Mantenimento della forma"], "type": "Esercizio multiarticolare", "level": "Tutti i livelli", "equipment": ["Manubri", "Panca regolabile"], "position": ["Prono, petto in appoggio"],
+    "setup": "Inclina la panca di circa 30–45°. Appoggia il petto, con i piedi stabili a terra e la testa libera. Tieni un manubrio in ogni mano con le braccia verso il basso.",
+    "grips": ["Presa neutra: palmi uno verso l'altro.", "Presa prona: palmi verso i piedi nella posizione iniziale.", "Presa supina: palmi verso la testa nella posizione iniziale, senza forzare la rotazione dei polsi."],
+    "moves": ["Piega i gomiti e tira i manubri verso le costole inferiori, tenendo i gomiti vicini al busto e avvicinando le scapole.", "Piega i gomiti e tira i manubri verso le costole, con i gomiti leggermente lontani dal busto ma sotto il livello delle spalle.", "Piega i gomiti e tira i manubri verso le costole inferiori, gomiti vicini al busto, mantenendo una supinazione confortevole."],
+    "return": "Abbassa lentamente distendendo i gomiti e lasciando allontanare naturalmente le scapole, mantenendo il petto in appoggio.", "breathing": "Espira durante la tirata, inspira durante la discesa.", "posture": "Mantieni il collo allineato alla schiena, le spalle lontane dalle orecchie e i polsi dritti. Non sollevare il petto e non usare slanci.",
+    "constraints": ["Panca stabile e spazio sufficiente per i manubri", "Carico e ampiezza senza dolore", "Petto in appoggio per tutto il movimento", "Adatta carico e appoggi quando scegli un altro rematore"]
+  },
+  "de": {
+    "names": ["Brustgestütztes Kurzhantelrudern auf der Schrägbank (Neutralgriff)", "Brustgestütztes Kurzhantelrudern auf der Schrägbank (Obergriff)", "Brustgestütztes Kurzhantelrudern auf der Schrägbank (Untergriff)"],
+    "group": "Rücken", "muscles": ["Bizeps", "Hintere Deltamuskeln", "Rautenmuskeln", "Mittlerer Trapezmuskel"], "joints": ["Schultern", "Ellenbogen"], "tendons": ["Bizepssehnen", "Sehnen des breiten Rückenmuskels", "Sehnen der Rotatorenmanschette"],
+    "objectives": ["Muskelaufbau", "Ausdauer", "Kraft", "Haltung", "Wiedereinstieg ins Training", "Allgemeine Fitness"], "type": "Mehrgelenkige Übung", "level": "Alle Leistungsstufen", "equipment": ["Kurzhanteln", "Verstellbare Bank"], "position": ["Bauchlage mit aufliegender Brust"],
+    "setup": "Die Bank auf etwa 30–45° einstellen. Brust auflegen, Füße stabil aufstellen und den Kopf frei halten. Je eine Kurzhantel mit herabhängenden Armen halten.",
+    "grips": ["Neutralgriff: Handflächen zeigen zueinander.", "Obergriff: Handflächen zeigen in der Ausgangsposition zu den Füßen.", "Untergriff: Handflächen zeigen in der Ausgangsposition zum Kopf; die Handgelenke nicht gewaltsam drehen."],
+    "moves": ["Ellenbogen beugen und die Hanteln zu den unteren Rippen ziehen. Ellenbogen nah am Rumpf halten und Schulterblätter zusammenführen.", "Ellenbogen beugen und die Hanteln zu den Rippen ziehen. Ellenbogen etwas vom Rumpf abspreizen, aber unter Schulterhöhe halten.", "Ellenbogen beugen und die Hanteln zu den unteren Rippen ziehen. Ellenbogen nah am Rumpf halten und einen angenehmen Untergriff beibehalten."],
+    "return": "Die Hanteln langsam absenken und die Ellenbogen strecken. Schulterblätter natürlich auseinandergehen lassen, während die Brust aufliegt.", "breathing": "Beim Ziehen ausatmen, beim Absenken einatmen.", "posture": "Nacken in Verlängerung des Rückens, Schultern weg von den Ohren und Handgelenke gerade halten. Brust nicht abheben und keinen Schwung holen.",
+    "constraints": ["Stabile Bank und genügend Platz für die Hanteln", "Schmerzfreie Last und Bewegungsamplitude", "Brust während der gesamten Bewegung auflegen", "Last und Abstützung beim Wechsel zu einer anderen Ruderübung anpassen"]
+  },
+  "ru": {
+    "names": ["Тяга гантелей с упором грудью на наклонную скамью (нейтральный хват)", "Тяга гантелей с упором грудью на наклонную скамью (прямой хват)", "Тяга гантелей с упором грудью на наклонную скамью (обратный хват)"],
+    "group": "Спина", "muscles": ["Бицепсы", "Задние дельтовидные мышцы", "Ромбовидные мышцы", "Средняя часть трапециевидной мышцы"], "joints": ["Плечевые суставы", "Локтевые суставы"], "tendons": ["Сухожилия бицепса", "Сухожилия широчайшей мышцы спины", "Сухожилия вращательной манжеты плеча"],
+    "objectives": ["Рост мышц", "Выносливость", "Сила", "Осанка", "Возвращение к тренировкам", "Поддержание формы"], "type": "Многосуставное упражнение", "level": "Все уровни", "equipment": ["Гантели", "Регулируемая скамья"], "position": ["Лёжа на животе с опорой грудью"],
+    "setup": "Установите наклон скамьи примерно 30–45°. Обопритесь грудью, устойчиво поставьте стопы на пол, голова свободна. Держите по гантели в каждой опущенной руке.",
+    "grips": ["Нейтральный хват: ладони обращены друг к другу.", "Прямой хват: в исходном положении ладони обращены к стопам.", "Обратный хват: в исходном положении ладони обращены к голове; не выворачивайте запястья через силу."],
+    "moves": ["Сгибайте локти и тяните гантели к нижним рёбрам, удерживая локти близко к туловищу и сводя лопатки.", "Сгибайте локти и тяните гантели к рёбрам, слегка отводя локти от туловища, но не поднимая их до уровня плеч.", "Сгибайте локти и тяните гантели к нижним рёбрам, удерживая локти близко к туловищу и сохраняя удобный обратный хват."],
+    "return": "Медленно опускайте гантели, разгибая локти и позволяя лопаткам естественно разойтись. Сохраняйте опору грудью.", "breathing": "Выдыхайте при тяге, вдыхайте при опускании.", "posture": "Держите шею на одной линии со спиной, плечи вдали от ушей, запястья прямо. Не отрывайте грудь и не используйте рывки.",
+    "constraints": ["Устойчивая скамья и достаточно места для гантелей", "Нагрузка и амплитуда без боли", "Грудь опирается на скамью на протяжении движения", "При замене другим видом тяги адаптируйте нагрузку и опору"]
+  },
+  "ar": {
+    "names": ["تجديف بالدمبل مع إسناد الصدر على مقعد مائل (قبضة محايدة)", "تجديف بالدمبل مع إسناد الصدر على مقعد مائل (قبضة علوية)", "تجديف بالدمبل مع إسناد الصدر على مقعد مائل (قبضة سفلية)"],
+    "group": "الظهر", "muscles": ["العضلة ذات الرأسين", "الدالية الخلفية", "العضلات المعينية", "الجزء الأوسط من العضلة شبه المنحرفة"], "joints": ["مفاصل الكتف", "مفاصل المرفق"], "tendons": ["أوتار العضلة ذات الرأسين", "أوتار العضلة الظهرية العريضة", "أوتار الكفة المدورة"],
+    "objectives": ["بناء العضلات", "التحمل", "القوة", "تحسين القوام", "العودة إلى التدريب", "الحفاظ على اللياقة"], "type": "تمرين متعدد المفاصل", "level": "جميع المستويات", "equipment": ["دمبل", "مقعد قابل للتعديل"], "position": ["الاستلقاء على البطن مع إسناد الصدر"],
+    "setup": "اضبط ميل المقعد على نحو 30–45 درجة. أسند الصدر وثبّت القدمين على الأرض مع بقاء الرأس خارج المقعد. أمسك دمبلًا في كل يد والذراعان متدليتان.",
+    "grips": ["القبضة المحايدة: راحتا اليدين متقابلتان.", "القبضة العلوية: راحتا اليدين باتجاه القدمين في البداية.", "القبضة السفلية: راحتا اليدين باتجاه الرأس في البداية، دون إجبار الرسغين على الدوران."],
+    "moves": ["اثنِ المرفقين واسحب الدمبلين نحو الأضلاع السفلية مع إبقاء المرفقين قرب الجذع وتقريب لوحي الكتف.", "اثنِ المرفقين واسحب الدمبلين نحو الأضلاع مع إبعاد المرفقين قليلًا عن الجذع دون رفعهما إلى مستوى الكتفين.", "اثنِ المرفقين واسحب الدمبلين نحو الأضلاع السفلية مع إبقاء المرفقين قرب الجذع والمحافظة على قبضة سفلية مريحة."],
+    "return": "اخفض الدمبلين ببطء مع مد المرفقين وترك لوحي الكتف يتباعدان طبيعيًا، مع بقاء الصدر مستندًا.", "breathing": "ازفر عند السحب وخذ شهيقًا عند الخفض.", "posture": "حافظ على الرقبة بمحاذاة الظهر والكتفين بعيدين عن الأذنين والرسغين مستقيمين. لا ترفع الصدر ولا تستخدم التأرجح.",
+    "constraints": ["مقعد ثابت ومساحة كافية للدمبلين", "حمل ومدى حركة دون ألم", "إبقاء الصدر مستندًا طوال الحركة", "عدّل الحمل ونقاط الارتكاز عند الاستبدال بتمرين تجديف آخر"]
+  }
+}

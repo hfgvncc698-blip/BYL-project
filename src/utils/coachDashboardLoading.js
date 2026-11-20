@@ -79,7 +79,7 @@ export function DashboardCard({render, ...props}) { return render(props); }
 
 // Coalesce completed rows without discarding any row in the same network batch.
 // The identity check also runs inside React's deferred state updater.
-export function createDashboardProgressPublisher({ setClients, isCurrent, delay = 100 }) {
+export function createDashboardProgressPublisher({ setClients, isCurrent, delay = 100, deferUntilComplete = false }) {
   const pending = new Map();
   let timer = null;
   let closed = false;
@@ -98,7 +98,7 @@ export function createDashboardProgressPublisher({ setClients, isCurrent, delay 
     add(client) {
       if (closed || !isCurrent()) return;
       pending.set(client.id, client);
-      if (timer === null) timer = setTimeout(flush, delay);
+      if (!deferUntilComplete && timer === null) timer = setTimeout(flush, delay);
     },
     flush,
     finish() { closed = true; flush(); },

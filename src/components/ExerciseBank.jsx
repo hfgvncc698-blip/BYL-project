@@ -1065,6 +1065,7 @@ const FilterSelect = React.memo(function FilterSelect({
 
 export default function ExerciseBank({
   onAdd,
+  onCreated,
   replaceMode = false,
   onReplace = () => {},
   onCancelReplace = () => {},
@@ -1794,21 +1795,18 @@ export default function ExerciseBank({
 
       closeAddModal();
 
-      const snap = await getDocs(collection(db, section));
-      const addeds = snap.docs.map((d) => ({
-        docId: d.id,
-        ...d.data(),
-        __collection: section,
-      }));
-
+      // The confirmed creation is immediately selectable, even when filters
+      // hide it or a second catalog download would be slow/unavailable.
+      // Never pass serverTimestamp sentinels into program exercise arrays.
+      const createdExercise = {
+        ...allFields, docId: docName, __collection: section,
+        createdAt: new Date(), updatedAt: new Date(),
+      };
+      publishExerciseBankData(dedupeByUid([...(exerciseBankDataCache || exercises), createdExercise]));
       startTransition(() => {
-        setExercises((prev) =>
-          dedupeByUid([
-            ...prev.filter((e) => e.__collection !== section),
-            ...addeds,
-          ])
-        );
+        setExercises((prev) => dedupeByUid([...prev, createdExercise]));
       });
+      await onCreated?.(createdExercise);
     } catch (e) {
       toast({
         status: "error",

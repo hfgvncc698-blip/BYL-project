@@ -1,4 +1,12 @@
 {
+  "adminExerciseNotice": {
+    "pending_one": "Новое упражнение для доработки",
+    "pending_other": "Новых упражнений для доработки: {{count}}",
+    "open": "Посмотреть упражнения",
+    "unavailable": "Уведомления об упражнениях недоступны. Обновите страницу и попробуйте снова.",
+    "pending_few": "Новых упражнений для доработки: {{count}}",
+    "pending_many": "Новых упражнений для доработки: {{count}}"
+  },
   "nutritionCalendar": {
     "openAssessment": "Посмотреть оценку питания",
     "assessmentFor": "Оценка питания для {{name}}"
@@ -178,6 +186,7 @@
     "upToDate": "Актуально",
     "toComplete": "Нужно заполнить",
     "fullJournal": "Полный дневник",
+    "myJournal": "Мой дневник",
     "viewMealNamed": "Открыть: {{meal}}",
     "viewMeal": "Открыть приём пищи",
     "allEaten": "Я всё съел(а)",
@@ -203,6 +212,7 @@
     "todayJournal": "Дневник за сегодня",
     "journalInstructions": "Отметьте, что вы съели, и измените данные только при необходимости.",
     "previousDay": "Предыдущий день",
+    "selectDate": "Выберите дату дневника",
     "nextDay": "Следующий день",
     "dailyTarget": "Цель на день",
     "journalLoading": "Загрузка дневника…",
@@ -317,6 +327,7 @@
     "delete": "Удалить"
   },
   "common": {
+    "previous": "Назад",
     "showMore": "Показать ещё",
     "loading": "Загрузка…",
     "loading_details": "Загрузка деталей…",

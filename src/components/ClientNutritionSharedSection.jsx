@@ -54,6 +54,7 @@ import AppLoading from "./ui/AppLoading";
 import ClientNutritionDailyJournal from "./ClientNutritionDailyJournal.jsx";
 import i18n from "../i18n/index";
 
+const EMPTY_MENU_DAYS = Object.freeze([]);
 const r0 = (value) => Math.round(rationMenuNum(value));
 const LEGACY_BYL_LOCAL = "/logo-byl.png?v=palm-20261027";
 
@@ -1003,7 +1004,7 @@ export default function ClientNutritionSharedSection({
         }, []),
     [rationLines]
   );
-  const menuDays = latest?.clientShare?.snapshot?.menuDays || [];
+  const menuDays = latest?.clientShare?.snapshot?.menuDays || EMPTY_MENU_DAYS;
   const journalDays = useMemo(() => {
     if (menuDays.some((day) => day?.meals?.some((meal) => meal?.items?.length))) return menuDays;
     const meals = MENU_MEALS_ORDER.map((mealKey) => ({
@@ -1456,7 +1457,7 @@ export default function ClientNutritionSharedSection({
             flex={{ base: 1, md: "initial" }}
             onClick={() => onOpenJournal?.()}
           >
-            Mon journal
+            {i18n.t("clientNutritionJournal.myJournal")}
           </Button>
           <Tooltip label={i18n.t("auto.ClientNutritionSharedSection.telecharger_le_plan_nutrition_en_pdf", "Télécharger le plan nutrition en PDF")}>
             <IconButton

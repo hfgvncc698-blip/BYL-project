@@ -82,6 +82,10 @@ function scenario({ paid = true, owner = 'user', failWrite = false, eventType = 
     return { id: target.id };
   } }, express: { Router: () => router }, stripe: () => stripe, '../firebaseAdmin': admin, '../utils/firebaseAuth': authModule.exports, '../utils/emailEvents': { recordEmailEvent: async () => { throw new Error('Unexpected email'); } }, '../utils/brandedEmail': { sendBrandedPasswordReset: async () => { throw new Error('Unexpected email'); } } };
   const paymentModule = { exports: {} };
+  dependencies['../utils/adminAccountDeletion'] = {
+    previewAccountDeletion: async () => { throw new Error('Unexpected account deletion preview'); },
+    executeAccountDeletion: async () => { throw new Error('Unexpected account deletion'); },
+  };
   vm.runInNewContext(source, { require: name => { assert.ok(name in dependencies, `Unexpected dependency ${name}`); return dependencies[name]; }, module: paymentModule, process: { env }, console: { error: (...args) => { if(process.env.PAYMENT_AUDIT_DEBUG) console.error(...args); }, warn() {} }, URL, Buffer, Date, setTimeout, clearTimeout });
   async function invoke(route, body = {}, { uid = 'user', webhook = false, signature = 'valid-fixture' } = {}) {
     const result = { status: 200 };
@@ -279,8 +283,11 @@ async function check(name, test) {
   });
   await check('Legacy cron skips invoice-driven subscriptions before generation', async () => {
     const cron = fs.readFileSync(path.join(__dirname, '../backend/cron.worker.js'), 'utf8');
-    assert.match(cron, /if \(data\.deliveryMode === 'stripe-invoice'\) continue;/);
-    assert.ok(cron.indexOf("data.deliveryMode === 'stripe-invoice'") < cron.indexOf('await generateAndSaveAutoProgram'));
+    assert.match(cron, /await deliverMonthly\(/);
+    const { deliverMonthly } = require('../backend/utils/legacyCronSubscriptions');
+    const unexpected = () => { throw new Error('Invoice subscription must not generate or write'); };
+    const doc = { id: 'fixture', data: () => ({ abonnementActif: true, deliveryMode: 'stripe-invoice', stripeSubscriptionId: 'sub_fixture', nbSeancesAbonnement: 3 }), ref: { collection: unexpected } };
+    assert.equal(await deliverMonthly({ batch: unexpected }, doc, unexpected, {}, () => Date.now()), false);
   });
   for (const audience of ['pro', 'particulier']) await check(`Late old subscription cancellation cannot revoke newer ${audience} subscription or client mirror`, async () => {
     const s = scenario({ role: audience === 'pro' ? 'coach' : 'particulier' });

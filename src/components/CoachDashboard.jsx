@@ -2782,7 +2782,7 @@ useState(false);
         });
         markDashboardTiming("nutritionCache", "ready", { clients: clientIds.length, assessments: cachedRows.length });
       }
-      markDashboardTiming("nutrition", "loading", { clients: clientIds.length });
+      markDashboardTiming("nutrition", "loading", { clients: clientIds.length, background: true });
 
       try {
         const nutritionResults = await runLimited(
@@ -3355,10 +3355,10 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
      if (!effectiveCoachUid) return;
      force = force || dashboardPerfFresh;
      if (import.meta.env.VITE_BYL_FIRESTORE_METRICS === "1") recordMetric("coach-dashboard", "refresh");
-     markDashboardTiming("core", "loading");
-     markDashboardTiming("clientProgress", "loading");
-     markDashboardTiming("activity", "loading");
-     markDashboardTiming("templates", "loading");
+     markDashboardTiming("core", "loading", { background: silent && !force });
+     markDashboardTiming("clientProgress", "loading", { background: silent && !force });
+     markDashboardTiming("activity", "loading", { background: silent && !force });
+     markDashboardTiming("templates", "loading", { background: silent && !force });
      const loadSeq = dashboardLoadSeqRef.current + 1;
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
@@ -3563,7 +3563,14 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
       })();
       // Publish authorized dossiers, then prioritize details of the visible cards.
       if (!backgroundRefresh && isLatestLoad()) setClients(quickDashboardClients);
-      const progressPublisher = createDashboardProgressPublisher({ setClients, isCurrent: isLatestLoad });
+      // During a refresh publish progress as one complete batch. Publishing
+      // clients one by one would mix old and
+      // new activity totals while their counters remain visible.
+      const progressPublisher = createDashboardProgressPublisher({
+        setClients,
+        isCurrent: isLatestLoad,
+        deferUntilComplete: backgroundRefresh,
+      });
       if(!isLatestLoad())return;
       const {loadProgramBatches,selectRecentClientPriority}=await batchModule;
       const priorityIds = selectRecentClientPriority(quickDashboardClients, visibleRecentClientIdsRef.current, MAX_DISPLAY);
@@ -3704,7 +3711,7 @@ assignMs;
 progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
             progressPublisher.add(completedClient);
             if(isLatestLoad() && pendingVisible.delete(completedClient.id) && !pendingVisible.size) {
-              progressPublisher.flush();
+              if (!backgroundRefresh) progressPublisher.flush();
               markDashboardTiming("recentClientPrograms","ready",{clients:priorityIds.length});
             }
             return completedClient;

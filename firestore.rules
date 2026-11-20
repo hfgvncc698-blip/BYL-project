@@ -962,24 +962,53 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    function canProposeExercise(section, exerciseId) {
+      let user = currentUser();
+      let data = request.resource.data;
+      let access = user.get("proAccess", {});
+      return hasCoachAccess() && activeClubProfile(user) &&
+        !(user.get("subscriptionStatus", "") in ["canceled", "cancelled", "expired", "unpaid", "past_due", "incomplete", "incomplete_expired", "paused"]) &&
+        (user.get("subscriptionStatus", "") != "trialing" || user.get("trialEndsAt", timestamp.date(1970, 1, 1)) > request.time) &&
+        ("sport" in user.get("modules", []) || "sport" in access.get("modules", []) ||
+          user.get("packageKey", "") in ["sport", "complete"] || access.get("packageKey", "") in ["sport", "complete"]) &&
+        data.keys().hasOnly([
+          "id", "nom", "nom_normalized", "family_key", "categorie", "categorie_utilisation",
+          "groupe_musculaire", "objectifs", "muscles_secondaires", "articulations_sollicitees",
+          "tendons_sollicites", "type", "niveau", "materiel", "position", "contraintes", "variantes",
+          "consignes", "image", "image_homme", "image_femme", "parametres_objectif", "mode_pro",
+          "status", "createdAt", "updatedAt", "createdBy", "createdByName", "validatedAt", "validatedBy"
+        ]) &&
+        data.id == exerciseId && data.createdBy == request.auth.uid &&
+        data.nom is string && data.nom.size() > 0 && data.nom.size() <= 200 &&
+        data.groupe_musculaire is list && data.groupe_musculaire.size() > 0 &&
+        data.categorie == section && data.categorie_utilisation == [section] &&
+        data.status == "pending" && data.mode_pro == true &&
+        data.validatedAt == null && data.validatedBy == null &&
+        data.createdAt == request.time && data.updatedAt == request.time;
+    }
+
     match /training/{exerciseId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || canProposeExercise("training", exerciseId);
+      allow update, delete: if isAdmin();
     }
 
     match /warmup/{exerciseId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || canProposeExercise("warmup", exerciseId);
+      allow update, delete: if isAdmin();
     }
 
     match /cooldown/{exerciseId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || canProposeExercise("cooldown", exerciseId);
+      allow update, delete: if isAdmin();
     }
 
     match /ergometre/{exerciseId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || canProposeExercise("ergometre", exerciseId);
+      allow update, delete: if isAdmin();
     }
 
     match /coachs/{coachId} {

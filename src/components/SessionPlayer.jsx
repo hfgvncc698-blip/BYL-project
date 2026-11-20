@@ -6742,6 +6742,7 @@ function SessionPlayerBody({accessScope}) {
                   replaceMode={exerciseEditMode === "replace"}
                   onReplace={handlePlayerExerciseSelection}
                   onAdd={handlePlayerExerciseSelection}
+                  onCreated={handlePlayerExerciseSelection}
                   onCancelReplace={() => setExerciseEditMode("addAfter")}
                   selectionActionLabel={
                     exerciseEditMode === "replace"

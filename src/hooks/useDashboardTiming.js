@@ -7,6 +7,19 @@ export function useDashboardTiming(enabled) {
   const [timing, setTiming] = useState({});
   const mark = useCallback((section, status = "ready", details = {}) => {
     if (!enabled && !["core", "clientProgress", "activity", "templates", "nutrition", "copilot"].includes(section)) return;
+    // A background refresh does not erase a result already loaded in this
+    // mounted account scope. Errors still revoke readiness, and a first load
+    // (including an empty domain) must complete before showing a number.
+    if (status === "loading" && details.background) {
+      setTiming(previous => {
+        if (previous[section]?.status !== "ready") {
+          return { ...previous, [section]: { status: "loading" } };
+        }
+        if (previous[section].refreshing) return previous;
+        return { ...previous, [section]: { ...previous[section], refreshing: true } };
+      });
+      return;
+    }
     if (!enabled) {
       setTiming(previous => ({ ...previous, [section]: { status } }));
       return;
